@@ -10,7 +10,7 @@ FUWForge (Fired Up Wealth) wraps the COA v2.1 research playbook in a determinist
 ├── docs/                   # Contracts, runbooks, manuals, architecture notes
 │   ├── contracts/          # Detailed agent requirements (A1–A7)
 │   ├── manual_destroyer/   # “Destroyer Mode” copy-ready prompts for full manual runs
-│   ├── manual_kit/         # CLI-only kit (no code) with run card + prompts
+│   ├── i_am_become_the_orchestrator/  # CLI-only kit for hands-on orchestrators
 │   └── runbooks/           # Controller-mode SOPs and checklists
 ├── schemas/                # Machine-validated envelope schema v2.1
 ├── src/                    # Python scaffolding (orchestrator, controller CLI, utilities)
@@ -27,13 +27,13 @@ FUWForge (Fired Up Wealth) wraps the COA v2.1 research playbook in a determinist
 - `src/controller.py` — CLI helpers for manual/controller mode validation & assembly.
 - `docs/contracts/` — Agent-by-agent contracts (artifacts, markdown expectations, guardrails).
 - `docs/manual_destroyer/` — Condensed prompts to operate as the “Destroyer of Stocks” without juggling multiple files.
-- `docs/manual_kit/` — Entirely manual, CLI-only bundle (run card, prompts, checklist, danger-zone stub).
+- `docs/i_am_become_the_orchestrator/` — Entirely manual, CLI-only bundle (run card, prompts, checklist, danger-zone stub).
 - `templates/` — Ready-made input forms, Missing Data Table, Danger-Zone dashboard, scorecard shell.
 
 ## Getting Started
 
 1. Copy `templates/inputs_blank.yaml`, fill company/ticker/date/depth/focus.
-2. Run A1 through A7 via either automated mode (wire agents into `FUWForgeOrchestrator`) or manual mode (`docs/manual_destroyer/prompts.md`).
+2. Run A1 through A7 via either automated mode (wire agents into `FUWForgeOrchestrator`), Destroyer mode (`docs/manual_destroyer/prompts.md`), or the CLI-only kit (`docs/i_am_become_the_orchestrator/prompts_core.md`).
 3. After each agent, validate the JSON envelope with `python -m src.controller validate <file> --expected-checksum <A1_checksum>`.
 4. Assemble the final report with `python -m src.controller assemble <run_dir> --run-id ... --company ... --ticker ... --analysis-date ... --depth ...`.
 5. Deliverables land as `<TICK>_<DATE>_report.md`, `<TICK>_<DATE>_artifacts.json`, and the hash-chained provenance log.
