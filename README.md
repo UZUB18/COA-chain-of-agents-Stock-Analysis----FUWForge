@@ -10,6 +10,7 @@ FUWForge (Fired Up Wealth) wraps the COA v2.1 research playbook in a determinist
 ├── docs/                   # Contracts, runbooks, manuals, architecture notes
 │   ├── contracts/          # Detailed agent requirements (A1–A7)
 │   ├── manual_destroyer/   # “Destroyer Mode” copy-ready prompts for full manual runs
+│   ├── manual_kit/         # CLI-only kit (no code) with run card + prompts
 │   └── runbooks/           # Controller-mode SOPs and checklists
 ├── schemas/                # Machine-validated envelope schema v2.1
 ├── src/                    # Python scaffolding (orchestrator, controller CLI, utilities)
@@ -26,6 +27,7 @@ FUWForge (Fired Up Wealth) wraps the COA v2.1 research playbook in a determinist
 - `src/controller.py` — CLI helpers for manual/controller mode validation & assembly.
 - `docs/contracts/` — Agent-by-agent contracts (artifacts, markdown expectations, guardrails).
 - `docs/manual_destroyer/` — Condensed prompts to operate as the “Destroyer of Stocks” without juggling multiple files.
+- `docs/manual_kit/` — Entirely manual, CLI-only bundle (run card, prompts, checklist, danger-zone stub).
 - `templates/` — Ready-made input forms, Missing Data Table, Danger-Zone dashboard, scorecard shell.
 
 ## Getting Started
