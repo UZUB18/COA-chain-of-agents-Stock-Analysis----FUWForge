@@ -1,0 +1,51 @@
+quick:
+  label: "Quick"
+  description: "Fast triage run; core metrics, no lay summary, condensed scenario table."
+  financial_lookback_years: 3
+  news_lookback_days: 90
+  include_sections:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 14
+    - 15
+    - 16
+  skip_sections:
+    - 13
+    - 17
+    - 18
+  require_lay_summary: false
+  enable_dcf: false
+
+standard:
+  label: "Standard"
+  description: "Default institutional depth; includes lay summary and full scenario modeling."
+  financial_lookback_years: 5
+  news_lookback_days: 180
+  include_sections: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]
+  skip_sections: []
+  require_lay_summary: true
+  enable_dcf: true
+
+deep:
+  label: "Deep"
+  description: "Enhanced diligence run; 10-year lookbacks, expanded scenario analysis, optional DCF sensitivity."
+  financial_lookback_years: 10
+  news_lookback_days: 365
+  include_sections: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]
+  skip_sections: []
+  require_lay_summary: true
+  enable_dcf: true
+  extras:
+    scenario_sensitivity: true
+    esg_appendix: true

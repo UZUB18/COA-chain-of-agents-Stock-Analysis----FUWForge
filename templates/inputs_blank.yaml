@@ -1,0 +1,7 @@
+inputs:
+  company: ""
+  ticker: ""
+  analysis_date: ""
+  depth: "Standard"  # Quick | Standard | Deep
+  focus: []
+  weights: "default"

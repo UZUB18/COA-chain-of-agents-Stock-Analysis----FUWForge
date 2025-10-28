@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "COA v2.1 Agent Envelope",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "agent",
+    "timestamp",
+    "params",
+    "gates",
+    "sections_md",
+    "artifacts",
+    "sources",
+    "warnings",
+    "metrics"
+  ],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "agent": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": {"type": "string"},
+        "name": {"type": "string"}
+      }
+    },
+    "timestamp": {"type": ["string", "null"], "format": "date-time"},
+    "params": {"type": "object"},
+    "gates": {
+      "type": "object",
+      "required": ["passed"],
+      "properties": {
+        "passed": {"type": "boolean"},
+        "notes": {
+          "type": "array",
+          "items": {"type": "string"},
+          "default": []
+        }
+      },
+      "additionalProperties": true
+    },
+    "sections_md": {
+      "type": "object",
+      "additionalProperties": {"type": "string"}
+    },
+    "artifacts": {"type": "object"},
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "url"],
+        "properties": {
+          "type": {"type": "string"},
+          "url": {"type": "string"},
+          "doc_date": {"type": ["string", "null"]},
+          "accessed": {"type": ["string", "null"]}
+        },
+        "additionalProperties": true
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "latency_ms": {"type": ["number", "null"]},
+        "tokens": {"type": ["number", "null"]},
+        "retries": {"type": ["number", "null"]},
+        "data_checksum": {"type": ["string", "null"]}
+      },
+      "additionalProperties": true
+    },
+    "confidence": {"type": ["number", "null"]}
+  },
+  "additionalProperties": true
+}

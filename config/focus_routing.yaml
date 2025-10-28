@@ -1,0 +1,56 @@
+ai_strategy:
+  agents:
+    - id: "A2"
+      instructions:
+        - "Deep dive AI infra (data, models, deployment)."
+        - "Assess monetization pathways vs peers."
+    - id: "A3"
+      instructions:
+        - "Benchmark AI-related capex/opex vs revenue."
+    - id: "A6"
+      instructions:
+        - "Flag AI execution risks in Danger-Zone dashboard."
+
+regulatory:
+  agents:
+    - id: "A5"
+      instructions:
+        - "Expand litigation/regulatory summary with jurisdictional detail."
+        - "Capture pending rule changes impacting earnings."
+    - id: "A6"
+      instructions:
+        - "Stress-test scenarios with regulatory outcomes."
+
+valuation_detail:
+  agents:
+    - id: "A3"
+      instructions:
+        - "Include DCF-lite with sensitivity table (if depth != quick)."
+        - "Add sum-of-the-parts cross-check for conglomerates."
+    - id: "A6"
+      instructions:
+        - "Reference valuation swing factors in catalysts/headwinds."
+
+sustainability:
+  agents:
+    - id: "A4"
+      instructions:
+        - "Expand ESG momentum with quantitative KPIs (emissions intensity, resource usage)."
+    - id: "A5"
+      instructions:
+        - "Scan regulatory filings/news for ESG controversies."
+    - id: "A7"
+      instructions:
+        - "Add sustainability watchlist item in SWOT."
+
+turnaround:
+  agents:
+    - id: "A2"
+      instructions:
+        - "Map restructuring milestones and KPI targets."
+    - id: "A3"
+      instructions:
+        - "Highlight liquidity runway and covenant headroom."
+    - id: "A6"
+      instructions:
+        - "Scenario analysis should model failure case probability."
