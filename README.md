@@ -50,4 +50,4 @@ Pair it with the controller CLI (`python -m src.controller`) to validate envelop
 
 ## Inspiration & Gratitude
 
-Let’s be honest: almost every clever trick in FUWForge is borrowed from Eric and the Fired Up Wealth community on YouTube, Patreon, and Discord. He’s the reason this stack obsesses over filings-first discipline, adversarial loops, and quant-backed synthesis. Think of this repo as a heated love letter to the “facts → ideas → numbers” playbook Eric beats into our heads—with extra checkpoints for those of us who like to double- and triple-check the math.
+Let’s be honest: almost every clever trick in FUWForge is borrowed from Eric and the Fired Up Wealth community on YouTube, Patreon, and Discord. He’s the reason this stack obsesses over filings-first discipline, adversarial loops, and quant-backed synthesis. Think of this repo as a heated love letter to the “facts → ideas → numbers” playbook Eric beats into our heads—with extra checkpoints for those of us who like to double- and triple-check the math. ---->>> patreon.com/firedupwealth // https://www.youtube.com/@FiredUpWealth // twitter.com/FIREDUpWealth
