@@ -1,46 +1,90 @@
 ```
-  _______ _    _ _      ______                             
- |  ____| |  | | |    |  ____|                            
- | |__  | |  | | |    | |__ ___  _   _ _ __   __ _  ___   
- |  __| | |  | | |    |  __/ _ \| | | | '_ \ / _` |/ _ \  
- | |____| |__| | |____| | | (_) | |_| | | | | (_| | (_) | 
- |______|\____/|______|_|  \___/ \__,_|_| |_|\__, |\___/  
-                                             __/ |       
-                                            |___/        
+ ███████╗██╗   ██╗██╗    ██╗    ███████╗ ██████╗ ██████╗  ██████╗ ███████╗
+ ██╔════╝██║   ██║██║    ██║    ██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝
+ █████╗  ██║   ██║██║ █╗ ██║    █████╗  ██║   ██║██████╔╝██║  ███╗█████╗  
+ ██╔══╝  ██║   ██║██║███╗██║    ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝  
+ ██║     ╚██████╔╝╚███╔███╔╝    ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
+ ╚═╝      ╚═════╝  ╚══╝╚══╝     ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 ```
 
-# FUWForge Admissions Packet
+# Contract-Driven Multi-Agent Research Pipeline
 
-**Bring Fired Up Wealth’s COA v2.1 research engine into your shop—scripted, audited, and ready for the heat.**
+**A deterministic, adversarial-tested engine for equity analysis that survives audit without sacrificing throughput.**
 
-FUWForge packages seven contract-bound agents (A1–A7) into a deterministic pipeline. Every phase writes to a JSON envelope, seals it with a checksum, and refuses to advance until the next agent signs off. The result is a filings-first research process that survives adversarial review without sacrificing speed.
+FUWForge implements a seven-agent pipeline (A1–A7) where each stage operates under explicit contract, writes to cryptographically-checksummed JSON envelopes, and refuses to proceed until the next agent validates its input. The result: financial research that's both repeatable and defensible—no hand-waving, no black boxes.
 
-## Why teams pick FUWForge
+Built on the filings-first methodology from Fired Up Wealth's COA framework, adapted for academic rigor and production deployment.
 
-- Filings-first muscle memory baked into every agent contract.
-- Deterministic envelopes and checksum gates keep artifacts tamper-evident.
-- Dual operating modes: wire an orchestrator, or run it manually with nothing more than an LLM CLI.
-- Templates and runbooks that make onboarding new analysts feel like admissions, not archaeology.
+---
 
-## What ships in this repo
+## Architecture at a glance
 
-- `config/` — Depth modes, orchestrator wiring, routing rules.
-- `docs/` — Contracts, runbooks, manual kits, architecture notes.
-- `schemas/` — `envelope_v2_1.json` ensures every artifact conforms.
-- `src/` — Orchestrator, controller CLI, helper utilities.
-- `templates/` — Intake forms, scorecards, danger-zone dashboards, missing data tables.
+```
+[Intake] → A1 → A2 → A3 → A4 → A5 → A6 → A7 → [Report]
+           ▼    ▼    ▼    ▼    ▼    ▼    ▼
+         [Envelope checksum gates at every transition]
+```
+
+**Seven agents. Seven contracts. One unbroken chain of provenance.**
+
+| Agent | Domain | Output Artifact |
+|-------|--------|-----------------|
+| **A1** | Source acquisition & validation | Filing inventory, data integrity checksums |
+| **A2** | Market structure & competitive analysis | Peer matrices, market positioning |
+| **A3** | Quantitative valuation | DCF models, multiples, technical indicators |
+| **A4** | Thesis synthesis | Investment memo spine, narrative scaffolding |
+| **A5** | Scenario modeling | Probability-weighted cases (bull/base/bear) |
+| **A6** | Risk interrogation | Red-flag taxonomy, adversarial stress tests |
+| **A7** | Report assembly | Investor-ready document + audit trail |
+
+---
+
+## Why FUWForge exists
+
+Most research pipelines are academic thought experiments or black-box SaaS tools. FUWForge is neither:
+
+- **Deterministic by design**: Same inputs, same outputs. Every time.
+- **Adversarially hardened**: A6 exists solely to attack the thesis built by A1–A5.
+- **Filings-first discipline**: Primary sources over aggregated data; provenance over convenience.
+- **Audit-native**: Every envelope carries its lineage. No "trust me" artifacts.
+- **Dual-mode operation**: Run it automated via orchestrator or manually through CLI—same contracts, same validation.
+
+This isn't a tool for generating content. It's a framework for *defending* analysis.
+
+---
+
+## What's in the box
+
+```
+fuwforge/
+├── config/          # Depth modes, routing rules, orchestrator wiring
+├── docs/            # Agent contracts, runbooks, manual operation guides
+│   ├── manual_destroyer/           # Agent-by-agent manual prompts
+│   └── i_am_become_the_orchestrator/  # CLI-only control mode
+├── schemas/         # JSON Schema validation (envelope_v2_1.json)
+├── src/             # Orchestrator, controller CLI, utilities
+│   ├── orchestrator.py   # Automated multi-agent coordinator
+│   └── controller.py     # CLI for validation, assembly, inspection
+└── templates/       # Intake forms, scorecards, dashboards
+    ├── inputs_blank.yaml
+    ├── danger_zone_dashboard.md
+    └── missing_data_table.md
+```
+
+---
 
 ## Operating modes
 
-### Deterministic orchestrator
-1. Copy `templates/inputs_blank.yaml`, fill ticker, focus, analysis date, and depth.
-2. Feed the config into `FUWForgeOrchestrator` (`src/orchestrator.py`) wired to your agent endpoints.
-3. Use `python -m src.controller validate <envelope>` to confirm checksums before promotion.
-4. Assemble the run with `python -m src.controller assemble <run_dir> --run-id <id> --ticker <TICK> --analysis-date <YYYY-MM-DD> --depth <mode>`.
+### Mode 1: Automated orchestrator
 
-<<<<<<< HEAD
-Let’s be honest: almost every clever trick in FUWForge is borrowed from Eric and the Fired Up Wealth community on YouTube, Patreon, and Discord. He’s the reason this stack obsesses over filings-first discipline, adversarial loops, and quant-backed synthesis. Think of this repo as a heated love letter to the “facts → ideas → numbers” playbook Eric beats into our heads—with extra checkpoints for those of us who like to double- and triple-check the math. ---->>> patreon.com/firedupwealth // https://www.youtube.com/@FiredUpWealth // twitter.com/FIREDUpWealth
-=======
+For production runs where you need throughput without sacrificing determinism.
+
+1. Fill `templates/inputs_blank.yaml` with ticker, focus, analysis date, and depth mode.
+2. Wire agent endpoints to `FUWForgeOrchestrator` in `src/orchestrator.py`.
+3. Execute the run. Each agent writes its envelope, validates the checksum, and hands off.
+4. Validate the chain: `python -m src.controller validate <envelope>`
+5. Assemble the final report: `python -m src.controller assemble <run_dir> --run-id <id> --ticker <TICK> --analysis-date <YYYY-MM-DD> --depth <mode>`
+
 ### “Destroyer Mode” manual cockpit
 1. Open `docs/manual_destroyer/prompts.md` (or the CLI-only bundle in `docs/i_am_become_the_orchestrator/`).
 2. March through A1–A7 prompts, pasting responses into the provided markdown shells.
@@ -77,4 +121,3 @@ Let’s be honest: almost every clever trick in FUWForge is borrowed from Eric a
 ## Gratitude
 
 This stack exists because of Eric and the Fired Up Wealth community—YouTube, Patreon, Discord. The filings-first discipline, adversarial loops, and quant-backed synthesis you see here are his fingerprints. FUWForge just adds the rails so teams can run the playbook at scale without losing the heat.
->>>>>>> b69abf9 (Add ASCII banner to README)
