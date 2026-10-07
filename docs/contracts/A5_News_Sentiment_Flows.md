@@ -1,6 +1,11 @@
 # Contract — A5 News, Sentiment, Insider & Institutional Flows
 
 ## Mission
+
+### Explicit unavailable-data exception
+
+Required keys remain present. A literal null is allowed only for paths listed for this agent in `src/data_gaps.py`, with a non-empty, exact field/reason entry in `metrics.missing_data` (canonical provider format: `[{"field": "artifact.path", "reason": "Evidence reviewed and why this measurement is unavailable"}]`). The runner renders a data-gap table; these reasons are included in the content checksum. This does not excuse invented citations, missing required keys, malformed non-null values or unknown critical A1 measurements. Null means unavailable—not zero, neutral, flat or no events. Sentiment is unavailable as a whole object, never partially null fractions. An unavailable Glassdoor score requires `LowSampleSizeCultureData=true`; an unavailable Beneish score requires `feasible=false` and an explanation. Reports with such gaps explicitly disclose incomplete research coverage.
+
 Synthesize the company’s recent qualitative signals: headline flow, sentiment trends, litigation/regulatory context, insider transactions, and institutional positioning.
 
 ## Required Artifacts

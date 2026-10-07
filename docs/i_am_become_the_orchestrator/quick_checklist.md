@@ -66,4 +66,6 @@ Tick these boxes after each agent to keep the run clean.
 ## Final Release
 - [ ] Run card + envelopes saved.
 - [ ] Final report assembled in section order.
+- [ ] Envelopes sealed (`python -m src.controller seal <run_dir>`).
+- [ ] Run verified (`python -m src.controller verify-run <run_dir> --strict`).
 - [ ] Personal notes / timestamps captured.

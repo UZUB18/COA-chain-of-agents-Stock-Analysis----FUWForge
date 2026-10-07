@@ -43,3 +43,12 @@ These checklists operationalize the hard gates and MEAF/FUW controls described i
 - [ ] Hash chain verified against prior entry.
 - [ ] Latency, token counts, retries recorded per agent.
 - [ ] Confidence scores assigned per agent with consistent rubric.
+
+## Contract & Integrity Checklist (automated)
+
+- [ ] Every envelope passes schema validation plus the machine-checkable contract (`src/contracts.py`).
+- [ ] `metrics.injected_defaults` is empty (or every entry is reviewed; use `--strict` to forbid them).
+- [ ] `data_completeness_score_10` reflects any normalization penalties.
+- [ ] Scorecard arithmetic: weights sum to 1.0, weighted = score × weight, overall = Σ weighted.
+- [ ] `python -m src.controller verify-run <run_dir> --strict` exits 0.
+- [ ] `run_summary.json` status is `completed` with a checksum.

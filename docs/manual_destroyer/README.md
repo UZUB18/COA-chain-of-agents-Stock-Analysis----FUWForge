@@ -1,5 +1,10 @@
 # Destroyer Mode (Manual Orchestrator Playbook)
 
+> **Legacy bundle.** The canonical prompt source for automated runs is `src/agents/model.py`
+> (validated against `docs/contracts/`), and the primary manual workflow lives in
+> `docs/i_am_become_the_orchestrator/`. This folder is kept for reference; prefer those
+> sources and treat the prompts here as a condensed copy that may lag the contracts.
+
 Welcome to the “Destroyer of Stocks” cockpit. This folder gives you a streamlined, fully manual workflow so you can run the FUWForge stack without juggling half a dozen contracts. Each agent prompt is condensed, copy-ready, and annotated with the exact artifacts you must fill. The goal: minimum copy/paste fatigue, maximum audit-grade output.
 
 ## Quickstart

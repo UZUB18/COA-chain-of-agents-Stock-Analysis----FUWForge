@@ -36,6 +36,14 @@ Collect primary filings-first data, reconcile core figures, and decide whether t
 - **Capital Structure & Valuation Base**: share counts, price, enterprise value components.
 - **Risk & Liquidity Inputs**: Altman Z components, debt maturities, covenant notes.
 
+## Retrieved Evidence Boundary
+
+For automated model runs, retrieval is a runner action (`controller fetch-sources`), not an ability the model may claim. A1 receives the hash-checked evidence pack as untrusted document content. Use only supplied documents for factual measurements; missing price/share/statement inputs must remain missing, not be filled from memory or example numbers.
+
+The runner owns source IDs, exact URLs, actual retrieval timestamps, cached-content hashes and the frozen input checksum. Cite supplied URLs; do not invent access times or SEC homepage citations. Publication dates are supplied manifest metadata, not independent proof of document truth. All downstream agents receive the same evidence and accepted upstream artifacts.
+
+Strict model runs require retrieved evidence. If critical data is absent, supply an explicit `gates.passed=false`, actionable notes, `MISSING_DATA_TABLE`, and null numeric fields where measurements are unavailable. Such a rejected envelope is diagnostic output, not a contract-valid completed analysis or assembled report.
+
 ## Gate Rules
 
 1. **Sufficiency**: Missing critical data -> emit Missing Data Table and set `gates.passed=false`.

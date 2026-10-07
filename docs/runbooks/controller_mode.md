@@ -7,6 +7,8 @@ Use this SOP when running the framework manually (no automated agent invocation)
 1. Copy `templates/inputs_blank.yaml` to `runs/<run_id>/input.yaml`.
 2. Fill in company, ticker, analysis date, depth, focus tags, and custom weights if overriding defaults.
 3. Record the run ID in the provenance log header.
+4. Assemble with the input file so parameters and weights are applied consistently:
+   `python -m src.controller assemble runs/<run_id> --input runs/<run_id>/input.yaml`
 
 ## 2. Execute A1
 
@@ -37,13 +39,14 @@ For each agent:
 1. Provide A7 with all validated envelopes and the contracts.
 2. Confirm the scorecard math and lay summary (if applicable).
 3. Validate the final envelope.
-4. Run `python -m src.controller assemble runs/<run_id>` to build the final report and artifact bundle.
+4. Run `python -m src.controller assemble runs/<run_id>` to build the final report, artifact bundle, and `run_summary.json`.
 
-## 6. QA & Packaging
+## 6. Seal, Verify, QA & Packaging
 
-1. Complete the checklists in `docs/checklists.md`.
-2. Review the provenance log for continuity (hash chain).
-3. Archive the run directory (inputs, envelopes, report, logs).
+1. Seal the envelopes so tampering is detectable: `python -m src.controller seal runs/<run_id>`.
+2. Verify the whole run: `python -m src.controller verify-run runs/<run_id> --strict`. This checks schemas, content checksums, upstream lineage, the provenance hash chain, and required outputs.
+3. Complete the checklists in `docs/checklists.md`.
+4. Archive the run directory (inputs, envelopes, report, artifacts, logs).
 
 ## Notes
 
