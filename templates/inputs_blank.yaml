@@ -1,7 +1,8 @@
+# Run parameters consumed by: python -m src.controller run <run_dir> --input <this file>
 inputs:
   company: ""
   ticker: ""
-  analysis_date: ""
-  depth: "Standard"  # Quick | Standard | Deep
+  analysis_date: ""   # YYYY-MM-DD; defaults to today
+  depth: "Standard"   # Quick | Standard | Deep
   focus: []
-  weights: "default"
+  weights: "default"  # "default", a mapping, a JSON object string, or a path to a YAML/JSON file

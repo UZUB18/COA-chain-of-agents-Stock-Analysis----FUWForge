@@ -1,54 +1,7 @@
+# Orchestrator run settings.
+#
+# The phase sequence (A1 -> A2-A5 -> A6B/A6R/A6 -> A7) is implemented in
+# src/orchestrator.py; this file only holds tunables.
 run_settings:
   max_retries: 3
   retry_backoff_seconds: 15
-  stop_on_first_hard_gate_failure: true
-  enforce_checksum_echo: true
-
-phase1:
-  sequence:
-    - run: A1
-    - validate:
-        - schema_v2_1
-        - hard_gate_passed
-        - checksum_generate
-    - on_fail: halt_with_missing_data_table
-    - on_pass:
-        - freeze_context
-        - record_checksum
-
-phase2_parallel:
-  agents: [A2, A3, A4, A5]
-  validation:
-    - schema_v2_1
-    - required_artifacts
-    - checksum_match
-    - depth_mode_compliance
-  retry_policy:
-    max_attempts: 3
-    backoff_seconds: 30
-  on_failure: halt_with_diagnostics
-
-phase3_adversarial:
-  sequence:
-    - run: A6B
-    - run: A6R
-    - run: A6
-    - validate:
-        - schema_v2_1
-        - danger_zone_complete
-        - bull_bear_linkage
-        - scenario_table_complete
-
-phase4_final:
-  sequence:
-    - run: A7
-    - validate:
-        - schema_v2_1
-        - scorecard_math
-        - toc_present
-        - glossary_present
-        - lay_summary_if_required
-    - assemble:
-        report: "TICK_YYYY-MM-DD_report.md"
-        artifacts: "TICK_YYYY-MM-DD_artifacts.json"
-        provenance: "TICK_YYYY-MM-DD_provenance.log"

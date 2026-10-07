@@ -1,0 +1,41 @@
+{
+  "ticker": "AAPL",
+  "documents": [
+    {
+      "title": "Apple Q1 FY2025 earnings release",
+      "type": "CompanyEarningsRelease",
+      "url": "https://www.apple.com/newsroom/2025/01/apple-reports-first-quarter-results/",
+      "doc_date": "2025-01-30"
+    },
+    {
+      "title": "Apple FY2024 earnings release",
+      "type": "CompanyEarningsRelease",
+      "url": "https://www.apple.com/newsroom/2024/10/apple-reports-fourth-quarter-results/",
+      "doc_date": "2024-10-31"
+    },
+    {
+      "title": "Apple FY2023 earnings release",
+      "type": "CompanyEarningsRelease",
+      "url": "https://www.apple.com/newsroom/2023/11/apple-reports-fourth-quarter-results/",
+      "doc_date": "2023-11-02"
+    },
+    {
+      "title": "Apple FY2025 Q1 consolidated financial statements",
+      "type": "CompanyFinancialStatements",
+      "url": "https://www.apple.com/newsroom/pdfs/fy2025-q1/FY25_Q1_Consolidated_Financial_Statements.pdf",
+      "doc_date": "2025-01-30"
+    },
+    {
+      "title": "Apple FY2024 Q4 consolidated financial statements",
+      "type": "CompanyFinancialStatements",
+      "url": "https://www.apple.com/newsroom/pdfs/fy2024-q4/FY24_Q4_Consolidated_Financial_Statements.pdf",
+      "doc_date": "2024-10-31"
+    },
+    {
+      "title": "Apple FY2023 Q4 consolidated financial statements",
+      "type": "CompanyFinancialStatements",
+      "url": "https://www.apple.com/newsroom/pdfs/fy2023-q4/FY23_Q4_Consolidated_Financial_Statements.pdf",
+      "doc_date": "2023-11-02"
+    }
+  ]
+}
