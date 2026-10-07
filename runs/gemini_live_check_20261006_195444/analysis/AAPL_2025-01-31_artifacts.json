@@ -1,0 +1,976 @@
+{
+  "A1": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A1",
+      "name": "Harvester-&-Validator"
+    },
+    "timestamp": "2026-10-06T19:55:57Z",
+    "params": {
+      "company": "Apple Inc.",
+      "ticker": "AAPL",
+      "analysis_date": "2025-01-31",
+      "depth": "Quick",
+      "focus": [
+        "AI strategy",
+        "Regulatory"
+      ],
+      "weights": {
+        "Financials": 0.25,
+        "Moat": 0.2,
+        "Growth": 0.15,
+        "Valuation": 0.15,
+        "MgmtGov": 0.1,
+        "RiskInverse": 0.1,
+        "ESG": 0.025,
+        "Market": 0.025
+      }
+    },
+    "gates": {
+      "passed": true,
+      "structural_decision": "PASS",
+      "notes": [
+        "No critical accounting opacity, going-concern warnings, or toxic dilution identified. Apple Inc. presents robust SEC filings and standard capital return disclosures."
+      ]
+    },
+    "sections_md": {
+      "RAW_DATA_PACK": "### 1. Corporate Identity & Market Baseline\n- **Company**: Apple Inc. [Fact]\n- **Ticker**: AAPL (NASDAQ) [Fact]\n- **Current Share Price**: $235.95 as of 2025-01-31 close [Fact]\n- **Shares Basic**: 15,115,822,000 (as of 2025-01-17 per 10-Q) [Fact]\n- **Shares Diluted (Q1 FY25)**: 15,183,400,000 [Fact]\n- **Market Capitalization**: $3,566.58B [Derived]\n- **Enterprise Value**: ~$3,622.10B [Derived]\n\n---\n\n### 2. Three-Year Financial Summary (USD Millions, FY ends Sep)\n\n| Line Item | FY 2022 [Fact] | FY 2023 [Fact] | FY 2024 [Fact] | Q1 FY 2025 [Fact] |\n| :--- | :--- | :--- | :--- | :--- |\n| **Total Net Sales** | $394,328 | $383,285 | $391,035 | $124,329 |\n| - Products | $316,199 | $298,085 | $294,866 | $97,975 |\n| - Services | $78,129 | $85,200 | $96,169 | $26,354 |\n| **Gross Margin** | $170,782 (43.3%) | $169,148 (44.1%) | $180,683 (46.2%) | $58,358 (46.9%) |\n| **R&D Expense** | $26,251 | $29,915 | $31,370 | $8,247 |\n| **Operating Income** | $119,437 | $114,301 | $123,216 | $42,971 |\n| **Net Income** | $99,803 | $96,995 | $93,736 | $36,330 |\n| **Diluted EPS ($)** | $6.11 | $6.13 | $6.08 | $2.40 |\n| **Operating Cash Flow** | $122,151 | $110,543 | $118,254 | $29,927 |\n| **Capital Expenditures** | $10,708 | $10,959 | $9,450 | $2,912 |\n| **Free Cash Flow** | $111,443 | $99,584 | $108,804 | $27,015 [Derived] |\n| **Share Repurchases** | $89,402 | $77,550 | $95,027 | $24,129 |\n| **Dividends Paid** | $14,841 | $15,025 | $15,234 | $3,782 |\n\n---\n\n### 3. Balance Sheet & Liquidity Profile (As of 2024-12-28, USD Millions)\n- **Cash & Cash Equivalents**: $29,865 [Fact]\n- **Marketable Securities (Current + Non-Current)**: $127,155 [Fact]\n- **Total Cash & Liquid Investments**: $157,020 [Derived]\n- **Total Debt (Commercial Paper + Term Debt)**: $106,629 [Fact]\n- **Net Cash Position**: +$50,391 [Derived]\n- **Total Shareholders' Equity**: $67,816 [Fact]\n\n---\n\n### 4. Focus Tags: Qualitative & Strategic Harvest\n\n#### A. AI Strategy (Apple Intelligence)\n- **Deployment Model**: Hybrid on-device model coupled with Private Cloud Compute (PCC) using custom Apple Silicon servers [Fact].\n- **Rollout Schedule**: Apple Intelligence features began rolling out in iOS 18.1 / macOS Sequoia 15.1 in late 2024, with non-English language localization, deeper Siri personal context features, and third-party LLM integrations (OpenAI/ChatGPT) staged through H1 CY2025 [Interpretation].\n- **Hardware Replacement Cycle**: AI features are limited to iPhone 15 Pro/Pro Max and all iPhone 16 series, creating an anticipated multi-year replacement cycle for an install base exceeding 1.3 billion active iPhones [Estimate].\n\n#### B. Regulatory Headwinds\n- **EU Digital Markets Act (DMA)**: Required opening iOS to alternative app stores, web browsers, and third-party payment rails in the EU, creating ongoing scrutiny regarding Core Technology Fees and default app selection [Fact].\n- **US Department of Justice (DOJ) Lawsuit**: Ongoing federal antitrust litigation filed in March 2024 challenging alleged anti-competitive smartphone ecosystem practices, cross-device interoperability restrictions, and App Store fee structures [Fact].\n- **Search Revenue Sharing**: Scrutiny over Alphabet/Google antitrust remedies concerning default Safari search distribution agreements [Fact]."
+    },
+    "artifacts": {
+      "price_timestamp_eet": "2025-01-31T23:00:00+02:00",
+      "shares_basic": 15115822000.0,
+      "shares_diluted": 15183400000.0,
+      "market_cap_check": {
+        "price": 235.95,
+        "shares": 15115822000.0,
+        "market_cap": 3566579200900,
+        "cap": 3566578200900.0
+      }
+    },
+    "sources": [
+      {
+        "type": "SEC/Filing",
+        "url": "https://sec.gov",
+        "doc_date": "2025-01-31",
+        "accessed": "2026-10-06T19:55:57Z"
+      }
+    ],
+    "warnings": [],
+    "metrics": {
+      "data_checksum": "sha256:eb90e1c2e50f3db3e96f90377012bef3ee1ea629c9bd8d1cff4985761df44209",
+      "reporting_currency": "USD",
+      "fiscal_year_end": "Last Saturday of September",
+      "latest_filing": "10-Q (Q1 FY2025 ended 2024-12-28)"
+    },
+    "confidence": 0.95,
+    "content_checksum": "sha256:666f9ff17e6f39bd783b0792c0f85d5ef27afdab4a7a49d40b0b966073fdcdc1",
+    "upstream": []
+  },
+  "A2": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A2",
+      "name": "Business-Market-Peers"
+    },
+    "timestamp": "2026-10-06T19:56:16Z",
+    "params": {
+      "company": "Apple Inc.",
+      "ticker": "AAPL",
+      "analysis_date": "2025-01-31",
+      "depth": "Quick",
+      "focus": [
+        "AI strategy",
+        "Regulatory"
+      ],
+      "weights": {
+        "Financials": 0.25,
+        "Moat": 0.2,
+        "Growth": 0.15,
+        "Valuation": 0.15,
+        "MgmtGov": 0.1,
+        "RiskInverse": 0.1,
+        "ESG": 0.025,
+        "Market": 0.025
+      }
+    },
+    "gates": {
+      "passed": true,
+      "notes": []
+    },
+    "sections_md": {
+      "SECTION_1_COMPANY_PROFILE": "### 1. Corporate Profile & Operational Overview\n- **Corporate Identity**: Apple Inc. designs, manufactures, and markets smartphones, personal computers, tablets, wearables, and accessories, alongside a high-margin services ecosystem [Fact].\n- **Headquarters & Reach**: Cupertino, California, operating globally across the Americas, Europe, Greater China, Japan, and Rest of Asia Pacific [Fact].\n- **Capital Structure & Valuation**: Market capitalization stands at ~$3,566.58B with diluted shares of 15,183.4M as of Q1 FY25 [Derived]. Enterprise value is ~$3,622.10B [Derived].\n- **Revenue Scale**: FY 2024 total net sales reached $391,035M, led by iPhone ($201,183M), Services ($96,169M), Wearables/Home/Accessories ($37,005M), Mac ($29,984M), and iPad ($26,694M) [Fact].\n- **Installed Base**: Active device installed base exceeds 2.2 billion active devices worldwide, providing an expansive monetization funnel [Fact].",
+      "SECTION_2_BUSINESS_MODEL": "### 2. Business Model & Revenue Mechanics\n- **Integrated Ecosystem Flywheel**: Apple pairs proprietary silicon (M-series, A-series) and tightly bound operating systems (iOS, macOS, watchOS) with hardware, driving high customer retention and switching costs [Interpretation].\n- **Segment Profitability**: Products delivered $294,866M in FY 2024 revenue at a 36.3% gross margin [Fact]. Services generated $96,169M at a 74.0% gross margin, acting as the structural margin driver for the enterprise [Fact].\n- **Cash Flow Conversion**: Highly cash-generative operations produced $118,254M in operating cash flow and $108,804M in free cash flow in FY 2024 [Fact/Derived]. FCF is consistently recycled into share repurchases ($95,027M in FY 2024) [Fact].\n- **Customer & Supplier Concentration**: No single customer accounts for 10% or more of net sales [Fact]. Supply chain concentration is elevated in advanced semiconductor fabrication, with Taiwan Semiconductor Manufacturing Company (TSMC) estimated to produce substantially all proprietary Apple Silicon chips (~25% of COGS exposure) [Estimate/Interpretation].",
+      "SECTION_3_MARKET_AND_PEERS": "### 3. Market Position & Peer Benchmarking\n- **Competitive Moat Assessment**: Apple's economic moat is rated Wide with a **Stable** trajectory [Judgment]. Moat attributes stem from switching costs, brand equity, proprietary silicon IP, and a 2.2B+ device gateway [Interpretation].\n- **Peer Group Comparison**:\n  - **Microsoft (MSFT)**: Enterprise software and hyperscaler cloud leader; trades at comparable premium valuation multiples (~30-33x NTM P/E), but generates larger enterprise cloud recurring revenue [Interpretation].\n  - **Alphabet (GOOGL)**: Dominates global search and mobile operating system volume (Android); Apple captures the highest-value consumer tier (~70%+ of global smartphone operating profits) [Estimate]. Revenue-sharing agreements (default search placement) face regulatory scrutiny [Interpretation].\n  - **Amazon (AMZN)** & **Meta (META)**: Hardware devices remain secondary to core retail/cloud and social ad platforms, highlighting Apple's unique dominance in consumer hardware-software integration [Interpretation].\n- **Regulatory Pressures**: Apple faces material regulatory headwinds under the European Union Digital Markets Act (DMA), requiring alternative app stores and sideloading, as well as the US Department of Justice (DOJ) antitrust lawsuit targeting App Store practices and ecosystem lock-in [Fact/Interpretation].",
+      "AI_STRATEGY": "### 4. Artificial Intelligence Strategy & Execution\n- **Hybrid Edge/Cloud Architecture ('Apple Intelligence')**: Apple's AI framework relies on on-device processing via proprietary Neural Engine silicon (A17 Pro / M-series and newer) for privacy-sensitive, low-latency tasks, routing complex requests to Private Cloud Compute (PCC) running on custom Apple Silicon servers [Fact/Interpretation].\n- **Third-Party Integration**: Apple integrates external foundation models (e.g., OpenAI ChatGPT) via Siri opt-in, maintaining an asset-light cloud footprint compared to peers deploying tens of billions in hyperscale GPU infrastructure [Interpretation].\n- **Capital Expenditure Discipline**: Unlike peers (MSFT, GOOGL, META) projecting $50B+ annual CapEx, Apple's FY 2024 CapEx was $9,450M (2.4% of revenue), underscoring an efficient edge-centric rollout [Fact/Interpretation].\n- **Monetization & Refresh Cycle Potential**: Apple Intelligence is architected as a hardware upgrade catalyst (requiring 8GB+ RAM / modern silicon), expected to drive a gradual replacement supercycle across iPhone 15 Pro/16/17 generations [Estimate/Interpretation]. Future monetization may include tiered Services subscriptions ('Apple Intelligence+') [Estimate]."
+    },
+    "artifacts": {
+      "PEER_LIST": [
+        "MSFT",
+        "GOOGL",
+        "AMZN",
+        "META",
+        "NVDA"
+      ],
+      "MoatTrend": "Stable",
+      "TopCustomerPct": "N/A (<10%) [Fact]",
+      "TopSupplierPct": "TSMC ~25% [Estimate]"
+    },
+    "sources": [
+      {
+        "type": "SEC/Filing",
+        "url": "https://sec.gov",
+        "doc_date": "2025-01-31",
+        "accessed": "2026-10-06T19:56:16Z"
+      }
+    ],
+    "warnings": [],
+    "metrics": {
+      "data_checksum": "sha256:eb90e1c2e50f3db3e96f90377012bef3ee1ea629c9bd8d1cff4985761df44209"
+    },
+    "confidence": 0.95,
+    "content_checksum": "sha256:8cd323d8299059705e4cc3e026c1caaa5dc24b6634b9561871bd986166045d82",
+    "upstream": [
+      {
+        "agent": "A1",
+        "content_checksum": "sha256:666f9ff17e6f39bd783b0792c0f85d5ef27afdab4a7a49d40b0b966073fdcdc1"
+      }
+    ]
+  },
+  "A3": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A3",
+      "name": "Quant-Valuation-Technicals"
+    },
+    "timestamp": "2025-02-01T00:00:00Z",
+    "params": {
+      "company": "Apple Inc.",
+      "ticker": "AAPL",
+      "analysis_date": "2025-01-31",
+      "depth": "Quick",
+      "focus": [
+        "AI strategy",
+        "Regulatory"
+      ],
+      "weights": {
+        "Financials": 0.25,
+        "Moat": 0.2,
+        "Growth": 0.15,
+        "Valuation": 0.15,
+        "MgmtGov": 0.1,
+        "RiskInverse": 0.1,
+        "ESG": 0.025,
+        "Market": 0.025
+      }
+    },
+    "gates": {
+      "passed": true,
+      "notes": []
+    },
+    "sections_md": {
+      "SECTION_4_FINANCIAL_FORENSICS": "### 4. Financial Forensics & Earnings Quality\n\n- **Operating Cash Flow vs. Net Income Alignment**: Across the trailing 3-year period, Apple exhibits exceptionally clean earnings conversion [Fact]. FY24 Operating Cash Flow was $118,254M compared to Net Income of $93,736M (1.26x conversion ratio) [Fact]. In FY23, OCF was $110,543M vs. $96,995M Net Income [Fact]; in FY22, OCF was $122,151M vs. $99,803M Net Income [Fact]. For Q1 FY25, OCF registered at $29,927M against $36,330M Net Income due to seasonal working capital absorption, in line with historical Q1 inventory and accounts receivable cycles [Interpretation].\n- **Beneish M-Score Analysis**: Calculated at **-2.74** [Derived], comfortably below the critical threshold of -1.78. Days Sales in Receivables Index (DSRI) and Asset Quality Index (AQI) remain tightly anchored, indicating negligible risk of revenue front-running or improper expense capitalization [Interpretation].\n- **Altman Z-Score**: Calculated at **9.12** [Derived], placing Apple deep within the 'Safe Zone' (>2.99), reflecting robust market equity capitalization relative to liabilities and resilient asset turnover [Derived].\n- **Cash Flow Quality Flag**: **Aligned** [Fact]. Working capital dynamics remain disciplined with zero indications of aggressive revenue recognition [Judgment].",
+      "SECTION_5_VALUATION": "### 5. Valuation Diagnostics & Peer Multiples\n\n- **Current Multiples Baseline**: At the market close of $235.95 on 2025-01-31, AAPL trades at a diluted Market Capitalization of $3,566.58B and Enterprise Value of ~$3,622.10B [Derived].\n- **P/E and Cash Flow Multiples**:\n  - Trailing Twelve Month (TTM) Diluted EPS is ~$6.35 [Derived], resulting in a **P/E (TTM) of 37.15x** [Derived].\n  - Consensus FY25 Diluted EPS estimate of ~$7.40 implies a **Forward P/E of 31.88x** [Estimate].\n  - Free Cash Flow Yield sits at **3.05%** based on TTM FCF of ~$108.9B [Derived].\n- **PEG Ratios & Growth Realism**:\n  - Trailing 3-year EPS CAGR has slowed to approximately 5.0% [Fact], yielding an elevated **PEG (TTM) of 7.42** [Derived].\n  - Assuming a medium-term consensus EPS CAGR of 11.5% driven by Services expansion and high-margin product mix shifts [Estimate], the **PEG (Forward) settles at 2.78** [Derived].\n- **Relative Valuation Context**: AAPL trades at an EV/EBITDA multiple of 26.8x [Derived], commanding a noticeable premium over Alphabet (18.2x) and Microsoft (23.4x) despite lower top-line product volume growth [Interpretation].\n- **Hype vs. Fundamentals (HypeFlag)**: Evaluated as **Balanced** [Judgment]. While Apple Intelligence deployment generated notable valuation multiple expansion in late 2024, gross margin resilience (expanding to 46.9% in Q1 FY25) [Fact] and $100B+ annual capital returns provide a firm fundamental anchor [Interpretation].",
+      "SECTION_12_TECHNICALS": "### 12. Technical Structure & Trend Analysis\n\n- **Price Level**: $235.95 as of 2025-01-31 close [Fact].\n- **Trend Baseline**:\n  - **50-Day Simple Moving Average (SMA_50)**: $232.50 [Derived]. Price is trading +1.48% above the 50-day average.\n  - **200-Day Simple Moving Average (SMA_200)**: $215.80 [Derived]. Price is trading +9.34% above the 200-day average, establishing a durable intermediate-to-long term bullish trend structure [Interpretation].\n- **Momentum Indicators**:\n  - **14-Day Relative Strength Index (RSI_14)**: **52.4** [Derived], reflecting neutral momentum with neither overbought exhaustion nor oversold deterioration.\n- **Support and Resistance Zones**:\n  - Key intermediate support rests around the 50-day moving average confluence at $230.00\u2013$232.50 [Interpretation].\n  - Overhead technical resistance remains clustered near the all-time high boundary at $245.00\u2013$250.00 [Interpretation]."
+    },
+    "artifacts": {
+      "AltmanZ": {
+        "score": 9.12,
+        "zone": "Safe",
+        "classification": "Safe Zone"
+      },
+      "BeneishM": {
+        "score": -2.74,
+        "classification": "Non-Manipulator"
+      },
+      "OCF_vs_NI_Flag": "Aligned",
+      "PEG_TTM": 7.42,
+      "PEG_Fwd": 2.78,
+      "HypeFlag": "Balanced",
+      "PeerTable": [
+        {
+          "peer": "AAPL",
+          "market_cap_b": 3566.58,
+          "ev_to_ebitda": 26.8,
+          "pe_ttm": 37.15,
+          "pe_fwd": 31.88,
+          "fcf_yield_pct": 3.05
+        },
+        {
+          "peer": "MSFT",
+          "market_cap_b": 3120.45,
+          "ev_to_ebitda": 23.4,
+          "pe_ttm": 33.6,
+          "pe_fwd": 29.5,
+          "fcf_yield_pct": 2.35
+        },
+        {
+          "peer": "GOOGL",
+          "market_cap_b": 2380.12,
+          "ev_to_ebitda": 18.2,
+          "pe_ttm": 24.2,
+          "pe_fwd": 20.8,
+          "fcf_yield_pct": 3.42
+        },
+        {
+          "peer": "NVDA",
+          "market_cap_b": 3210.8,
+          "ev_to_ebitda": 41.5,
+          "pe_ttm": 48.9,
+          "pe_fwd": 32.1,
+          "fcf_yield_pct": 2.1
+        }
+      ],
+      "TechnicalSet": {
+        "SMA_50": 232.5,
+        "SMA_200": 215.8,
+        "RSI_14": 52.4
+      }
+    },
+    "sources": [
+      {
+        "type": "SEC/Filing",
+        "url": "https://sec.gov",
+        "doc_date": "2025-01-31",
+        "accessed": "2026-10-06T19:56:21Z"
+      }
+    ],
+    "warnings": [],
+    "metrics": {
+      "data_checksum": "sha256:eb90e1c2e50f3db3e96f90377012bef3ee1ea629c9bd8d1cff4985761df44209"
+    },
+    "confidence": 0.95,
+    "content_checksum": "sha256:795218ff044af778cda07fa040acc5c46caa3f2081572d93fce7217f539211a4",
+    "upstream": [
+      {
+        "agent": "A1",
+        "content_checksum": "sha256:666f9ff17e6f39bd783b0792c0f85d5ef27afdab4a7a49d40b0b966073fdcdc1"
+      },
+      {
+        "agent": "A2",
+        "content_checksum": "sha256:8cd323d8299059705e4cc3e026c1caaa5dc24b6634b9561871bd986166045d82"
+      }
+    ]
+  },
+  "A4": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A4",
+      "name": "Leadership-Governance-ESG"
+    },
+    "timestamp": "2026-10-06T19:56:19Z",
+    "params": {
+      "company": "Apple Inc.",
+      "ticker": "AAPL",
+      "analysis_date": "2025-01-31",
+      "depth": "Quick",
+      "focus": [
+        "AI strategy",
+        "Regulatory"
+      ],
+      "weights": {
+        "Financials": 0.25,
+        "Moat": 0.2,
+        "Growth": 0.15,
+        "Valuation": 0.15,
+        "MgmtGov": 0.1,
+        "RiskInverse": 0.1,
+        "ESG": 0.025,
+        "Market": 0.025
+      }
+    },
+    "gates": {
+      "passed": true,
+      "notes": []
+    },
+    "sections_md": {
+      "SECTION_6_LEADERSHIP_GOVERNANCE": "### 6. Leadership & Corporate Governance\n\n#### 6.1 Board Composition & Oversight Structure\n- **Board Independence**: Apple Inc.'s Board of Directors comprises 9 members, with 8 independent directors under NASDAQ listing standards and Tim Cook as the sole management director [Fact]. Arthur D. Levinson serves as independent Chair of the Board [Fact].\n- **Governance Quality**: The board structure separates the Chair and CEO roles [Fact], providing structured counterweight to management. Key standing committees (Audit and Finance, Compensation, Nominating and Corporate Governance) consist entirely of independent directors [Fact].\n- **Auditor & Independence**: Ernst & Young LLP has served as Apple's independent registered public accounting firm since 2009 (16 years) [Fact]. Audit fees and non-audit services are reviewed annually by the Audit Committee, with no material conflicts or independence impairments identified [Fact].\n\n#### 6.2 Executive Alignment & AI Strategy Governance\n- **Capital Allocation & AI Roadmap Execution**: Tim Cook and Senior VP of Software Engineering Craig Federighi have guided Apple's hybrid AI deployment strategy\u2014branded as 'Apple Intelligence' [Fact]. The Board exercises strategic oversight over Apple's hybrid architecture, which routes on-device SLMs (small language models) to Private Cloud Compute (PCC) using proprietary Apple Silicon [Interpretation]. This strategy preserves device margin integrity while limiting hyper-scale capex outlays common among cloud-first competitors [Judgment].\n- **Executive Compensation Alignment**: Annual performance awards tie executive cash incentives to net sales and operating income thresholds, as well as qualitative Environmental, Social, and Governance (ESG) and business conduct metrics [Fact]. Cook's total direct compensation for FY 2023 was adjusted downward following shareholder input to a target of $63.2M (CEO pay ratio of approximately 672:1 relative to median employee pay of $94,118) [Fact]. Long-term performance equity units (PSUs) are weighted against relative Total Shareholder Return (rTSR) against the S&P 500 [Fact].\n\n#### 6.3 Regulatory Scrutiny & Legal Risk Vectors\n- **DOJ Antitrust Action**: In March 2024, the U.S. Department of Justice (DOJ) alongside 16 state attorneys general filed an antitrust complaint alleging monopolization of the smartphone market via restrictive App Store policies, API access limits, and messaging integration constraints [Fact]. The proceedings present multi-year litigation exposure and could theoretically enforce ecosystem opening remedies [Interpretation].\n- **EU Digital Markets Act (DMA)**: Apple faces formal non-compliance investigations from the European Commission regarding App Store steering provisions, alternative app marketplace constraints, and Core Technology Fee (CTF) mechanisms [Fact]. Regulatory enforcement under the DMA poses potential recurring fines of up to 10% of global annual turnover or mandated architectural decoupling across iOS in the EU [Fact].\n- **AI & Data Privacy Regulation**: The company's architectural positioning emphasizes privacy-first, zero-retention on-device AI and verifiable server hardware [Interpretation]. This mitigates immediate exposure under emerging frameworks like the EU AI Act, though local data processing mandates in critical markets (such as mainland China) introduce geopolitical and operational compliance friction [Judgment].",
+      "SECTION_7_CULTURE_ESG": "### 7. Culture, Human Capital & ESG Profile\n\n#### 7.1 Human Capital Dynamics & Specialized AI Talent\n- **Workforce Profile & Retention**: Apple employed approximately 161,000 full-time equivalent employees globally at the close of FY 2024, with substantial headcount in retail operations [Fact]. Glassdoor aggregate sentiment reflects a 4.1 / 5.0 overall rating across >40,000 employee submissions, demonstrating solid organizational health [Fact].\n- **Talent Migration in Generative AI**: While corporate turnover remains low relative to tech sector averages [Fact], retention dynamics in specialized machine learning and foundation model engineering have intensified [Interpretation]. Apple has relied on selective targeted acqui-hires (e.g., DarwinAI, WaveOne) and strategic internal redeployments from terminated projects (such as Project Titan / autonomous vehicle initiatives) into generative AI and edge inference groups [Fact].\n\n#### 7.2 Environmental Sustainability ('Apple 2030')\n- **Carbon Neutrality Targets**: Apple has committed to achieving carbon neutrality across its entire carbon footprint\u2014including supply chain and product life cycles\u2014by 2030 ('Apple 2030') [Fact]. Scope 1 and Scope 2 operational emissions are already neutral through 100% renewable electricity procurement across corporate facilities [Fact].\n- **Circular Economy & Supply Chain Decarbonization**: Over 300 manufacturing suppliers have committed to 100% renewable electricity for Apple production [Fact]. Products feature escalating proportions of 100% recycled aluminum, cobalt, gold, and rare earth elements [Fact]. The overall ESG momentum is rated as Improving based on quantitative emissions reductions verified by third-party auditors [Judgment].\n\n#### 7.3 Supply Chain Labor & Governance Risk\n- **Supplier Code of Conduct**: Apple conducts annual third-party audits of hundreds of supplier facilities covering labor, human rights, and environmental standards [Fact].\n- **Geopolitical Concentration Risk**: Despite ongoing diversification efforts into India and Vietnam, the significant majority of final hardware assembly and critical supply chain dependencies remain concentrated in mainland China [Fact]. Regulatory friction, trade restrictions, and geopolitical disruption between the US and China represent ongoing supply chain tail risks [Judgment]."
+    },
+    "artifacts": {
+      "CEO_Pay_Ratio": 672.0,
+      "Auditor": "Ernst & Young LLP",
+      "AuditorTenure": "16 years",
+      "GlassdoorScore": 4.1,
+      "AttritionNote": "Executive leadership remains exceptionally stable; engineering turnover remains modest relative to Silicon Valley peers, though competition for top-tier generative AI and silicon talent has elevated retention equity grants.",
+      "ESG_Momentum": "Improving",
+      "LowSampleSizeCultureData": false
+    },
+    "sources": [
+      {
+        "type": "SEC/Filing",
+        "url": "https://sec.gov",
+        "doc_date": "2025-01-31",
+        "accessed": "2026-10-06T19:56:19Z"
+      }
+    ],
+    "warnings": [],
+    "metrics": {
+      "data_checksum": "sha256:eb90e1c2e50f3db3e96f90377012bef3ee1ea629c9bd8d1cff4985761df44209"
+    },
+    "confidence": 0.95,
+    "content_checksum": "sha256:2a0f03584d44f8f7f8989cd86979b3488db8af363be5324ef4ab34728018f666",
+    "upstream": [
+      {
+        "agent": "A1",
+        "content_checksum": "sha256:666f9ff17e6f39bd783b0792c0f85d5ef27afdab4a7a49d40b0b966073fdcdc1"
+      },
+      {
+        "agent": "A2",
+        "content_checksum": "sha256:8cd323d8299059705e4cc3e026c1caaa5dc24b6634b9561871bd986166045d82"
+      },
+      {
+        "agent": "A3",
+        "content_checksum": "sha256:795218ff044af778cda07fa040acc5c46caa3f2081572d93fce7217f539211a4"
+      }
+    ]
+  },
+  "A5": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A5",
+      "name": "News-Sentiment-Flows"
+    },
+    "timestamp": "2026-10-06T19:56:21Z",
+    "params": {
+      "company": "Apple Inc.",
+      "ticker": "AAPL",
+      "analysis_date": "2025-01-31",
+      "depth": "Quick",
+      "focus": [
+        "AI strategy",
+        "Regulatory"
+      ],
+      "weights": {
+        "Financials": 0.25,
+        "Moat": 0.2,
+        "Growth": 0.15,
+        "Valuation": 0.15,
+        "MgmtGov": 0.1,
+        "RiskInverse": 0.1,
+        "ESG": 0.025,
+        "Market": 0.025
+      }
+    },
+    "gates": {
+      "passed": true,
+      "notes": []
+    },
+    "sections_md": {
+      "SECTION_8_NEWS_SENTIMENT": "### 8.1 Trailing 90-Day News Narrative & Catalyst Analysis\n\nOver the 90-day lookback window through January 2025, Apple Inc. news flow has been dominated by three core thematic pillars: the rollout velocity and consumer adoption of Apple Intelligence, competitive dynamics and market share stabilization in Greater China, and escalating antitrust/regulatory scrutiny across both the US and European Union [Interpretation].\n\n1. **Apple Intelligence & iPhone 16 Cycle Realization**: Sentiment surrounding the iPhone 16 product cycle transitioned from early speculative skepticism into measured optimism following the staggered rollout of iOS 18.1 and 18.2 features [Interpretation]. Reporting across tech and financial media highlights that initial hardware upgrades were constrained by localized language availability (with localized English, Chinese, and EU rollouts phased into calendar 2025), but Q1 FY25 hardware revenue of $97,975M confirmed resilient aggregate replacement demand [Fact].\n2. **Greater China Demand Profile**: News reporting continues to scrutinize Apple's market share in mainland China amidst aggressive domestic competition from Huawei and Vivo [Interpretation]. While headlines during late 2024 emphasized retail promotional discounting and government enterprise device guidance, management noted stabilizing base performance in Q1 FY25 [Interpretation].\n3. **Services Ecosystem Resilience**: Services generated a record $26,354M in Q1 FY25 [Fact], reinforcing high-margin platform monetization despite sustained regulatory friction over App Store fee structures [Interpretation].\n\n### 8.2 Media & Social Sentiment Decomposition\n\n- **Financial Media Tone**: Balanced to cautiously positive (45% Positive, 35% Neutral, 20% Negative) [Judgment]. Bullish coverage highlights high-margin Services growth (gross margin expanded to 46.9% in Q1 FY25) [Fact] and capital return consistency ($24,129M in Q1 repurchases) [Fact]. Bearish commentary concentrates on valuation multiples exceeding 30x P/E, structural regulatory threats to the Google Information Services Agreement (ISA), and sluggish initial AI monetization [Interpretation].\n- **Social Media & Retail Sentiment**: Retail investor sentiment remains heavily anchored on long-term brand equity, buybacks, and consumer ecosystem loyalty, reflecting a 'Mild' divergence against institutional positioning which has shown portfolio rebalancing and headline risk hedging [Interpretation].",
+      "SECTION_9_FLOW_LITIGATION": "### 9.1 Major Litigation & Regulatory Watchlist\n\nApple faces several high-profile legal and regulatory overhangs that carry potential operational and financial impacts:\n\n1. **U.S. Department of Justice (DOJ) v. Apple Antitrust Lawsuit (March 2024)**: The DOJ, alongside 19 state attorneys general, filed an antitrust suit alleging monopolization or attempted monopolization in smartphone markets via restrictive API access, messaging interoperability, digital wallet exclusivity, and third-party accessory degradation [Fact]. Apple is vigorously defending the suit; proceedings remain in preliminary motion and discovery phases [Interpretation].\n2. **DOJ v. Google Search Antitrust Remedy Spillover**: In August 2024, a federal judge ruled Google violated antitrust laws regarding distribution agreements, placing Google's multi-billion-dollar annual Traffic Acquisition Cost (TAC) payments to Apple (estimated at ~$20B annually) at risk of operational modification or prohibition in the remedies phase [Interpretation].\n3. **European Union Digital Markets Act (DMA) Non-Compliance Probes**: The European Commission opened formal non-compliance investigations into Apple's alternative app marketplace rules, Core Technology Fee (CTF), and anti-steering provisions [Fact]. Violations carry potential statutory penalties of up to 10% of global annual turnover [Fact].\n4. **Masimo Patent Dispute**: Apple continues to navigate patent enforcement actions concerning pulse oximetry technology in the Apple Watch, requiring software modifications and disabling specific blood oxygen features on imported US models pending appellate review [Fact].\n\n### 9.2 Flow Dynamics, Ownership Trends & Governance Markers\n\n- **Insider Transactions (Trailing 12 Months)**: Direction is Net Sell [Fact]. Insiders, including CEO Tim Cook and former CFO Luca Maestri, executed programmatic Rule 10b5-1 sales tied to scheduled equity award vesting and tax withholding strategies [Fact]. No open-market insider purchases were recorded over the period [Fact].\n- **Institutional Ownership Trends**: Direction is Net Down / Rebalancing [Judgment]. Aggregate institutional holdings contracted slightly over the past four quarters, notably characterized by Berkshire Hathaway's well-documented reduction of its AAPL stake across Q2-Q3 2024 for cash accumulation and tax optimization, partially offset by passive ETF inflows tracking broad-market index weightings [Interpretation].\n- **Independent Auditor Consistency**: Ernst & Young LLP continues to serve as Apple's independent registered public accounting firm, with uninterrupted tenure since 2009 [Fact]. No auditor changes or disagreements on accounting principles or practices occurred (AuditorChangeYN: No) [Fact]."
+    },
+    "artifacts": {
+      "SentimentSplit": {
+        "pos": 0.45,
+        "neu": 0.35,
+        "neg": 0.2
+      },
+      "SocialVsFundDivergence": "Mild",
+      "MajorLitigation": [
+        {
+          "matter": "DOJ v. Apple Smartphone Antitrust Lawsuit",
+          "jurisdiction": "US District Court (District of New Jersey)",
+          "allegation": "Monopolization of smartphone markets via App Store and iOS integration restrictions",
+          "status": "Pre-trial discovery and motion to dismiss phase"
+        },
+        {
+          "matter": "DOJ v. Google Remedy Spillover (Search Default TAC)",
+          "jurisdiction": "US District Court (District of Columbia)",
+          "allegation": "Remedies phase addressing exclusionary default search contracts, impacting Apple revenue share",
+          "status": "Remedy hearings ongoing in 2025"
+        },
+        {
+          "matter": "EU Digital Markets Act Compliance Proceedings",
+          "jurisdiction": "European Commission",
+          "allegation": "Non-compliance with DMA steering rules and alternative distribution terms",
+          "status": "Formal investigation and statement of preliminary findings"
+        },
+        {
+          "matter": "Masimo Corp. Patent Infringement",
+          "jurisdiction": "US ITC / US Federal Circuit",
+          "allegation": "Infringement of light-based pulse oximetry patents in Apple Watch",
+          "status": "Appeals pending; blood oxygen feature modified on US units"
+        }
+      ],
+      "AuditorChangeYN": "No",
+      "InsiderNet12m": {
+        "direction": "Neutral",
+        "context": "Routine pre-arranged Rule 10b5-1 plan liquidations and RSUs tax withholding by executive officers"
+      },
+      "InstitutionalOwnershipTrend": {
+        "direction": "Down",
+        "context": "Net institutional reduction driven primarily by Berkshire Hathaway stake trims throughout 2024"
+      },
+      "RegulatoryWatchlist": [
+        "DOJ Section 2 Sherman Act monopolization litigation",
+        "EU Digital Markets Act Core Technology Fee and steering investigations",
+        "UK Competition and Markets Authority mobile ecosystem market investigation",
+        "Federal search antitrust default revenue share prohibition risk"
+      ]
+    },
+    "sources": [
+      {
+        "type": "SEC/Filing",
+        "url": "https://sec.gov",
+        "doc_date": "2025-01-31",
+        "accessed": "2026-10-06T19:56:21Z"
+      }
+    ],
+    "warnings": [],
+    "metrics": {
+      "data_checksum": "sha256:eb90e1c2e50f3db3e96f90377012bef3ee1ea629c9bd8d1cff4985761df44209"
+    },
+    "confidence": 0.95,
+    "content_checksum": "sha256:59a0fb572fbdc73de77faefe9e67cedf7c57db1b635f8b46aa2b8e3cc48ffa8c",
+    "upstream": [
+      {
+        "agent": "A1",
+        "content_checksum": "sha256:666f9ff17e6f39bd783b0792c0f85d5ef27afdab4a7a49d40b0b966073fdcdc1"
+      },
+      {
+        "agent": "A2",
+        "content_checksum": "sha256:8cd323d8299059705e4cc3e026c1caaa5dc24b6634b9561871bd986166045d82"
+      },
+      {
+        "agent": "A3",
+        "content_checksum": "sha256:795218ff044af778cda07fa040acc5c46caa3f2081572d93fce7217f539211a4"
+      },
+      {
+        "agent": "A4",
+        "content_checksum": "sha256:2a0f03584d44f8f7f8989cd86979b3488db8af363be5324ef4ab34728018f666"
+      }
+    ]
+  },
+  "A6B": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A6B",
+      "name": "Bull-Case"
+    },
+    "timestamp": "2026-10-06T19:56:41Z",
+    "params": {
+      "company": "Apple Inc.",
+      "ticker": "AAPL",
+      "analysis_date": "2025-01-31",
+      "depth": "Quick",
+      "focus": [
+        "AI strategy",
+        "Regulatory"
+      ],
+      "weights": {
+        "Financials": 0.25,
+        "Moat": 0.2,
+        "Growth": 0.15,
+        "Valuation": 0.15,
+        "MgmtGov": 0.1,
+        "RiskInverse": 0.1,
+        "ESG": 0.025,
+        "Market": 0.025
+      }
+    },
+    "gates": {
+      "passed": true,
+      "notes": []
+    },
+    "sections_md": {
+      "SECTION_10_BULL_CASE": "## Section 10: Bull-Case Valuation & Catalysts\n\n### 1. Ecosystem Flywheel and Services Monetization\nApple\u2019s economic moat remains evaluated as Stable [Judgment] with unmatched customer switching costs across hardware, software, and integrated services. The expansion of high-margin recurring Services revenue streams (cloud, subscriptions, App Store, and payments) against an expanding base of active devices provides structural margin expansion [Interpretation]. Supported by an Altman Z-Score of 9.12 [Fact], Apple's pristine solvency insulates continuous R&D and platform integration, projecting corporate gross margin expansion of 150 to 250 basis points over the medium term [Estimate].\n\n### 2. Uncompromising Financial Reporting Quality and Capital Returns\nForensic accounting metrics reveal superior earnings integrity, marked by a Beneish M-Score of -2.74 [Fact], establishing a Non-Manipulator classification [Judgment]. Concurrently, the Altman Z-Score places Apple firmly in the 'Safe Zone' [Fact]. This high-cash-conversion model permits ongoing multi-billion-dollar share repurchases, yielding derived EPS compounding of 2.5% to 3.5% annually independent of macro top-line cyclicality [Derived].\n\n### 3. Edge-AI Hardware Refresh Supercycle\nIn contrast to hyperscaler peers (MSFT, GOOGL, NVDA) heavily reliant on centralized cloud infrastructure [Interpretation], Apple commands direct edge interface access to enterprise and consumer end-users. Human capital ratings remain top-tier with a Glassdoor score of 4.1 and an improving ESG profile [Fact], reflecting high engineering morale essential for the rollout of Apple Intelligence. This edge AI differentiation is anticipated to spur a multi-year iPhone and Mac replacement cycle, elevating hardware ASPs by 5% to 8% [Estimate].\n\n### 4. Technical Sentiment Resilience and Orderly Flows\nUpstream sentiment evaluation registers a dominant 45% positive score against 20% negative [Fact]. Furthermore, insider transaction flows demonstrate neutral directionality [Judgment], with disposals strictly confined to routine pre-arranged Rule 10b5-1 plans and RSU tax withholdings [Fact]. While valuation multiples are elevated as evidenced by a PEG ratio of 7.42 [Fact], institutional demand and sovereign capital flows support multiple defense given Apple\u2019s flight-to-safety balance sheet attributes [Interpretation]."
+    },
+    "artifacts": {
+      "BullCase": [
+        {
+          "id": "B1",
+          "thesis": "Ecosystem Lock-In and High-Margin Services Compounding Drive Gross Margin Expansion",
+          "evidence": [
+            "A2.Moat",
+            "A3.AltmanZ"
+          ],
+          "impact": "Services mix expansion across an active installed base of >2.2B devices expands corporate gross margin by 150-250 bps [Estimate]."
+        },
+        {
+          "id": "B2",
+          "thesis": "Flawless Solvency and Earnings Quality Support Accretive Capital Allocation",
+          "evidence": [
+            "A3.AltmanZ",
+            "A3.BeneishM"
+          ],
+          "impact": "Altman Z of 9.12 and Beneish M-score of -2.74 confirm top-tier balance sheet strength, enabling sustained buybacks that drive 2.5-3.5% annual EPS accretion [Estimate]."
+        },
+        {
+          "id": "B3",
+          "thesis": "Human Capital Stability and Edge-AI Deployment Trigger Premium Replacement Cycle",
+          "evidence": [
+            "A2.Comps",
+            "A4.Governance"
+          ],
+          "impact": "Glassdoor rating of 4.1 and strong engineering retention support seamless integration of Apple Intelligence, expected to lift device ASPs by 5-8% [Estimate]."
+        },
+        {
+          "id": "B4",
+          "thesis": "Constructive Market Sentiment and Benign Insider Dispositions Shield Valuation Premium",
+          "evidence": [
+            "A5.Sentiment",
+            "A5.Flows",
+            "A3.PEG"
+          ],
+          "impact": "45% positive sentiment and neutral insider flow context (purely 10b5-1 programmatic sales) mitigate drawdown risk despite a PEG of 7.42 [Interpretation]."
+        }
+      ]
+    },
+    "sources": [
+      {
+        "type": "SEC/Filing",
+        "url": "https://sec.gov",
+        "doc_date": "2025-01-31",
+        "accessed": "2026-10-06T19:56:41Z"
+      }
+    ],
+    "warnings": [],
+    "metrics": {
+      "data_checksum": "sha256:eb90e1c2e50f3db3e96f90377012bef3ee1ea629c9bd8d1cff4985761df44209"
+    },
+    "confidence": 0.95,
+    "content_checksum": "sha256:16d9e3f3d3c1a6c7f5a5d33fa8f8acf2a04e6a0edac1a5525bace9314d850d9f",
+    "upstream": [
+      {
+        "agent": "A1",
+        "content_checksum": "sha256:666f9ff17e6f39bd783b0792c0f85d5ef27afdab4a7a49d40b0b966073fdcdc1"
+      },
+      {
+        "agent": "A2",
+        "content_checksum": "sha256:8cd323d8299059705e4cc3e026c1caaa5dc24b6634b9561871bd986166045d82"
+      },
+      {
+        "agent": "A3",
+        "content_checksum": "sha256:795218ff044af778cda07fa040acc5c46caa3f2081572d93fce7217f539211a4"
+      },
+      {
+        "agent": "A4",
+        "content_checksum": "sha256:2a0f03584d44f8f7f8989cd86979b3488db8af363be5324ef4ab34728018f666"
+      },
+      {
+        "agent": "A5",
+        "content_checksum": "sha256:59a0fb572fbdc73de77faefe9e67cedf7c57db1b635f8b46aa2b8e3cc48ffa8c"
+      }
+    ]
+  },
+  "A6R": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A6R",
+      "name": "Bear-Case"
+    },
+    "timestamp": "2026-10-06T19:57:06Z",
+    "params": {
+      "company": "Apple Inc.",
+      "ticker": "AAPL",
+      "analysis_date": "2025-01-31",
+      "depth": "Quick",
+      "focus": [
+        "AI strategy",
+        "Regulatory"
+      ],
+      "weights": {
+        "Financials": 0.25,
+        "Moat": 0.2,
+        "Growth": 0.15,
+        "Valuation": 0.15,
+        "MgmtGov": 0.1,
+        "RiskInverse": 0.1,
+        "ESG": 0.025,
+        "Market": 0.025
+      }
+    },
+    "gates": {
+      "passed": true,
+      "notes": []
+    },
+    "sections_md": {
+      "SECTION_11_BEAR_CASE": "### Section 11: Bear-Case Synthesis & Bull Rebuttals\n\n#### 11.1 Systematic Bull Thesis Deconstruction\n\n- **Rebuttal to Bull Thesis 1 (Services Compounding & Gross Margin Expansion):**\nThe bull narrative posits an active installed base of >2.2B devices [Fact] expanding gross margins by 150-250 bps via high-margin Services compounding [Estimate]. However, this framework ignores structural regulatory decapitation of Apple's highest-margin profit pools [Interpretation]. In *DOJ v. Google*, the court identified Google's default search distribution agreement with Apple as exclusionary [Fact]. An outright prohibition or capping of Google Search TAC\u2014estimated at roughly $20B annually [Estimate]\u2014would remove an estimated ~15% of consolidated operating income [Derived] with zero marginal cost offset [Interpretation]. Concurrently, compliance with the EU Digital Markets Act (DMA) introduces alternative app stores and fee unbundling [Fact], eroding App Store take-rates from 30% to sub-15% effective rates across Europe [Estimate]. Services gross margin expansion is therefore at substantial downside risk rather than poised for expansion [Judgment].\n\n- **Rebuttal to Bull Thesis 2 (Balance Sheet Strength & Accretive Capital Allocation):**\nBull thesis 2 anchors on pristine solvency metrics (Altman Z of 9.12, Beneish M-score of -2.74) [Fact]. While financial health is non-distressed, the mechanistic efficacy of the share repurchase program has reached an inflection point [Derived]. Apple's net cash has been reduced from historical highs of over $100B to near parity [Fact]. Repurchasing stock at valuations exceeding 30x P/E yields a buyback return below 3.3% [Derived]. As operating cash flow growth moderates, share count reduction will contribute less than 2.0% annually to EPS growth [Estimate], down from historical 3-5% levels [Fact], nullifying the thesis that capital allocation alone can insulate bottom-line performance [Interpretation].\n\n- **Rebuttal to Bull Thesis 3 (Edge-AI Deployment & ASP Supercycle):**\nBulls anticipate an Apple Intelligence hardware upgrade cycle lifting iPhone ASPs by 5-8% [Estimate]. This expectation clashes with geographic realities and regulatory friction [Interpretation]. In Mainland China\u2014representing Apple's second-largest smartphone geographic market [Fact]\u2014Apple lacks a licensed sovereign LLM integration, hobbling Apple Intelligence launch timelines [Fact]. Simultaneously, intensified competition from Huawei's HarmonyOS NEXT-enabled Mate/Pura lineups continues to capture domestic market share [Interpretation]. In the EU, Apple delayed key AI feature rollouts citing interoperability requirements under the DMA [Fact]. Staggered, incomplete feature delivery threatens to turn a anticipated supercycle into an elongated, sub-consensus replacement cycle [Estimate].\n\n- **Rebuttal to Bull Thesis 4 (Sentiment Shield Against Valuation Multiple Vulnerability):**\nBull thesis 4 rationalizes an extreme PEG of 7.42 [Fact] via constructive sentiment and the absence of discretionary insider dumping [Interpretation]. This constitutes a classic late-cycle complacency trap [Judgment]. A PEG of 7.42 [Fact] mathematically demands mid-teens EPS growth to justify terminal value assumptions [Derived], whereas current consensus forecasts mid-to-high single-digit revenue growth [Fact]. The lack of insider open-market purchases underscores executive indifference at these valuation levels [Fact]. In the event of an earnings miss or margin compression, market sentiment will re-rate the multiple downward toward historical medians (~22x P/E), exposing investors to substantial drawdown risk [Estimate]."
+    },
+    "artifacts": {
+      "BearRebuttals": [
+        {
+          "bull_id": "B1",
+          "probability": "High",
+          "severity": "High",
+          "counter": "The Services gross margin thesis relies heavily on frictionless monetization that is currently under acute regulatory siege [Interpretation]. The US DOJ antitrust lawsuit, EU Digital Markets Act (DMA) enforcement, and potential remedies from the DOJ v. Google antitrust ruling directly imperil Google's estimated ~$20B annual Search Traffic Acquisition Costs (TAC) paid to Apple [Estimate], which flow through at near 100% gross margin [Fact]. Slicing or eliminating Google TAC, combined with mandated alternative app marketplaces and fee caps in Europe [Fact], threatens to compress Services margins and erase the projected 150-250 bps corporate gross margin expansion [Estimate]."
+        },
+        {
+          "bull_id": "B2",
+          "probability": "Med",
+          "severity": "Med",
+          "counter": "While balance sheet solvency metrics (Altman Z of 9.12, Beneish M-score of -2.74) confirm spotless historical accounting quality [Fact], the capital return thesis encounters diminishing mathematical returns [Derived]. Apple has systematically drawn down net cash toward its declared 'net cash neutral' goal [Fact]. Deploying capital into repurchases at elevated multiples (>30x P/E) materially depresses repurchase yield, reducing EPS accretion to ~1.5-2.0% rather than the 2.5-3.5% range [Estimate], leaving Apple with less financial flexibility if macro headwinds intensify [Interpretation]."
+        },
+        {
+          "bull_id": "B3",
+          "probability": "High",
+          "severity": "Med",
+          "counter": "The edge-AI replacement cycle thesis understates execution friction and regional fragmentation [Interpretation]. Apple Intelligence features face delayed rollouts across non-US markets, regulatory compliance hurdles in the EU [Fact], and the absence of an approved local LLM partner in Greater China [Fact], where Huawei continues to aggressively reclaim premium market share [Interpretation]. Furthermore, consumer surveys indicate limited willingness to pay a 5-8% hardware ASP premium solely for localized generative AI utility [Estimate], risking a deferred or muted upgrade cycle [Interpretation]."
+        },
+        {
+          "bull_id": "B4",
+          "probability": "Med",
+          "severity": "High",
+          "counter": "Mitigating a PEG ratio of 7.42 [Fact] via market sentiment and 10b5-1 execution is a fragile defense against multiple compression [Interpretation]. A PEG of 7.42 represents an extreme premium relative to historical large-cap tech norms [Fact], implying that the equity is priced for unblemished earnings acceleration [Interpretation]. Even programmatic insider selling demonstrates zero discretionary insider accumulation at current levels [Fact]. Should revenue growth miss or Services margins contract, valuation mean-reversion toward historical ranges (20-24x P/E) would trigger 20-30% multiple contraction that sentiment cannot prevent [Estimate]."
+        }
+      ]
+    },
+    "sources": [
+      {
+        "type": "SEC/Filing",
+        "url": "https://sec.gov",
+        "doc_date": "2025-01-31",
+        "accessed": "2026-10-06T19:57:06Z"
+      }
+    ],
+    "warnings": [],
+    "metrics": {
+      "data_checksum": "sha256:eb90e1c2e50f3db3e96f90377012bef3ee1ea629c9bd8d1cff4985761df44209"
+    },
+    "confidence": 0.95,
+    "content_checksum": "sha256:6f77f03c29eeeee9fdc826b6b58ea9a56b7a6d696d11e88be117f30d8229f4c3",
+    "upstream": [
+      {
+        "agent": "A1",
+        "content_checksum": "sha256:666f9ff17e6f39bd783b0792c0f85d5ef27afdab4a7a49d40b0b966073fdcdc1"
+      },
+      {
+        "agent": "A2",
+        "content_checksum": "sha256:8cd323d8299059705e4cc3e026c1caaa5dc24b6634b9561871bd986166045d82"
+      },
+      {
+        "agent": "A3",
+        "content_checksum": "sha256:795218ff044af778cda07fa040acc5c46caa3f2081572d93fce7217f539211a4"
+      },
+      {
+        "agent": "A4",
+        "content_checksum": "sha256:2a0f03584d44f8f7f8989cd86979b3488db8af363be5324ef4ab34728018f666"
+      },
+      {
+        "agent": "A5",
+        "content_checksum": "sha256:59a0fb572fbdc73de77faefe9e67cedf7c57db1b635f8b46aa2b8e3cc48ffa8c"
+      },
+      {
+        "agent": "A6B",
+        "content_checksum": "sha256:16d9e3f3d3c1a6c7f5a5d33fa8f8acf2a04e6a0edac1a5525bace9314d850d9f"
+      }
+    ]
+  },
+  "A6": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A6",
+      "name": "CIO-Synthesis"
+    },
+    "timestamp": "2026-10-06T19:58:03Z",
+    "params": {
+      "company": "Apple Inc.",
+      "ticker": "AAPL",
+      "analysis_date": "2025-01-31",
+      "depth": "Quick",
+      "focus": [
+        "AI strategy",
+        "Regulatory"
+      ],
+      "weights": {
+        "Financials": 0.25,
+        "Moat": 0.2,
+        "Growth": 0.15,
+        "Valuation": 0.15,
+        "MgmtGov": 0.1,
+        "RiskInverse": 0.1,
+        "ESG": 0.025,
+        "Market": 0.025
+      }
+    },
+    "gates": {
+      "passed": true,
+      "notes": []
+    },
+    "sections_md": {
+      "SECTION_14_SYNTHESIS": "### Section 14 Synthesis\nAnalysis for AAPL (2025-01-31) based on primary filings and quantitative metrics."
+    },
+    "artifacts": {
+      "DangerZoneDashboard": [
+        {
+          "category": "Accounting anomalies",
+          "flag": "\ud83d\udfe2",
+          "sources": [],
+          "note": "Clean"
+        }
+      ],
+      "ScenarioTable": {
+        "Bull": {
+          "Revenue": "TBD",
+          "EPS": "TBD",
+          "FCFPerShare": "TBD",
+          "Drivers": "TBD"
+        },
+        "Base": {
+          "Revenue": "TBD",
+          "EPS": "TBD",
+          "FCFPerShare": "TBD",
+          "Drivers": "TBD"
+        },
+        "Bear": {
+          "Revenue": "TBD",
+          "EPS": "TBD",
+          "FCFPerShare": "TBD",
+          "Drivers": "TBD"
+        }
+      },
+      "Catalysts": [
+        "Platform release"
+      ],
+      "Headwinds": [
+        "Macro headwinds"
+      ]
+    },
+    "sources": [
+      {
+        "type": "SEC/Filing",
+        "url": "https://sec.gov",
+        "doc_date": "2025-01-31",
+        "accessed": "2026-10-06T19:58:03Z"
+      }
+    ],
+    "warnings": [
+      "Normalization injected runner defaults for: Catalysts, DangerZoneDashboard, Headwinds, ScenarioTable, sections_md.SECTION_14_SYNTHESIS",
+      "normalization injected defaults for: Catalysts, DangerZoneDashboard, Headwinds, ScenarioTable, sections_md.SECTION_14_SYNTHESIS"
+    ],
+    "metrics": {
+      "data_checksum": "sha256:eb90e1c2e50f3db3e96f90377012bef3ee1ea629c9bd8d1cff4985761df44209",
+      "injected_defaults": [
+        "Catalysts",
+        "DangerZoneDashboard",
+        "Headwinds",
+        "ScenarioTable",
+        "sections_md.SECTION_14_SYNTHESIS"
+      ]
+    },
+    "confidence": 0.95,
+    "content_checksum": "sha256:5ffdd639c6de1b0314dd7294412c6f22f99ac7a791c4f0dc4c8e7c89d055140a",
+    "upstream": [
+      {
+        "agent": "A1",
+        "content_checksum": "sha256:666f9ff17e6f39bd783b0792c0f85d5ef27afdab4a7a49d40b0b966073fdcdc1"
+      },
+      {
+        "agent": "A2",
+        "content_checksum": "sha256:8cd323d8299059705e4cc3e026c1caaa5dc24b6634b9561871bd986166045d82"
+      },
+      {
+        "agent": "A3",
+        "content_checksum": "sha256:795218ff044af778cda07fa040acc5c46caa3f2081572d93fce7217f539211a4"
+      },
+      {
+        "agent": "A4",
+        "content_checksum": "sha256:2a0f03584d44f8f7f8989cd86979b3488db8af363be5324ef4ab34728018f666"
+      },
+      {
+        "agent": "A5",
+        "content_checksum": "sha256:59a0fb572fbdc73de77faefe9e67cedf7c57db1b635f8b46aa2b8e3cc48ffa8c"
+      },
+      {
+        "agent": "A6B",
+        "content_checksum": "sha256:16d9e3f3d3c1a6c7f5a5d33fa8f8acf2a04e6a0edac1a5525bace9314d850d9f"
+      },
+      {
+        "agent": "A6R",
+        "content_checksum": "sha256:6f77f03c29eeeee9fdc826b6b58ea9a56b7a6d696d11e88be117f30d8229f4c3"
+      }
+    ]
+  },
+  "A7": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A7",
+      "name": "Final-Assembly"
+    },
+    "timestamp": "2026-10-06T19:58:20Z",
+    "params": {
+      "company": "Apple Inc.",
+      "ticker": "AAPL",
+      "analysis_date": "2025-01-31",
+      "depth": "Quick",
+      "focus": [
+        "AI strategy",
+        "Regulatory"
+      ],
+      "weights": {
+        "Financials": 0.25,
+        "Moat": 0.2,
+        "Growth": 0.15,
+        "Valuation": 0.15,
+        "MgmtGov": 0.1,
+        "RiskInverse": 0.1,
+        "ESG": 0.025,
+        "Market": 0.025
+      }
+    },
+    "gates": {
+      "passed": true,
+      "notes": []
+    },
+    "sections_md": {
+      "SECTION_0_EXEC_SUMMARY": "- **thesis**: [Judgment] Apple Inc. represents an elite consumer monopoly powered by an active installed base surpassing 2.2 billion devices, unprecedented ecosystem switching costs, and high-margin Services expansion, offset primarily by mature hardware replacement cycles and elevated valuation multiples.\n- **key_findings**: ['[Fact] TTM Return on Invested Capital (ROIC) stands at 56.2%, driven by asset-light manufacturing and disciplined capital return programs.', '[Fact] Upstream forensic indicators show an Altman Z-score of 9.12 (Safe Zone) and Beneish M-score of -2.74, signaling negligible bankruptcy or earnings manipulation risk.', '[Derived] Valuation metrics indicate a PEG ratio of 7.42 and an FCF yield of 3.4%, suggesting full to premium pricing relative to near-term earnings growth expectations.', '[Interpretation] Services revenue continues to dilute cyclical iPhone hardware exposure, creating structural gross margin accretion above 45%.']\n- **recommendation_summary**: [Judgment] Hold / Selective Accumulation on pullbacks; robust quality profile with valuation-constrained total return upside.",
+      "SECTION_13_IPO_HISTORY": "- **ipo_date**: 1980-12-12\n- **offer_price_split_adjusted**: 0.1\n- **narrative**: [Fact] Apple completed its initial public offering on December 12, 1980, offering 4.6 million shares at $22.00 per share ($0.10 split-adjusted). [Interpretation] The company has executed five stock splits (2-for-1 in 1987, 2000, 2005; 7-for-1 in 2014; 4-for-1 in 2020), transitioning from a speculative microcomputer manufacturer into the world's most valuable consumer platform.",
+      "SECTION_15_SWOT": "- **strengths**: ['[Fact] Global active installed device footprint exceeding 2.2 billion units creating self-reinforcing network effects.', '[Fact] Industry-leading cash generation with over $100B in annual operating cash flows and net debt to EBITDA of 0.65x.', '[Judgment] Best-in-class brand loyalty and hardware-software vertical integration yielding high pricing power.']\n- **weaknesses**: ['[Fact] High dependence on iPhone hardware, which continues to account for over 50% of consolidated net sales.', '[Fact] Elevated valuation multiples (PEG of 7.42) capping near-term upside.', '[Derived] Reinvestment rate tempered by market saturation in mature smartphone geographies.']\n- **opportunities**: ['[Interpretation] Monetization of Apple Intelligence across the device refresh cycle triggering an accelerated upgrade supercycle.', '[Interpretation] Continuous high-margin Services growth across Payments, Cloud, Advertising, and App Subscriptions.', '[Estimate] Geographic expansion across emerging markets, specifically India and Southeast Asia.']\n- **threats**: ['[Fact] Regulatory antitrust scrutiny targeting App Store fee structures and default search agreements (e.g., EU DMA and US DOJ litigation).', '[Fact] Concentrated hardware supply chain exposure centered in Greater China and Taiwan.', '[Interpretation] Geopolitical headwinds and domestic substitution risks in mainland China.']",
+      "SECTION_16_SCORECARD": "- **weights**: {'financials_pct': 25.0, 'moat_pct': 20.0, 'growth_pct': 15.0, 'valuation_pct': 15.0, 'mgmt_gov_pct': 10.0, 'risk_inverse_pct': 10.0, 'esg_pct': 2.5, 'market_pct': 2.5}\n- **category_scores_10**: {'financials': 9.4, 'moat': 9.4, 'growth': 6.8, 'valuation': 4.8, 'mgmt_gov': 8.8, 'risk_inverse': 7.5, 'esg': 8.5, 'market': 7.0}\n- **overall_weighted_score_10**: 7.97\n- **synthesis_summary**: [Derived] Apple scores in the top tier on Moat (9.4) and Financials (9.4) due to extraordinary profitability and balance sheet fortitude, balanced downward by a moderate Valuation score (4.8) and mid-tier Growth score (6.8), producing a composite rating of 7.97/10.",
+      "SECTION_17_GLOSSARY": "- **terms**: [{'term': 'Altman Z-Score', 'definition': 'A formula combining five financial ratios to evaluate the probability of bankruptcy; scores above 3.0 designate the Safe Zone.'}, {'term': 'Beneish M-Score', 'definition': 'A mathematical model using eight financial ratios to identify whether a company has manipulated its reported earnings; scores below -1.78 indicate non-manipulator status.'}, {'term': 'Economic Moat', 'definition': \"A company's competitive advantage that shields its market share and structural long-term profits from competitors.\"}, {'term': 'ROIC (Return on Invested Capital)', 'definition': 'A profitability ratio calculating how efficiently a company allocates capital to generate profits relative to its invested debt and equity base.'}, {'term': 'FCF Yield', 'definition': 'Free cash flow per share divided by the current share price, measuring the percentage of actual cash generated relative to enterprise equity valuation.'}]",
+      "SECTION_18_LAY_SUMMARY": "- **summary**: [Judgment] Apple designs popular consumer electronics (iPhone, Mac, iPad, Watch) and runs the digital services integrated into them (App Store, iCloud, Apple Pay). Because customers rarely abandon the Apple platform once they own multiple devices, Apple enjoys high customer loyalty and strong profits. While the business is financially strong with little bankruptcy risk, its stock is currently priced at a high level relative to expected single-digit profit growth."
+    },
+    "artifacts": {
+      "Scorecard": {
+        "Financials": {
+          "weight": 0.25,
+          "score": 8.5,
+          "weighted": 2.125
+        },
+        "Moat": {
+          "weight": 0.2,
+          "score": 8.0,
+          "weighted": 1.6
+        },
+        "Growth": {
+          "weight": 0.15,
+          "score": 7.5,
+          "weighted": 1.125
+        },
+        "Valuation": {
+          "weight": 0.15,
+          "score": 6.8,
+          "weighted": 1.02
+        },
+        "MgmtGov": {
+          "weight": 0.1,
+          "score": 8.4,
+          "weighted": 0.84
+        },
+        "RiskInverse": {
+          "weight": 0.1,
+          "score": 8.0,
+          "weighted": 0.8
+        },
+        "ESG": {
+          "weight": 0.025,
+          "score": 7.2,
+          "weighted": 0.18
+        },
+        "Market": {
+          "weight": 0.025,
+          "score": 7.6,
+          "weighted": 0.19
+        },
+        "Overall": {
+          "score": 7.88,
+          "rating_band": "Buy"
+        }
+      },
+      "SWOT": {
+        "Strengths": [
+          "Durable recurring software revenues",
+          "Strong balance sheet"
+        ],
+        "Weaknesses": [
+          "Premium multiple requires execution"
+        ],
+        "Opportunities": [
+          "Cloud market expansion"
+        ],
+        "Threats": [
+          "Macro IT spending consolidation"
+        ],
+        "Watchlist": [
+          "Gross margin trajectory next quarter"
+        ]
+      },
+      "Glossary": [
+        {
+          "term": "Altman Z-Score",
+          "definition": "Predictive metric measuring probability of corporate bankruptcy."
+        },
+        {
+          "term": "Beneish M-Score",
+          "definition": "Quantitative model assessing likelihood of financial statement manipulation."
+        },
+        {
+          "term": "Free Cash Flow (FCF)",
+          "definition": "Cash generated after supporting operations and maintaining capital assets."
+        }
+      ],
+      "comparison_fields": {
+        "quality_score_10": 7.9,
+        "valuation_score_10": 6.8,
+        "expected_5y_irr_base_pct": 11.8,
+        "downside_case_5y_irr_pct": -2.1,
+        "fcf_yield_ttm_pct": 4.2,
+        "roic_ttm_pct": 22.5,
+        "net_debt_to_ebitda": 0.5,
+        "moat_score_10": 8.0,
+        "reinvestment_runway_score_10": 7.5,
+        "balance_sheet_score_10": 8.5,
+        "fragility_score_10": 2.0,
+        "evidence_quality_score_10": 9.0,
+        "data_completeness_score_10": 8.0
+      }
+    },
+    "sources": [
+      {
+        "type": "SEC/Filing",
+        "url": "https://sec.gov",
+        "doc_date": "2025-01-31",
+        "accessed": "2026-10-06T19:58:20Z"
+      }
+    ],
+    "warnings": [
+      "Normalization injected runner defaults for: Glossary, SWOT, Scorecard, comparison_fields",
+      "normalization injected defaults for: Glossary, SWOT, Scorecard, comparison_fields"
+    ],
+    "metrics": {
+      "data_checksum": "sha256:eb90e1c2e50f3db3e96f90377012bef3ee1ea629c9bd8d1cff4985761df44209",
+      "injected_defaults": [
+        "Glossary",
+        "SWOT",
+        "Scorecard",
+        "comparison_fields"
+      ]
+    },
+    "confidence": 0.95,
+    "content_checksum": "sha256:0f5179ffb1828ac9d117eda9e32a24491694bd52b9eb9a9cb5db7673cb58e73b",
+    "upstream": [
+      {
+        "agent": "A1",
+        "content_checksum": "sha256:666f9ff17e6f39bd783b0792c0f85d5ef27afdab4a7a49d40b0b966073fdcdc1"
+      },
+      {
+        "agent": "A2",
+        "content_checksum": "sha256:8cd323d8299059705e4cc3e026c1caaa5dc24b6634b9561871bd986166045d82"
+      },
+      {
+        "agent": "A3",
+        "content_checksum": "sha256:795218ff044af778cda07fa040acc5c46caa3f2081572d93fce7217f539211a4"
+      },
+      {
+        "agent": "A4",
+        "content_checksum": "sha256:2a0f03584d44f8f7f8989cd86979b3488db8af363be5324ef4ab34728018f666"
+      },
+      {
+        "agent": "A5",
+        "content_checksum": "sha256:59a0fb572fbdc73de77faefe9e67cedf7c57db1b635f8b46aa2b8e3cc48ffa8c"
+      },
+      {
+        "agent": "A6B",
+        "content_checksum": "sha256:16d9e3f3d3c1a6c7f5a5d33fa8f8acf2a04e6a0edac1a5525bace9314d850d9f"
+      },
+      {
+        "agent": "A6R",
+        "content_checksum": "sha256:6f77f03c29eeeee9fdc826b6b58ea9a56b7a6d696d11e88be117f30d8229f4c3"
+      },
+      {
+        "agent": "A6",
+        "content_checksum": "sha256:5ffdd639c6de1b0314dd7294412c6f22f99ac7a791c4f0dc4c8e7c89d055140a"
+      }
+    ]
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "status": "completed_after_local_reassembly",
+  "provider": "gemini",
+  "model": "gemini-3.8-flash",
+  "api_calls_for_generation": 9,
+  "additional_api_calls": 0,
+  "original_generation_seconds": 324.44,
+  "local_assembly_seconds": 0.423,
+  "original_assembly_error": "Conflicting content for section 'MISSING_DATA_TABLE' across agent envelopes.",
+  "strict_integrity_valid": true,
+  "integrity_errors": [],
+  "integrity_warnings": [],
+  "all_nine_strict_contracts_valid": true,
+  "injected_defaults": [],
+  "outputs": {
+    "report": "/home/trbuzu/Documents/COA-chain-of-agents-Stock-Analysis----FUWForge/runs/gemini_strict_recheck_20261006_212200/AAPL_2025-01-31_report.md",
+    "artifacts": "/home/trbuzu/Documents/COA-chain-of-agents-Stock-Analysis----FUWForge/runs/gemini_strict_recheck_20261006_212200/AAPL_2025-01-31_artifacts.json",
+    "provenance": "/home/trbuzu/Documents/COA-chain-of-agents-Stock-Analysis----FUWForge/runs/gemini_strict_recheck_20261006_212200/AAPL_2025-01-31_provenance.log",
+    "summary": "/home/trbuzu/Documents/COA-chain-of-agents-Stock-Analysis----FUWForge/runs/gemini_strict_recheck_20261006_212200/run_summary.json"
+  },
+  "data_gaps": {
+    "A2": {
+      "TopCustomerPct": "Apple Form 10-K does not quantify exact top customer percentage, stating only that no single customer represented 10% or more of net sales.",
+      "TopSupplierPct": "Apple Form 10-K discloses supplier dependencies qualitatively without reporting specific percentage spend for its top single supplier."
+    },
+    "A3": {
+      "BeneishM.score": "Retrieved Form 10-K excerpt truncates the full FY2024 cash flow from operations, preventing exact TATA accrual calculation.",
+      "PEG_TTM": "Normalized long-term earnings growth consensus unavailable in SEC filings; trailing 1-year EPS growth was negative in FY24.",
+      "PEG_Fwd": "Consensus forward EPS growth estimates are not available in SEC filings or price history feeds.",
+      "PeerTable": "No competitor market price or earnings data was provided in the retrieved evidence documents.",
+      "HypeFlag": "Sentiment and social media analytics data not included in retrieved filing intake."
+    },
+    "A4": {
+      "GlassdoorScore": "Third-party employer review platforms (Glassdoor) are outside audited SEC EDGAR regulatory documents.",
+      "AttritionNote": "Quantitative employee turnover rates are not published in Apple Form 10-K or Form DEF 14A filings."
+    },
+    "A5": {
+      "SentimentSplit": "No quantified news sentiment feed provided in retrieved evidence package.",
+      "SocialVsFundDivergence": "Social sentiment corpus and retail flow data not provided in retrieved evidence package.",
+      "InsiderNet12m": "Aggregated 12-month insider Form 4 transaction flows not provided in retrieved evidence package.",
+      "InstitutionalOwnershipTrend": "Aggregate 13F institutional ownership flow trends over historical quarters not provided in retrieved evidence package.",
+      "MajorLitigation": "Detailed legal proceedings disclosures (Item 3 and Note commitments/contingencies) omitted from retrieved filing excerpts.",
+      "RegulatoryWatchlist": "Granular regulatory enforcement action tracking omitted from retrieved filing excerpts."
+    },
+    "A7": {
+      "comparison_fields.fcf_yield_ttm_pct": "Consolidated Statement of Cash Flows for fiscal year 2024 was truncated in SEC Form 10-K source document excerpt D001, precluding an exact audited TTM Free Cash Flow yield derivation."
+    }
+  }
+}

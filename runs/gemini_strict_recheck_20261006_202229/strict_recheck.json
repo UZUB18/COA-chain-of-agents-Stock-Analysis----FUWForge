@@ -1,0 +1,104 @@
+{
+  "provider": "gemini",
+  "model": "gemini-3.8-flash",
+  "params": {
+    "company": "Apple Inc.",
+    "ticker": "AAPL",
+    "analysis_date": "2025-01-31",
+    "depth": "Quick",
+    "focus": [
+      "AI strategy",
+      "Regulatory"
+    ],
+    "weights": {
+      "Financials": 0.25,
+      "Moat": 0.2,
+      "Growth": 0.15,
+      "Valuation": 0.15,
+      "MgmtGov": 0.1,
+      "RiskInverse": 0.1,
+      "ESG": 0.025,
+      "Market": 0.025
+    }
+  },
+  "output_dir": "/home/trbuzu/Documents/COA-chain-of-agents-Stock-Analysis----FUWForge/runs/gemini_strict_recheck_20261006_202229",
+  "status": "halted_missing_data",
+  "error": "A1 gate failure halts the run: A1 gate failed: Missing market price data for AAPL as of analysis date 2025-01-31.; Missing official share count (basic and diluted share quantities) from SEC Form 10-K / Form 10-Q filings.; Retrieved documents provide only press release text snippets; detailed consolidated balance sheets and full statement tables are missing.",
+  "missing_data_gate": {
+    "passed": false,
+    "notes": [
+      "Missing market price data for AAPL as of analysis date 2025-01-31.",
+      "Missing official share count (basic and diluted share quantities) from SEC Form 10-K / Form 10-Q filings.",
+      "Retrieved documents provide only press release text snippets; detailed consolidated balance sheets and full statement tables are missing."
+    ]
+  },
+  "halted_agent": "A1",
+  "integrity": {
+    "valid": false,
+    "errors": [
+      "strict: a1_envelope.json: no content_checksum (legacy or unsealed; run `controller seal`)",
+      "strict: no assembled report found",
+      "strict: no artifacts bundle found"
+    ],
+    "warnings": [
+      "a1_envelope.json: no content_checksum (legacy or unsealed; run `controller seal`)",
+      "no assembled report found",
+      "no artifacts bundle found"
+    ]
+  },
+  "agents": {
+    "A1": {
+      "gate_passed": false,
+      "strict_contract_valid": false,
+      "errors": [
+        "shares_basic must be a positive number",
+        "shares_diluted must be a positive number",
+        "market_cap_check requires numeric price, shares and cap"
+      ],
+      "injected_defaults": [],
+      "sources": [
+        {
+          "id": "D001",
+          "type": "CompanyEarningsRelease",
+          "title": "Apple Q1 FY2025 earnings release and statements",
+          "url": "https://www.apple.com/newsroom/2025/01/apple-reports-first-quarter-results/",
+          "doc_date": "2025-01-30",
+          "date_basis": "supplied_manifest",
+          "accessed": "2026-10-06T20:17:12Z",
+          "content_type": "text/html;charset=utf-8",
+          "content_sha256": "sha256:29c8cbe31ec4559c2a5015d3d8c4714a1550c503bf0b34112375e659e330e833",
+          "text_sha256": "sha256:044abec4025641be45578edb9f8361440dd566f7fb33c95e5441331bc3f8552a",
+          "verification": "retrieved"
+        },
+        {
+          "id": "D002",
+          "type": "CompanyEarningsRelease",
+          "title": "Apple FY2024 earnings release and statements",
+          "url": "https://www.apple.com/newsroom/2024/10/apple-reports-fourth-quarter-results/",
+          "doc_date": "2024-10-31",
+          "date_basis": "supplied_manifest",
+          "accessed": "2026-10-06T20:17:13Z",
+          "content_type": "text/html;charset=utf-8",
+          "content_sha256": "sha256:d1a07e4dc42b84ad025d361e6a12c3209f1cf765e6cc803a2aa52f7aa3d339fb",
+          "text_sha256": "sha256:c3cd5ab4d1b10f77e24adc641eaa9ebc4d14fa7eb6a0cf5a2d81e7255bc4677b",
+          "verification": "retrieved"
+        },
+        {
+          "id": "D003",
+          "type": "CompanyEarningsRelease",
+          "title": "Apple FY2023 earnings release and statements",
+          "url": "https://www.apple.com/newsroom/2023/11/apple-reports-fourth-quarter-results/",
+          "doc_date": "2023-11-02",
+          "date_basis": "supplied_manifest",
+          "accessed": "2026-10-06T20:17:13Z",
+          "content_type": "text/html;charset=utf-8",
+          "content_sha256": "sha256:df6d5945a62f32d413876ced29961710b8dde6c5aad30d27027767228428d2fd",
+          "text_sha256": "sha256:234c309186f42909282a270636d51a1f82ec2af3e003fe360b6b4061dd5c4118",
+          "verification": "retrieved"
+        }
+      ]
+    }
+  },
+  "api_calls": 1,
+  "duration_seconds": 21.35
+}

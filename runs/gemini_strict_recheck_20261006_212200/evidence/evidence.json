@@ -1,0 +1,102 @@
+{
+  "schema_version": "1",
+  "ticker": "AAPL",
+  "documents": [
+    {
+      "id": "D001",
+      "type": "SECFiling",
+      "title": "AAPL 10-K filed 2024-11-01",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019324000123/aapl-20240928.htm",
+      "doc_date": "2024-11-01",
+      "date_basis": "SEC_filing_date",
+      "accessed": "2026-10-06T20:56:45Z",
+      "content_type": "text/html",
+      "content_sha256": "sha256:81c983accb73e47cc327494190378c2c5bfa05484c26aadadbbc2842d0df671c",
+      "text_sha256": "sha256:8b30f4c8862536f80cba39667c5b5455023a617e65b1b48c1da746b2cac6448f",
+      "raw_file": "D001.bytes",
+      "text_file": "D001.txt",
+      "verification": "retrieved"
+    },
+    {
+      "id": "D002",
+      "type": "SECFiling",
+      "title": "AAPL 10-K filed 2023-11-03",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019323000106/aapl-20230930.htm",
+      "doc_date": "2023-11-03",
+      "date_basis": "SEC_filing_date",
+      "accessed": "2026-10-06T20:56:45Z",
+      "content_type": "text/html",
+      "content_sha256": "sha256:c91ef495aa642ee6283a57f472fe6964b380ed1e9292bf381cabe260fd620ff9",
+      "text_sha256": "sha256:d5cae020d898cc07cbbe1ca2f4c846b5eaa0fb395276d767a94bce9b1f2d8a24",
+      "raw_file": "D002.bytes",
+      "text_file": "D002.txt",
+      "verification": "retrieved"
+    },
+    {
+      "id": "D003",
+      "type": "SECFiling",
+      "title": "AAPL 10-K filed 2022-10-28",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019322000108/aapl-20220924.htm",
+      "doc_date": "2022-10-28",
+      "date_basis": "SEC_filing_date",
+      "accessed": "2026-10-06T20:56:46Z",
+      "content_type": "text/html",
+      "content_sha256": "sha256:9cec7b174b53599bfbe60cf8430d2d08e8122a131f48008250a89b1c2c634b7e",
+      "text_sha256": "sha256:bc3bb47eea337efe0bed9a709454b8f044a9a7cf7b92088474d9a8c2af846c27",
+      "raw_file": "D003.bytes",
+      "text_file": "D003.txt",
+      "verification": "retrieved"
+    },
+    {
+      "id": "D004",
+      "type": "SECFiling",
+      "title": "AAPL 10-Q filed 2025-01-31",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000008/aapl-20241228.htm",
+      "doc_date": "2025-01-31",
+      "date_basis": "SEC_filing_date",
+      "accessed": "2026-10-06T20:56:46Z",
+      "content_type": "text/html",
+      "content_sha256": "sha256:a3fd64a98b3db1c5f7e9682f3dee448a0f3aeb8d298989e12b66641a16014364",
+      "text_sha256": "sha256:43f006748c42fba2a4ce484822252af989459bfeda28b7e86a4c100261b1e756",
+      "raw_file": "D004.bytes",
+      "text_file": "D004.txt",
+      "verification": "retrieved"
+    },
+    {
+      "id": "D005",
+      "type": "SECFiling",
+      "title": "AAPL DEF 14A filed 2025-01-10",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000130817925000008/aapl4359751-def14a.htm",
+      "doc_date": "2025-01-10",
+      "date_basis": "SEC_filing_date",
+      "accessed": "2026-10-06T20:56:47Z",
+      "content_type": "text/html",
+      "content_sha256": "sha256:56ae5a57ea29e16221cdbbdfc0f7266f7197b4eed832de55b5fede6bba3528a7",
+      "text_sha256": "sha256:e7d5266d6f354fca06ed461b034fdbb1cd6d2073cf38011263e698cc28cb473f",
+      "raw_file": "D005.bytes",
+      "text_file": "D005.txt",
+      "verification": "retrieved"
+    },
+    {
+      "id": "D006",
+      "type": "MarketHistory",
+      "title": "AAPL daily price history through 2025-01-31",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/AAPL?period1=1690761600&period2=1738368000&interval=1d",
+      "doc_date": "2025-01-31",
+      "date_basis": "requested_market_history_cutoff",
+      "accessed": "2026-10-06T20:56:47Z",
+      "content_type": "application/json;charset=utf-8",
+      "content_sha256": "sha256:2e660c44a0f362836640c753e7254a41f278fc99a43c9ea0f638be92e67508ee",
+      "text_sha256": "sha256:bfd26fc4a9aed79aaa43adcc8c51a85f55e9e31535603cbe68e8f07ff5afc305",
+      "raw_file": "D006.bytes",
+      "text_file": "D006.txt",
+      "verification": "retrieved",
+      "transform": {
+        "kind": "yahoo_daily",
+        "ticker": "AAPL",
+        "symbol": "AAPL",
+        "analysis_date": "2025-01-31"
+      }
+    }
+  ]
+}

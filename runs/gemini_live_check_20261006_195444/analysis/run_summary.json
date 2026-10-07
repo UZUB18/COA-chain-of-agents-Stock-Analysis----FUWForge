@@ -1,0 +1,100 @@
+{
+  "run_id": "gemini_live_check_20261006_195444",
+  "status": "completed",
+  "halt_reason": null,
+  "provider": "gemini",
+  "params": {
+    "company": "Apple Inc.",
+    "ticker": "AAPL",
+    "analysis_date": "2025-01-31",
+    "depth": "Quick",
+    "focus": [
+      "AI strategy",
+      "Regulatory"
+    ],
+    "weights": {
+      "Financials": 0.25,
+      "Moat": 0.2,
+      "Growth": 0.15,
+      "Valuation": 0.15,
+      "MgmtGov": 0.1,
+      "RiskInverse": 0.1,
+      "ESG": 0.025,
+      "Market": 0.025
+    }
+  },
+  "checksum": "sha256:eb90e1c2e50f3db3e96f90377012bef3ee1ea629c9bd8d1cff4985761df44209",
+  "metrics": {
+    "A1": {
+      "latency_ms": 21611,
+      "tokens": 0,
+      "retries": 0,
+      "confidence": 0.95,
+      "status": "passed"
+    },
+    "A2": {
+      "latency_ms": 18486,
+      "tokens": 0,
+      "retries": 0,
+      "confidence": 0.95,
+      "status": "passed"
+    },
+    "A3": {
+      "latency_ms": 23531,
+      "tokens": 0,
+      "retries": 0,
+      "confidence": 0.95,
+      "status": "passed"
+    },
+    "A4": {
+      "latency_ms": 21654,
+      "tokens": 0,
+      "retries": 0,
+      "confidence": 0.95,
+      "status": "passed"
+    },
+    "A5": {
+      "latency_ms": 23647,
+      "tokens": 0,
+      "retries": 0,
+      "confidence": 0.95,
+      "status": "passed"
+    },
+    "A6B": {
+      "latency_ms": 19972,
+      "tokens": 0,
+      "retries": 0,
+      "confidence": 0.95,
+      "status": "passed"
+    },
+    "A6R": {
+      "latency_ms": 25326,
+      "tokens": 0,
+      "retries": 0,
+      "confidence": 0.95,
+      "status": "passed"
+    },
+    "A6": {
+      "latency_ms": 56279,
+      "tokens": 0,
+      "retries": 1,
+      "confidence": 0.95,
+      "status": "passed"
+    },
+    "A7": {
+      "latency_ms": 17410,
+      "tokens": 0,
+      "retries": 0,
+      "confidence": 0.95,
+      "status": "passed"
+    }
+  },
+  "outputs": {
+    "report": "/home/trbuzu/Documents/COA-chain-of-agents-Stock-Analysis----FUWForge/runs/gemini_live_check_20261006_195444/analysis/AAPL_2025-01-31_report.md",
+    "artifacts": "/home/trbuzu/Documents/COA-chain-of-agents-Stock-Analysis----FUWForge/runs/gemini_live_check_20261006_195444/analysis/AAPL_2025-01-31_artifacts.json",
+    "provenance": "/home/trbuzu/Documents/COA-chain-of-agents-Stock-Analysis----FUWForge/runs/gemini_live_check_20261006_195444/analysis/AAPL_2025-01-31_provenance.log",
+    "summary": "/home/trbuzu/Documents/COA-chain-of-agents-Stock-Analysis----FUWForge/runs/gemini_live_check_20261006_195444/analysis/run_summary.json"
+  },
+  "started_at": "2026-10-06T19:55:36Z",
+  "finished_at": "2026-10-06T19:58:20Z"
+}

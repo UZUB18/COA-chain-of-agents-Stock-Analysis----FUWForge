@@ -1,0 +1,81 @@
+{
+  "ticker": "UBER",
+  "documents": [
+    {
+      "title": "UBER 10-K filed 2026-02-13",
+      "type": "SECFiling",
+      "url": "https://www.sec.gov/Archives/edgar/data/1543151/000154315126000015/uber-20251231.htm",
+      "doc_date": "2026-02-13",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "UBER 10-K filed 2025-02-14",
+      "type": "SECFiling",
+      "url": "https://www.sec.gov/Archives/edgar/data/1543151/000154315125000008/uber-20241231.htm",
+      "doc_date": "2025-02-14",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "UBER 10-K filed 2024-02-15",
+      "type": "SECFiling",
+      "url": "https://www.sec.gov/Archives/edgar/data/1543151/000154315124000012/uber-20231231.htm",
+      "doc_date": "2024-02-15",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "UBER 10-K filed 2023-02-21",
+      "type": "SECFiling",
+      "url": "https://www.sec.gov/Archives/edgar/data/1543151/000154315123000010/uber-20221231.htm",
+      "doc_date": "2023-02-21",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "UBER 10-K filed 2022-02-24",
+      "type": "SECFiling",
+      "url": "https://www.sec.gov/Archives/edgar/data/1543151/000154315122000008/uber-20211231.htm",
+      "doc_date": "2022-02-24",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "UBER 10-K filed 2021-03-01",
+      "type": "SECFiling",
+      "url": "https://www.sec.gov/Archives/edgar/data/1543151/000154315121000014/uber-20201231.htm",
+      "doc_date": "2021-03-01",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "UBER 10-K filed 2020-03-02",
+      "type": "SECFiling",
+      "url": "https://www.sec.gov/Archives/edgar/data/1543151/000154315120000010/fy2019q410kfinancialst.htm",
+      "doc_date": "2020-03-02",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "UBER 10-Q filed 2026-08-05",
+      "type": "SECFiling",
+      "url": "https://www.sec.gov/Archives/edgar/data/1543151/000154315126000032/uber-20260630.htm",
+      "doc_date": "2026-08-05",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "UBER DEF 14A filed 2026-03-23",
+      "type": "SECFiling",
+      "url": "https://www.sec.gov/Archives/edgar/data/1543151/000130817926000125/uber014597-def14a.htm",
+      "doc_date": "2026-03-23",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "UBER daily price history through 2026-10-06",
+      "type": "MarketHistory",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/UBER?period1=1743724800&period2=1791331200&interval=1d",
+      "doc_date": "2026-10-06",
+      "date_basis": "requested_market_history_cutoff",
+      "transform": {
+        "kind": "yahoo_daily",
+        "ticker": "UBER",
+        "symbol": "UBER",
+        "analysis_date": "2026-10-06"
+      }
+    }
+  ]
+}

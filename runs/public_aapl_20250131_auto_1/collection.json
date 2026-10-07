@@ -1,0 +1,36 @@
+{
+  "ticker": "AAPL",
+  "cik": "320193",
+  "company": "Apple Inc.",
+  "analysis_date": "2025-01-31",
+  "annual_filings_requested": 3,
+  "annual_filings_found": 3,
+  "quarterly_filing_found": true,
+  "proxy_found": true,
+  "market": {
+    "provider": "yahoo_daily",
+    "last_bar_date": "2025-01-31",
+    "price_basis": "Yahoo chart quote.close (not dividend-adjusted adjclose; provider may adjust for splits). Not a point-in-time corporate-action archive.",
+    "probe_accessed": "2026-10-06T20:56:44Z"
+  },
+  "discovery_records": [
+    {
+      "url": "https://www.sec.gov/files/company_tickers.json",
+      "accessed": "2026-10-06T20:56:44Z",
+      "file": "lookup_01.json",
+      "content_sha256": "sha256:eb943bdc3d233f54644ba916f261651460a0b94f6fbf29dbf3c1788271b17bf9"
+    },
+    {
+      "url": "https://data.sec.gov/submissions/CIK0000320193.json",
+      "accessed": "2026-10-06T20:56:44Z",
+      "file": "lookup_02.json",
+      "content_sha256": "sha256:e89635068cd46772d1d3859ce2bc839fab781630787943a1874f258fa354e7a9"
+    }
+  ],
+  "limitations": [
+    "Identifier lookup uses the current SEC ticker/CIK mapping, not a historical ticker database.",
+    "SEC inclusion is based on filing date, not an intraday publication-time cutoff.",
+    "Market-provider corporate-action adjustment policies apply; this is not a certified point-in-time backtest dataset.",
+    "Culture, peer estimates, social media and broader news may still be unavailable; never fabricate them."
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "status": "completed",
+  "generation_provider": "gemini",
+  "model": "gemini-3.8-flash",
+  "generation_api_calls": 9,
+  "additional_api_calls": 0,
+  "saved_semantic_content_unchanged": true,
+  "strict_integrity_valid": true,
+  "integrity_errors": [],
+  "integrity_warnings": [],
+  "all_nine_contracts_valid": true,
+  "injected_defaults": [],
+  "outputs": {
+    "report": "/home/trbuzu/Documents/COA-chain-of-agents-Stock-Analysis----FUWForge/runs/gemini_verified_aapl_20250131_20261006/AAPL_2025-01-31_report.md",
+    "artifacts": "/home/trbuzu/Documents/COA-chain-of-agents-Stock-Analysis----FUWForge/runs/gemini_verified_aapl_20250131_20261006/AAPL_2025-01-31_artifacts.json",
+    "provenance": "/home/trbuzu/Documents/COA-chain-of-agents-Stock-Analysis----FUWForge/runs/gemini_verified_aapl_20250131_20261006/AAPL_2025-01-31_provenance.log",
+    "summary": "/home/trbuzu/Documents/COA-chain-of-agents-Stock-Analysis----FUWForge/runs/gemini_verified_aapl_20250131_20261006/run_summary.json"
+  },
+  "audit_note": "Fresh provenance records local revalidation/assembly of saved live outputs, not a second generation. The first in-place recovery helper replaced the original generation log; the original generation status/console evidence and accepted envelopes remain. This replay does not reconstruct the original event hash chain."
+}

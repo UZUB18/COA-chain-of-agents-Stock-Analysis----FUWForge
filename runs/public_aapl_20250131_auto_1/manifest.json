@@ -1,0 +1,53 @@
+{
+  "ticker": "AAPL",
+  "documents": [
+    {
+      "title": "AAPL 10-K filed 2024-11-01",
+      "type": "SECFiling",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019324000123/aapl-20240928.htm",
+      "doc_date": "2024-11-01",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "AAPL 10-K filed 2023-11-03",
+      "type": "SECFiling",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019323000106/aapl-20230930.htm",
+      "doc_date": "2023-11-03",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "AAPL 10-K filed 2022-10-28",
+      "type": "SECFiling",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019322000108/aapl-20220924.htm",
+      "doc_date": "2022-10-28",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "AAPL 10-Q filed 2025-01-31",
+      "type": "SECFiling",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000008/aapl-20241228.htm",
+      "doc_date": "2025-01-31",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "AAPL DEF 14A filed 2025-01-10",
+      "type": "SECFiling",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000130817925000008/aapl4359751-def14a.htm",
+      "doc_date": "2025-01-10",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "AAPL daily price history through 2025-01-31",
+      "type": "MarketHistory",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/AAPL?period1=1690761600&period2=1738368000&interval=1d",
+      "doc_date": "2025-01-31",
+      "date_basis": "requested_market_history_cutoff",
+      "transform": {
+        "kind": "yahoo_daily",
+        "ticker": "AAPL",
+        "symbol": "AAPL",
+        "analysis_date": "2025-01-31"
+      }
+    }
+  ]
+}

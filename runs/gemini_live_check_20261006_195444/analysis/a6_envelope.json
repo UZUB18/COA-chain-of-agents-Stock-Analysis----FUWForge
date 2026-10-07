@@ -1,0 +1,125 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A6",
+    "name": "CIO-Synthesis"
+  },
+  "timestamp": "2026-10-06T19:58:03Z",
+  "params": {
+    "company": "Apple Inc.",
+    "ticker": "AAPL",
+    "analysis_date": "2025-01-31",
+    "depth": "Quick",
+    "focus": [
+      "AI strategy",
+      "Regulatory"
+    ],
+    "weights": {
+      "Financials": 0.25,
+      "Moat": 0.2,
+      "Growth": 0.15,
+      "Valuation": 0.15,
+      "MgmtGov": 0.1,
+      "RiskInverse": 0.1,
+      "ESG": 0.025,
+      "Market": 0.025
+    }
+  },
+  "gates": {
+    "passed": true,
+    "notes": []
+  },
+  "sections_md": {
+    "SECTION_14_SYNTHESIS": "### Section 14 Synthesis\nAnalysis for AAPL (2025-01-31) based on primary filings and quantitative metrics."
+  },
+  "artifacts": {
+    "DangerZoneDashboard": [
+      {
+        "category": "Accounting anomalies",
+        "flag": "\ud83d\udfe2",
+        "sources": [],
+        "note": "Clean"
+      }
+    ],
+    "ScenarioTable": {
+      "Bull": {
+        "Revenue": "TBD",
+        "EPS": "TBD",
+        "FCFPerShare": "TBD",
+        "Drivers": "TBD"
+      },
+      "Base": {
+        "Revenue": "TBD",
+        "EPS": "TBD",
+        "FCFPerShare": "TBD",
+        "Drivers": "TBD"
+      },
+      "Bear": {
+        "Revenue": "TBD",
+        "EPS": "TBD",
+        "FCFPerShare": "TBD",
+        "Drivers": "TBD"
+      }
+    },
+    "Catalysts": [
+      "Platform release"
+    ],
+    "Headwinds": [
+      "Macro headwinds"
+    ]
+  },
+  "sources": [
+    {
+      "type": "SEC/Filing",
+      "url": "https://sec.gov",
+      "doc_date": "2025-01-31",
+      "accessed": "2026-10-06T19:58:03Z"
+    }
+  ],
+  "warnings": [
+    "Normalization injected runner defaults for: Catalysts, DangerZoneDashboard, Headwinds, ScenarioTable, sections_md.SECTION_14_SYNTHESIS",
+    "normalization injected defaults for: Catalysts, DangerZoneDashboard, Headwinds, ScenarioTable, sections_md.SECTION_14_SYNTHESIS"
+  ],
+  "metrics": {
+    "data_checksum": "sha256:eb90e1c2e50f3db3e96f90377012bef3ee1ea629c9bd8d1cff4985761df44209",
+    "injected_defaults": [
+      "Catalysts",
+      "DangerZoneDashboard",
+      "Headwinds",
+      "ScenarioTable",
+      "sections_md.SECTION_14_SYNTHESIS"
+    ]
+  },
+  "confidence": 0.95,
+  "content_checksum": "sha256:5ffdd639c6de1b0314dd7294412c6f22f99ac7a791c4f0dc4c8e7c89d055140a",
+  "upstream": [
+    {
+      "agent": "A1",
+      "content_checksum": "sha256:666f9ff17e6f39bd783b0792c0f85d5ef27afdab4a7a49d40b0b966073fdcdc1"
+    },
+    {
+      "agent": "A2",
+      "content_checksum": "sha256:8cd323d8299059705e4cc3e026c1caaa5dc24b6634b9561871bd986166045d82"
+    },
+    {
+      "agent": "A3",
+      "content_checksum": "sha256:795218ff044af778cda07fa040acc5c46caa3f2081572d93fce7217f539211a4"
+    },
+    {
+      "agent": "A4",
+      "content_checksum": "sha256:2a0f03584d44f8f7f8989cd86979b3488db8af363be5324ef4ab34728018f666"
+    },
+    {
+      "agent": "A5",
+      "content_checksum": "sha256:59a0fb572fbdc73de77faefe9e67cedf7c57db1b635f8b46aa2b8e3cc48ffa8c"
+    },
+    {
+      "agent": "A6B",
+      "content_checksum": "sha256:16d9e3f3d3c1a6c7f5a5d33fa8f8acf2a04e6a0edac1a5525bace9314d850d9f"
+    },
+    {
+      "agent": "A6R",
+      "content_checksum": "sha256:6f77f03c29eeeee9fdc826b6b58ea9a56b7a6d696d11e88be117f30d8229f4c3"
+    }
+  ]
+}

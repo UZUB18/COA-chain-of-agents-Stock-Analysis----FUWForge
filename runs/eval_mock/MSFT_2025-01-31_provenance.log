@@ -1,0 +1,58 @@
+2026-09-15T20:31:17Z | ORCH       | A1 checkpoint recorded (checksum=sha256:e420be807aae6a76483a40859c4dcc7ba06aee1a2db857e2b1b4df0b1778bf72). | sha256:11b9d3eb9f9ac5349f291756527b4b10cd4792aea5335fa34bbc5590621eb450
+2026-09-15T20:31:17Z | ORCH       | A2 envelope accepted. | sha256:fe6c0056583f6ac10ef79b7d731c9e5e8854f9615f8099e84c84c3e216a87a99
+2026-09-15T20:31:17Z | ORCH       | A3 envelope accepted. | sha256:9a2603d9a86f7852978847611896406507cac7b7b5c82847709b56b440a8d01b
+2026-09-15T20:31:17Z | ORCH       | A4 envelope accepted. | sha256:31c4e506da0881560133867e5428dc8635017d5050f99792365968791be00696
+2026-09-15T20:31:17Z | ORCH       | A5 envelope accepted. | sha256:18d950d7f934110a88b27e1cf0e91c8d51d4fd1aa1ceb9435678bd9968222692
+2026-09-15T20:31:17Z | ORCH       | A6B envelope accepted. | sha256:338c177019a6b46201b6c7a1d05554a459fac4faf2efcc46bf5e29a957ac8c4a
+2026-09-15T20:31:17Z | ORCH       | A6R envelope accepted. | sha256:55cd1754b663aa152aec6ec2654c5ae38ba60dfc99b9069a316a33f9b06240c1
+2026-09-15T20:31:17Z | ORCH       | A6 envelope accepted. | sha256:0246916f19dd06a19018a11e1cd5d572b712c06fae1f8a6d1f08d72505e329a1
+2026-09-15T20:31:17Z | ORCH       | A7 final assembly accepted. | sha256:14682fea0ae426c0a112ccd1a75bddf8f993f97e1a677011ff7134571875a132
+2026-09-16T09:08:43Z | ORCH       | A1 envelope carries no content_checksum (legacy or unsealed); run `controller seal` to add integrity. | sha256:f7e699f654dac25b5dc1984191ac84d4a27b2852a126a3c3e4d4a218fb457071
+2026-09-16T09:08:43Z | ORCH       | A1 envelope accepted (attempts=1, latency_ms=1). | sha256:d7d63ffbde51b7c26133296a54c8a0e9a9167ab8d9df70391813fdd46104f1aa
+2026-09-16T09:08:43Z | ORCH       | A1 checkpoint recorded (checksum=sha256:e420be807aae6a76483a40859c4dcc7ba06aee1a2db857e2b1b4df0b1778bf72). | sha256:558b30b6b5f3ebf2ce4668a1b0ffdb47fc86c6c7c9664f9c4ede5427aacef170
+2026-09-16T09:08:43Z | ORCH       | A2 envelope carries no content_checksum (legacy or unsealed); run `controller seal` to add integrity. | sha256:96295a973265161358c9deecec30b79ecae310b6f2ac4771a80713cb62b8481f
+2026-09-16T09:08:43Z | ORCH       | A2 envelope accepted (attempts=1, latency_ms=1). | sha256:c189e89bdb3b45eb7c762134f4f68a0586b70e7c18f1be815b637456bdd8da90
+2026-09-16T09:08:43Z | ORCH       | A3 envelope carries no content_checksum (legacy or unsealed); run `controller seal` to add integrity. | sha256:8af3287d1692ef0239fe8416c6ca8d3ef87463da7c66d5c174d52686ca46c67a
+2026-09-16T09:08:43Z | ORCH       | A3 envelope accepted (attempts=1, latency_ms=1). | sha256:828467a7a8185fe79a48d59cccfdcb7870790d6d80f052d98075dadccc43967f
+2026-09-16T09:08:43Z | ORCH       | A4 envelope carries no content_checksum (legacy or unsealed); run `controller seal` to add integrity. | sha256:d4f8ecafa6a4b07401300b7906fd10d5443571310c6d7281534b9559eb49d7f2
+2026-09-16T09:08:43Z | ORCH       | A4 envelope accepted (attempts=1, latency_ms=1). | sha256:37846c802e96f728005921d62e2c3d9655b66c3c09b0e31ce54b475d44d25e6d
+2026-09-16T09:08:43Z | ORCH       | A5 envelope carries no content_checksum (legacy or unsealed); run `controller seal` to add integrity. | sha256:06f293b4acd71fe8c839e130cf6887410958ec10e8cc07f8f74dcfcfe8432c9b
+2026-09-16T09:08:43Z | ORCH       | A5 envelope accepted (attempts=1, latency_ms=1). | sha256:065daf57e00e11ed9c8bd4cfd5ecac8cfbffbbbaa676280c047d447586ffb0e5
+2026-09-16T09:08:43Z | ORCH       | A6B envelope carries no content_checksum (legacy or unsealed); run `controller seal` to add integrity. | sha256:9ccdb4ac5453cc331d2da03b859b645e946e57821848c38eca94742035b6ec58
+2026-09-16T09:08:43Z | ORCH       | A6B envelope accepted (attempts=1, latency_ms=1). | sha256:df4ec897bcd1a7bb9f7b240baa413e831331d98b51d3cca2ce9224fa63a5b089
+2026-09-16T09:08:43Z | ORCH       | A6R envelope carries no content_checksum (legacy or unsealed); run `controller seal` to add integrity. | sha256:b8434252dc394cfd9419accccf3a8cf13f79e843e8afec7caf9dc45d2b7c76f0
+2026-09-16T09:08:43Z | ORCH       | A6R envelope accepted (attempts=1, latency_ms=1). | sha256:ddd697c57ca2bc6107ad50d3c84887dd1276f765f2deca8aa9d011484f664fc3
+2026-09-16T09:08:43Z | ORCH       | A6 envelope carries no content_checksum (legacy or unsealed); run `controller seal` to add integrity. | sha256:aac9ed157b37be6dcce7a60329d8aaf0f4bcea6cfd28361627f50fe052eb7d06
+2026-09-16T09:08:43Z | ORCH       | A6 envelope accepted (attempts=1, latency_ms=1). | sha256:ec50e2ebcd8422489d9bb445c4e5a22612f6d0d5aacbea9dcc9e5812b2e1343a
+2026-09-16T09:08:43Z | ORCH       | A7 envelope carries no content_checksum (legacy or unsealed); run `controller seal` to add integrity. | sha256:6c61c228ccce7e71770e6f8d3483ac0d35f2c980e6e69e42f6c67d7ba8865c59
+2026-09-16T09:08:43Z | ORCH       | Validation FAILED (A7): A7 missing required artifacts: Missing required artifacts: comparison_fields | sha256:53c332b19cae0481bc0fa3dc44513047207283be19052d88f0b93af896f224c6
+2026-09-16T09:09:00Z | ORCH       | A1 envelope accepted (attempts=1, latency_ms=1). | sha256:6728da54fe1bcf054be1e0279ad454d141433c91937e1373976fd6c7e15c3b52
+2026-09-16T09:09:00Z | ORCH       | A1 checkpoint recorded (checksum=sha256:d9e5d987c78b8aef6ba014ad5795aa7d95dd8aa2e1c08d0c3387a3c4de27853c). | sha256:a1e4b9b72d31c135f75fe1f18c5b08e247dff47651283c0bfd195d6b20486672
+2026-09-16T09:09:00Z | ORCH       | A2 envelope accepted (attempts=1, latency_ms=1). | sha256:967e5f323fa7819f28544ed1c820f538ed8170bb8e375af1aef342ecaafb7c53
+2026-09-16T09:09:00Z | ORCH       | A3 envelope accepted (attempts=1, latency_ms=1). | sha256:0d01fa31787d5b1cc45912e8a622573e10b427000823ba6d3e143a2a0963e14b
+2026-09-16T09:09:00Z | ORCH       | A4 envelope accepted (attempts=1, latency_ms=1). | sha256:507e86cf4fb182acc4d234ea5d8e416bc1cee3dfc0390ec23a1c996c60247a46
+2026-09-16T09:09:00Z | ORCH       | A5 envelope accepted (attempts=1, latency_ms=1). | sha256:e62b84e63e315dfe23a6ef2030666453fae3ca323f7afd8a478645ebf06c525f
+2026-09-16T09:09:00Z | ORCH       | A6B envelope accepted (attempts=1, latency_ms=1). | sha256:c1d74a1648f97db1ab7054c37938dcff6d5d22f1893156ff6979899bd125e08b
+2026-09-16T09:09:00Z | ORCH       | A6R envelope accepted (attempts=1, latency_ms=1). | sha256:d46ea0ea312175ef55b95056d8cbbe314e8792eb62b1643c4ff077579032842a
+2026-09-16T09:09:00Z | ORCH       | A6 envelope accepted (attempts=1, latency_ms=1). | sha256:cda24d49dd83f8449973c134acae911f9d976f6321bab95ca89bad1542c9455d
+2026-09-16T09:09:00Z | ORCH       | A7 envelope accepted (attempts=1, latency_ms=1). | sha256:8f4c526dde0c32dc0ed92363744bac98d0dd6def4ed02373ba4fb5b106cd2f36
+2026-09-16T09:09:09Z | ORCH       | A1 envelope accepted (attempts=1, latency_ms=1). | sha256:a969d933e3f53311dac556a250458607c339b0ff282ff174998c39ca7fc5e625
+2026-09-16T09:09:09Z | ORCH       | A1 checkpoint recorded (checksum=sha256:d9e5d987c78b8aef6ba014ad5795aa7d95dd8aa2e1c08d0c3387a3c4de27853c). | sha256:3958e4405c0e0e435a8a4f1dc9260fcbd6e925c75a3c43790f16cf8e94cfcaea
+2026-09-16T09:09:09Z | ORCH       | A2 envelope accepted (attempts=1, latency_ms=1). | sha256:7b9fb846b691cadf08fdd12830146b31aeae586c9b7d506c01cc8e1ec2fd3e71
+2026-09-16T09:09:09Z | ORCH       | A3 envelope accepted (attempts=1, latency_ms=1). | sha256:0b81864c6d6ab93d72776e82986096aef3fc7d745810dd8d51ecbbc439eebfcf
+2026-09-16T09:09:09Z | ORCH       | A4 envelope accepted (attempts=1, latency_ms=1). | sha256:9bfce1ced0d4e37f221a0753c29ea87bbd0d5af77edf30217198c5ba70d2f302
+2026-09-16T09:09:09Z | ORCH       | A5 envelope accepted (attempts=1, latency_ms=1). | sha256:7fa6c4a56bdc5033bb542fcc38f0d92baefda9dce8378391a6f4ab2d2db37891
+2026-09-16T09:09:09Z | ORCH       | A6B envelope accepted (attempts=1, latency_ms=1). | sha256:fd44bf6d2a6b4801b14810fd9c35f9602d1a2ea8887a392c5fcf8f0f603e3310
+2026-09-16T09:09:09Z | ORCH       | A6R envelope accepted (attempts=1, latency_ms=1). | sha256:0bcbda54a8ba8bf68fdaab755dc81fdc8af3a401e863e89c5b807a94f046b459
+2026-09-16T09:09:09Z | ORCH       | A6 envelope accepted (attempts=1, latency_ms=1). | sha256:a75fbbabf195b57d1d8f8649d5ca69c22ab5eef0bb8f94eb236717ce58e72938
+2026-09-16T09:09:09Z | ORCH       | A7 envelope accepted (attempts=1, latency_ms=1). | sha256:cacc27869b9d40a0d128c7fd2fd4e9f55f6f19f698a65ddf3cd2e9683c197430
+2026-09-16T09:10:24Z | ORCH       | A1 envelope accepted (attempts=1, latency_ms=1). | sha256:f192a0e2d08ede2cafb6454c823c7520d14867a5832bb1cfcb168b677ce58f2d
+2026-09-16T09:10:24Z | ORCH       | A1 checkpoint recorded (checksum=sha256:d9e5d987c78b8aef6ba014ad5795aa7d95dd8aa2e1c08d0c3387a3c4de27853c). | sha256:7c043ac801608e4cba4de2cbec6e5b52b3a27ac5f2c081fd78ca3e7f645f01d0
+2026-09-16T09:10:24Z | ORCH       | A2 envelope accepted (attempts=1, latency_ms=1). | sha256:9034cfa466381c63d2f545d8bd2d566f818e20fcf5ffbf8d4488284ff86a7eab
+2026-09-16T09:10:24Z | ORCH       | A3 envelope accepted (attempts=1, latency_ms=1). | sha256:e17e5f1552827feb973bb8957806eb29e94d17a2c396c7db1151e75b38ec94df
+2026-09-16T09:10:24Z | ORCH       | A4 envelope accepted (attempts=1, latency_ms=1). | sha256:d68263d60a95c256b6e29b2d25532beed9b63949bc6b4b9f7c71c6a02023a167
+2026-09-16T09:10:24Z | ORCH       | A5 envelope accepted (attempts=1, latency_ms=1). | sha256:6b33a702e03b11d3aaadc83793ec32040f8ec6e369d0640677ab5198da01d65f
+2026-09-16T09:10:24Z | ORCH       | A6B envelope accepted (attempts=1, latency_ms=1). | sha256:1ab3d399f07e0c717e7eaa4d0c56e1a70faecdc73e0beb483b93d1908b47de51
+2026-09-16T09:10:24Z | ORCH       | A6R envelope accepted (attempts=1, latency_ms=1). | sha256:608ac59bbca0dda46512fca4f322b1e21bfbfaff53ef402a1c8a34ff619e6b84
+2026-09-16T09:10:24Z | ORCH       | A6 envelope accepted (attempts=1, latency_ms=1). | sha256:490ce36ce42c290f61e2a727a68e7171f0ae9cc9f02a6508847a749d5b01b714
+2026-09-16T09:10:24Z | ORCH       | A7 envelope accepted (attempts=1, latency_ms=1). | sha256:ac7fb7d358f1e94a8d1151ebcf06a64cb081cb25860346e5e92e244e0692e00f

@@ -1,0 +1,210 @@
+{
+  "run_status": "completed",
+  "missing_agents": [],
+  "integrity_valid": true,
+  "integrity_errors": [],
+  "integrity_warnings": [],
+  "all_contracts_valid": true,
+  "all_strict_contracts_valid": false,
+  "agents": {
+    "A1": {
+      "contract_valid": true,
+      "strict_contract_valid": true,
+      "strict_errors": [],
+      "warnings": [],
+      "injected_defaults": [],
+      "sources": [
+        {
+          "type": "SEC/Filing",
+          "url": "https://sec.gov",
+          "doc_date": "2025-01-31",
+          "accessed": "2026-10-06T19:55:57Z"
+        }
+      ],
+      "confidence": 0.95,
+      "attempts": 1,
+      "latency_ms": 21611
+    },
+    "A2": {
+      "contract_valid": true,
+      "strict_contract_valid": true,
+      "strict_errors": [],
+      "warnings": [],
+      "injected_defaults": [],
+      "sources": [
+        {
+          "type": "SEC/Filing",
+          "url": "https://sec.gov",
+          "doc_date": "2025-01-31",
+          "accessed": "2026-10-06T19:56:16Z"
+        }
+      ],
+      "confidence": 0.95,
+      "attempts": 1,
+      "latency_ms": 18486
+    },
+    "A3": {
+      "contract_valid": true,
+      "strict_contract_valid": true,
+      "strict_errors": [],
+      "warnings": [],
+      "injected_defaults": [],
+      "sources": [
+        {
+          "type": "SEC/Filing",
+          "url": "https://sec.gov",
+          "doc_date": "2025-01-31",
+          "accessed": "2026-10-06T19:56:21Z"
+        }
+      ],
+      "confidence": 0.95,
+      "attempts": 1,
+      "latency_ms": 23531
+    },
+    "A4": {
+      "contract_valid": true,
+      "strict_contract_valid": true,
+      "strict_errors": [],
+      "warnings": [],
+      "injected_defaults": [],
+      "sources": [
+        {
+          "type": "SEC/Filing",
+          "url": "https://sec.gov",
+          "doc_date": "2025-01-31",
+          "accessed": "2026-10-06T19:56:19Z"
+        }
+      ],
+      "confidence": 0.95,
+      "attempts": 1,
+      "latency_ms": 21654
+    },
+    "A5": {
+      "contract_valid": true,
+      "strict_contract_valid": true,
+      "strict_errors": [],
+      "warnings": [],
+      "injected_defaults": [],
+      "sources": [
+        {
+          "type": "SEC/Filing",
+          "url": "https://sec.gov",
+          "doc_date": "2025-01-31",
+          "accessed": "2026-10-06T19:56:21Z"
+        }
+      ],
+      "confidence": 0.95,
+      "attempts": 1,
+      "latency_ms": 23647
+    },
+    "A6B": {
+      "contract_valid": true,
+      "strict_contract_valid": true,
+      "strict_errors": [],
+      "warnings": [],
+      "injected_defaults": [],
+      "sources": [
+        {
+          "type": "SEC/Filing",
+          "url": "https://sec.gov",
+          "doc_date": "2025-01-31",
+          "accessed": "2026-10-06T19:56:41Z"
+        }
+      ],
+      "confidence": 0.95,
+      "attempts": 1,
+      "latency_ms": 19972
+    },
+    "A6R": {
+      "contract_valid": true,
+      "strict_contract_valid": true,
+      "strict_errors": [],
+      "warnings": [],
+      "injected_defaults": [],
+      "sources": [
+        {
+          "type": "SEC/Filing",
+          "url": "https://sec.gov",
+          "doc_date": "2025-01-31",
+          "accessed": "2026-10-06T19:57:06Z"
+        }
+      ],
+      "confidence": 0.95,
+      "attempts": 1,
+      "latency_ms": 25326
+    },
+    "A6": {
+      "contract_valid": true,
+      "strict_contract_valid": false,
+      "strict_errors": [
+        "strict mode: normalization injected defaults for: Catalysts, DangerZoneDashboard, Headwinds, ScenarioTable, sections_md.SECTION_14_SYNTHESIS"
+      ],
+      "warnings": [
+        "Normalization injected runner defaults for: Catalysts, DangerZoneDashboard, Headwinds, ScenarioTable, sections_md.SECTION_14_SYNTHESIS",
+        "normalization injected defaults for: Catalysts, DangerZoneDashboard, Headwinds, ScenarioTable, sections_md.SECTION_14_SYNTHESIS"
+      ],
+      "injected_defaults": [
+        "Catalysts",
+        "DangerZoneDashboard",
+        "Headwinds",
+        "ScenarioTable",
+        "sections_md.SECTION_14_SYNTHESIS"
+      ],
+      "sources": [
+        {
+          "type": "SEC/Filing",
+          "url": "https://sec.gov",
+          "doc_date": "2025-01-31",
+          "accessed": "2026-10-06T19:58:03Z"
+        }
+      ],
+      "confidence": 0.95,
+      "attempts": 2,
+      "latency_ms": 56279
+    },
+    "A7": {
+      "contract_valid": true,
+      "strict_contract_valid": false,
+      "strict_errors": [
+        "strict mode: normalization injected defaults for: Glossary, SWOT, Scorecard, comparison_fields"
+      ],
+      "warnings": [
+        "Normalization injected runner defaults for: Glossary, SWOT, Scorecard, comparison_fields",
+        "normalization injected defaults for: Glossary, SWOT, Scorecard, comparison_fields"
+      ],
+      "injected_defaults": [
+        "Glossary",
+        "SWOT",
+        "Scorecard",
+        "comparison_fields"
+      ],
+      "sources": [
+        {
+          "type": "SEC/Filing",
+          "url": "https://sec.gov",
+          "doc_date": "2025-01-31",
+          "accessed": "2026-10-06T19:58:20Z"
+        }
+      ],
+      "confidence": 0.95,
+      "attempts": 1,
+      "latency_ms": 17410
+    }
+  },
+  "comparison_fields": {
+    "quality_score_10": 7.9,
+    "valuation_score_10": 6.8,
+    "expected_5y_irr_base_pct": 11.8,
+    "downside_case_5y_irr_pct": -2.1,
+    "fcf_yield_ttm_pct": 4.2,
+    "roic_ttm_pct": 22.5,
+    "net_debt_to_ebitda": 0.5,
+    "moat_score_10": 8.0,
+    "reinvestment_runway_score_10": 7.5,
+    "balance_sheet_score_10": 8.5,
+    "fragility_score_10": 2.0,
+    "evidence_quality_score_10": 9.0,
+    "data_completeness_score_10": 8.0
+  },
+  "fact_verification": "Not performed: model agents have no live retrieval tools; this is a historical smoke test."
+}

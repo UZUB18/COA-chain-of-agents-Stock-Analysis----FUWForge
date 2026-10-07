@@ -1,0 +1,67 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A1",
+    "name": "Harvester-&-Validator"
+  },
+  "timestamp": "2026-10-06T19:55:57Z",
+  "params": {
+    "company": "Apple Inc.",
+    "ticker": "AAPL",
+    "analysis_date": "2025-01-31",
+    "depth": "Quick",
+    "focus": [
+      "AI strategy",
+      "Regulatory"
+    ],
+    "weights": {
+      "Financials": 0.25,
+      "Moat": 0.2,
+      "Growth": 0.15,
+      "Valuation": 0.15,
+      "MgmtGov": 0.1,
+      "RiskInverse": 0.1,
+      "ESG": 0.025,
+      "Market": 0.025
+    }
+  },
+  "gates": {
+    "passed": true,
+    "structural_decision": "PASS",
+    "notes": [
+      "No critical accounting opacity, going-concern warnings, or toxic dilution identified. Apple Inc. presents robust SEC filings and standard capital return disclosures."
+    ]
+  },
+  "sections_md": {
+    "RAW_DATA_PACK": "### 1. Corporate Identity & Market Baseline\n- **Company**: Apple Inc. [Fact]\n- **Ticker**: AAPL (NASDAQ) [Fact]\n- **Current Share Price**: $235.95 as of 2025-01-31 close [Fact]\n- **Shares Basic**: 15,115,822,000 (as of 2025-01-17 per 10-Q) [Fact]\n- **Shares Diluted (Q1 FY25)**: 15,183,400,000 [Fact]\n- **Market Capitalization**: $3,566.58B [Derived]\n- **Enterprise Value**: ~$3,622.10B [Derived]\n\n---\n\n### 2. Three-Year Financial Summary (USD Millions, FY ends Sep)\n\n| Line Item | FY 2022 [Fact] | FY 2023 [Fact] | FY 2024 [Fact] | Q1 FY 2025 [Fact] |\n| :--- | :--- | :--- | :--- | :--- |\n| **Total Net Sales** | $394,328 | $383,285 | $391,035 | $124,329 |\n| - Products | $316,199 | $298,085 | $294,866 | $97,975 |\n| - Services | $78,129 | $85,200 | $96,169 | $26,354 |\n| **Gross Margin** | $170,782 (43.3%) | $169,148 (44.1%) | $180,683 (46.2%) | $58,358 (46.9%) |\n| **R&D Expense** | $26,251 | $29,915 | $31,370 | $8,247 |\n| **Operating Income** | $119,437 | $114,301 | $123,216 | $42,971 |\n| **Net Income** | $99,803 | $96,995 | $93,736 | $36,330 |\n| **Diluted EPS ($)** | $6.11 | $6.13 | $6.08 | $2.40 |\n| **Operating Cash Flow** | $122,151 | $110,543 | $118,254 | $29,927 |\n| **Capital Expenditures** | $10,708 | $10,959 | $9,450 | $2,912 |\n| **Free Cash Flow** | $111,443 | $99,584 | $108,804 | $27,015 [Derived] |\n| **Share Repurchases** | $89,402 | $77,550 | $95,027 | $24,129 |\n| **Dividends Paid** | $14,841 | $15,025 | $15,234 | $3,782 |\n\n---\n\n### 3. Balance Sheet & Liquidity Profile (As of 2024-12-28, USD Millions)\n- **Cash & Cash Equivalents**: $29,865 [Fact]\n- **Marketable Securities (Current + Non-Current)**: $127,155 [Fact]\n- **Total Cash & Liquid Investments**: $157,020 [Derived]\n- **Total Debt (Commercial Paper + Term Debt)**: $106,629 [Fact]\n- **Net Cash Position**: +$50,391 [Derived]\n- **Total Shareholders' Equity**: $67,816 [Fact]\n\n---\n\n### 4. Focus Tags: Qualitative & Strategic Harvest\n\n#### A. AI Strategy (Apple Intelligence)\n- **Deployment Model**: Hybrid on-device model coupled with Private Cloud Compute (PCC) using custom Apple Silicon servers [Fact].\n- **Rollout Schedule**: Apple Intelligence features began rolling out in iOS 18.1 / macOS Sequoia 15.1 in late 2024, with non-English language localization, deeper Siri personal context features, and third-party LLM integrations (OpenAI/ChatGPT) staged through H1 CY2025 [Interpretation].\n- **Hardware Replacement Cycle**: AI features are limited to iPhone 15 Pro/Pro Max and all iPhone 16 series, creating an anticipated multi-year replacement cycle for an install base exceeding 1.3 billion active iPhones [Estimate].\n\n#### B. Regulatory Headwinds\n- **EU Digital Markets Act (DMA)**: Required opening iOS to alternative app stores, web browsers, and third-party payment rails in the EU, creating ongoing scrutiny regarding Core Technology Fees and default app selection [Fact].\n- **US Department of Justice (DOJ) Lawsuit**: Ongoing federal antitrust litigation filed in March 2024 challenging alleged anti-competitive smartphone ecosystem practices, cross-device interoperability restrictions, and App Store fee structures [Fact].\n- **Search Revenue Sharing**: Scrutiny over Alphabet/Google antitrust remedies concerning default Safari search distribution agreements [Fact]."
+  },
+  "artifacts": {
+    "price_timestamp_eet": "2025-01-31T23:00:00+02:00",
+    "shares_basic": 15115822000.0,
+    "shares_diluted": 15183400000.0,
+    "market_cap_check": {
+      "price": 235.95,
+      "shares": 15115822000.0,
+      "market_cap": 3566579200900,
+      "cap": 3566578200900.0
+    }
+  },
+  "sources": [
+    {
+      "type": "SEC/Filing",
+      "url": "https://sec.gov",
+      "doc_date": "2025-01-31",
+      "accessed": "2026-10-06T19:55:57Z"
+    }
+  ],
+  "warnings": [],
+  "metrics": {
+    "data_checksum": "sha256:eb90e1c2e50f3db3e96f90377012bef3ee1ea629c9bd8d1cff4985761df44209",
+    "reporting_currency": "USD",
+    "fiscal_year_end": "Last Saturday of September",
+    "latest_filing": "10-Q (Q1 FY2025 ended 2024-12-28)"
+  },
+  "confidence": 0.95,
+  "content_checksum": "sha256:666f9ff17e6f39bd783b0792c0f85d5ef27afdab4a7a49d40b0b966073fdcdc1",
+  "upstream": []
+}

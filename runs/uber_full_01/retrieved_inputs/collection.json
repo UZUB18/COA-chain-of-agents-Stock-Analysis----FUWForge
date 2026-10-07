@@ -1,0 +1,42 @@
+{
+  "ticker": "UBER",
+  "cik": "1543151",
+  "company": "Uber Technologies, Inc",
+  "analysis_date": "2026-10-06",
+  "annual_filings_requested": 10,
+  "annual_filings_found": 7,
+  "quarterly_filing_found": true,
+  "proxy_found": true,
+  "market": {
+    "provider": "yahoo_daily",
+    "last_bar_date": "2026-10-06",
+    "price_basis": "Yahoo chart quote.close (not dividend-adjusted adjclose; provider may adjust for splits). Not a point-in-time corporate-action archive.",
+    "probe_accessed": "2026-10-06T22:06:05Z"
+  },
+  "discovery_records": [
+    {
+      "url": "https://www.sec.gov/files/company_tickers.json",
+      "accessed": "2026-10-06T22:06:05Z",
+      "file": "lookup_01.json",
+      "content_sha256": "sha256:eb943bdc3d233f54644ba916f261651460a0b94f6fbf29dbf3c1788271b17bf9"
+    },
+    {
+      "url": "https://data.sec.gov/submissions/CIK0001543151.json",
+      "accessed": "2026-10-06T22:06:05Z",
+      "file": "lookup_02.json",
+      "content_sha256": "sha256:c995406f241c4e6cb376abdd696ae447e2f30e1c24d7b45a715c433070ab2643"
+    },
+    {
+      "url": "https://data.sec.gov/submissions/CIK0001543151-submissions-001.json",
+      "accessed": "2026-10-06T22:06:05Z",
+      "file": "lookup_03.json",
+      "content_sha256": "sha256:948d532f1b8b66099bdb688408bf11a082a3bce2b4589b86d312a2ea8818ce65"
+    }
+  ],
+  "limitations": [
+    "Identifier lookup uses the current SEC ticker/CIK mapping, not a historical ticker database.",
+    "SEC inclusion is based on filing date, not an intraday publication-time cutoff.",
+    "Market-provider corporate-action adjustment policies apply; this is not a certified point-in-time backtest dataset.",
+    "Culture, peer estimates, social media and broader news may still be unavailable; never fabricate them."
+  ]
+}

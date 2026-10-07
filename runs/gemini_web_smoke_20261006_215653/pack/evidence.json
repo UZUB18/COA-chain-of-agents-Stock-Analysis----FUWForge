@@ -1,0 +1,143 @@
+{
+  "schema_version": "1",
+  "ticker": "AAPL",
+  "documents": [
+    {
+      "id": "D001",
+      "type": "SECFiling",
+      "title": "AAPL 10-K filed 2024-11-01",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019324000123/aapl-20240928.htm",
+      "doc_date": "2024-11-01",
+      "date_basis": "SEC_filing_date",
+      "accessed": "2026-10-06T20:56:45Z",
+      "content_type": "text/html",
+      "content_sha256": "sha256:81c983accb73e47cc327494190378c2c5bfa05484c26aadadbbc2842d0df671c",
+      "text_sha256": "sha256:8b30f4c8862536f80cba39667c5b5455023a617e65b1b48c1da746b2cac6448f",
+      "raw_file": "D001.bytes",
+      "text_file": "D001.txt",
+      "verification": "retrieved"
+    },
+    {
+      "id": "D002",
+      "type": "SECFiling",
+      "title": "AAPL 10-K filed 2023-11-03",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019323000106/aapl-20230930.htm",
+      "doc_date": "2023-11-03",
+      "date_basis": "SEC_filing_date",
+      "accessed": "2026-10-06T20:56:45Z",
+      "content_type": "text/html",
+      "content_sha256": "sha256:c91ef495aa642ee6283a57f472fe6964b380ed1e9292bf381cabe260fd620ff9",
+      "text_sha256": "sha256:d5cae020d898cc07cbbe1ca2f4c846b5eaa0fb395276d767a94bce9b1f2d8a24",
+      "raw_file": "D002.bytes",
+      "text_file": "D002.txt",
+      "verification": "retrieved"
+    },
+    {
+      "id": "D003",
+      "type": "SECFiling",
+      "title": "AAPL 10-K filed 2022-10-28",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019322000108/aapl-20220924.htm",
+      "doc_date": "2022-10-28",
+      "date_basis": "SEC_filing_date",
+      "accessed": "2026-10-06T20:56:46Z",
+      "content_type": "text/html",
+      "content_sha256": "sha256:9cec7b174b53599bfbe60cf8430d2d08e8122a131f48008250a89b1c2c634b7e",
+      "text_sha256": "sha256:bc3bb47eea337efe0bed9a709454b8f044a9a7cf7b92088474d9a8c2af846c27",
+      "raw_file": "D003.bytes",
+      "text_file": "D003.txt",
+      "verification": "retrieved"
+    },
+    {
+      "id": "D004",
+      "type": "SECFiling",
+      "title": "AAPL 10-Q filed 2025-01-31",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000008/aapl-20241228.htm",
+      "doc_date": "2025-01-31",
+      "date_basis": "SEC_filing_date",
+      "accessed": "2026-10-06T20:56:46Z",
+      "content_type": "text/html",
+      "content_sha256": "sha256:a3fd64a98b3db1c5f7e9682f3dee448a0f3aeb8d298989e12b66641a16014364",
+      "text_sha256": "sha256:43f006748c42fba2a4ce484822252af989459bfeda28b7e86a4c100261b1e756",
+      "raw_file": "D004.bytes",
+      "text_file": "D004.txt",
+      "verification": "retrieved"
+    },
+    {
+      "id": "D005",
+      "type": "SECFiling",
+      "title": "AAPL DEF 14A filed 2025-01-10",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000130817925000008/aapl4359751-def14a.htm",
+      "doc_date": "2025-01-10",
+      "date_basis": "SEC_filing_date",
+      "accessed": "2026-10-06T20:56:47Z",
+      "content_type": "text/html",
+      "content_sha256": "sha256:56ae5a57ea29e16221cdbbdfc0f7266f7197b4eed832de55b5fede6bba3528a7",
+      "text_sha256": "sha256:e7d5266d6f354fca06ed461b034fdbb1cd6d2073cf38011263e698cc28cb473f",
+      "raw_file": "D005.bytes",
+      "text_file": "D005.txt",
+      "verification": "retrieved"
+    },
+    {
+      "id": "D006",
+      "type": "MarketHistory",
+      "title": "AAPL daily price history through 2025-01-31",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/AAPL?period1=1690761600&period2=1738368000&interval=1d",
+      "doc_date": "2025-01-31",
+      "date_basis": "requested_market_history_cutoff",
+      "accessed": "2026-10-06T20:56:47Z",
+      "content_type": "application/json;charset=utf-8",
+      "content_sha256": "sha256:2e660c44a0f362836640c753e7254a41f278fc99a43c9ea0f638be92e67508ee",
+      "text_sha256": "sha256:bfd26fc4a9aed79aaa43adcc8c51a85f55e9e31535603cbe68e8f07ff5afc305",
+      "raw_file": "D006.bytes",
+      "text_file": "D006.txt",
+      "verification": "retrieved",
+      "transform": {
+        "kind": "yahoo_daily",
+        "ticker": "AAPL",
+        "symbol": "AAPL",
+        "analysis_date": "2025-01-31"
+      }
+    },
+    {
+      "id": "WEB001",
+      "type": "WebNews",
+      "title": "Apple sets Q4 2026 earnings release for November 2 - 9to5Mac",
+      "url": "https://9to5mac.com/2026/10/06/apple-sets-q4-2026-earnings-release-for-november-2/",
+      "doc_date": "2026-10-06",
+      "date_basis": "page_publication_metadata_not_point_in_time",
+      "accessed": "2026-10-06T21:57:41Z",
+      "content_type": "text/html; charset=UTF-8",
+      "content_sha256": "sha256:6336a52b75eceaafe948d345fb848569973b7a53a309150fce74637362ad0251",
+      "text_sha256": "sha256:b63dd7c38488838b897fb3df9d7ec6979220c003b0c4dd03fc4ebd2e3c25d8a9",
+      "raw_file": "WEB001.bytes",
+      "text_file": "WEB001.txt",
+      "verification": "retrieved",
+      "discovered_by": "gemini_google_search",
+      "provider_citation_url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFgmzVvkf6Ia_XKWOEMx743zA6r4ga8paceHlpqvMBV-_qUWFosSWhcAwbgNQJDpjEDReHJ0Cv9cDQxDVGmIW05_HVOJwcy-SYHVQhYGFM2CrFYe67qx-w80vkydlETBMpK8qeYNPhlGrJ--JXnEizTpo7ZRJbB2bIgzu2E6cXKf_McAr_3iX4="
+    },
+    {
+      "id": "WEB002",
+      "type": "WebNews",
+      "title": "trefis.com",
+      "url": "https://www.trefis.com/stock/aapl/articles/617545/apple-is-dealing-with-new-problems-now/2026-10-05",
+      "doc_date": "2026-10-05",
+      "date_basis": "page_publication_metadata_not_point_in_time",
+      "accessed": "2026-10-06T21:57:43Z",
+      "content_type": "text/html;charset=UTF-8",
+      "content_sha256": "sha256:8d1be0d0093c58fc8ad55f98a434392430ca3c040286fd11cdee78ab8434b4d9",
+      "text_sha256": "sha256:82068a8fe4bcfc7ddb1a997ce1774d48a0a4dc5dd608ea4789ad31e56b9b813b",
+      "raw_file": "WEB002.bytes",
+      "text_file": "WEB002.txt",
+      "verification": "retrieved",
+      "discovered_by": "gemini_google_search",
+      "provider_citation_url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHVvl3OoUllnLM__H7H87QHJetCUnZn-46wVveu8gQhljEfsB2Nl-bmRx33MlFvChhuKYHb2sgxWyfmXq-Rxdsr4-MNXz0vOldoJDxbVSomSLCyeKp4fNVvQHOP6xMhqwLc-wAA0cC-pZmpvNXmrZEXxFAVrf_9agAl4fkqJZ-wNK_2QDS3groL1eGGCXLF_buGKqoCGMVzQw=="
+    }
+  ],
+  "attachments": [
+    {
+      "file": "gemini_web_research.json",
+      "sha256": "sha256:f6230443986daa55e9edcda2f197dbaa0ee0f017a763159cef02bb5db6654d6d",
+      "kind": "gemini_web_research"
+    }
+  ]
+}

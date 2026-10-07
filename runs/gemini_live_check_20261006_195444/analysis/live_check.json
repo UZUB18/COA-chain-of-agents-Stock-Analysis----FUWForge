@@ -1,0 +1,41 @@
+{
+  "provider": "gemini",
+  "model": "gemini-3.8-flash",
+  "output_dir": "/home/trbuzu/Documents/COA-chain-of-agents-Stock-Analysis----FUWForge/runs/gemini_live_check_20261006_195444/analysis",
+  "params": {
+    "company": "Apple Inc.",
+    "ticker": "AAPL",
+    "analysis_date": "2025-01-31",
+    "depth": "Quick",
+    "focus": [
+      "AI strategy",
+      "Regulatory"
+    ],
+    "weights": {
+      "Financials": 0.25,
+      "Moat": 0.2,
+      "Growth": 0.15,
+      "Valuation": 0.15,
+      "MgmtGov": 0.1,
+      "RiskInverse": 0.1,
+      "ESG": 0.025,
+      "Market": 0.025
+    }
+  },
+  "max_retries_per_agent": 1,
+  "limitations": [
+    "Historical bundled Apple example, not current market analysis.",
+    "No live filings or price-retrieval tools are attached to model agents.",
+    "Contract/integrity success does not verify financial facts."
+  ],
+  "status": "passed",
+  "summary_status": "completed",
+  "outputs": {
+    "report": "/home/trbuzu/Documents/COA-chain-of-agents-Stock-Analysis----FUWForge/runs/gemini_live_check_20261006_195444/analysis/AAPL_2025-01-31_report.md",
+    "artifacts": "/home/trbuzu/Documents/COA-chain-of-agents-Stock-Analysis----FUWForge/runs/gemini_live_check_20261006_195444/analysis/AAPL_2025-01-31_artifacts.json",
+    "provenance": "/home/trbuzu/Documents/COA-chain-of-agents-Stock-Analysis----FUWForge/runs/gemini_live_check_20261006_195444/analysis/AAPL_2025-01-31_provenance.log",
+    "summary": "/home/trbuzu/Documents/COA-chain-of-agents-Stock-Analysis----FUWForge/runs/gemini_live_check_20261006_195444/analysis/run_summary.json"
+  },
+  "api_calls": 10,
+  "duration_seconds": 164.26
+}

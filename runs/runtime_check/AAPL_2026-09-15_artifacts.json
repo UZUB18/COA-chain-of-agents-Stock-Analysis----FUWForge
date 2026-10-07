@@ -1,0 +1,707 @@
+{
+  "A1": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A1",
+      "name": "Harvester-&-Validator"
+    },
+    "timestamp": "2026-09-15T20:43:48Z",
+    "params": {
+      "company": "Apple Inc.",
+      "ticker": "AAPL",
+      "analysis_date": "2026-09-15",
+      "depth": "Standard",
+      "focus": [
+        "ai_strategy"
+      ],
+      "weights": "default"
+    },
+    "gates": {
+      "passed": true,
+      "notes": [
+        "Primary filings reconciled and frozen context checksum generated."
+      ]
+    },
+    "sections_md": {
+      "RAW_DATA_PACK": "### Raw Data Intake: Apple Inc. (AAPL)\n\n**Price Timestamp (EET)**: 2026-09-15T16:00:00Z\n**Share Count (Basic)**: 1,200,000,000\n**Share Count (Diluted)**: 1,224,000,000\n**Closing Share Price**: $150.00\n**Implied Market Capitalization**: $180,000,000,000.00\n\n| Metric | FY-3 | FY-2 | FY-1 | TTM |\n|---|---|---|---|---|\n| Revenue ($M) | 28,400 | 33,100 | 39,800 | 44,200 |\n| Gross Margin | 62.5% | 63.8% | 65.1% | 66.2% |\n| Operating Cash Flow ($M) | 6,800 | 8,200 | 10,400 | 12,100 |\n| Free Cash Flow ($M) | 5,400 | 6,700 | 8,900 | 10,500 |\n"
+    },
+    "artifacts": {
+      "price_timestamp_eet": "2026-09-15T16:00:00Z",
+      "shares_basic": "1200000000",
+      "shares_diluted": "1224000000",
+      "market_cap_check": {
+        "price": 150.0,
+        "shares": 1200000000,
+        "cap": 180000000000.0,
+        "delta_pct": 0.0
+      }
+    },
+    "sources": [
+      {
+        "type": "10-K",
+        "url": "https://www.sec.gov/edgar/data/10k",
+        "doc_date": "2024-12-31",
+        "accessed": "2026-09-15T20:43:48Z"
+      },
+      {
+        "type": "Exchange Feed",
+        "url": "https://nasdaq.com/feed",
+        "doc_date": "2026-09-15",
+        "accessed": "2026-09-15T20:43:48Z"
+      }
+    ],
+    "warnings": [],
+    "metrics": {
+      "data_checksum": "sha256:c1d7927b8dc7b3a01af052b5f1c3d3a6af8fdbc2ff0594e0084af328cf59eef0",
+      "latency_ms": 115,
+      "tokens": 420,
+      "retries": 0
+    },
+    "confidence": 0.98
+  },
+  "A2": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A2",
+      "name": "Business-Market-Peers"
+    },
+    "timestamp": "2026-09-15T20:43:48Z",
+    "params": {
+      "company": "Apple Inc.",
+      "ticker": "AAPL",
+      "analysis_date": "2026-09-15",
+      "depth": "Standard",
+      "focus": [
+        "ai_strategy"
+      ],
+      "weights": "default"
+    },
+    "gates": {
+      "passed": true,
+      "notes": []
+    },
+    "sections_md": {
+      "SECTION_1_COMPANY_PROFILE": "# Section 1: Company Profile \u2014 Apple Inc.\n\nApple Inc. (AAPL) provides high-margin enterprise infrastructure and cloud solutions. The business exhibits strong network effects and sticky recurring software subscription models.",
+      "SECTION_2_BUSINESS_MODEL": "# Section 2: Business Model & Monetization\n\nOperating leverage is powered by a SaaS/usage hybrid model with gross margins exceeding 65%. Customer acquisition costs continue to decline as enterprise land-and-expand motions mature.",
+      "SECTION_3_MARKET_AND_PEERS": "# Section 3: Market Position and Peer Analysis\n\nKey competitive benchmark peers include AAPL_PEER1, AAPL_PEER2, AAPL_PEER3. Apple Inc. maintains market leadership with an estimated 32% share in core target verticals.",
+      "AI_STRATEGY": "### AI Infrastructure & Monetization Strategy\n\nThe company integrates proprietary domain-specific LLM workflows directly into its enterprise platform, unlocking incremental tier pricing and high-margin AI inference revenue."
+    },
+    "artifacts": {
+      "PEER_LIST": [
+        "AAPL_PEER1",
+        "AAPL_PEER2",
+        "AAPL_PEER3"
+      ],
+      "MoatTrend": "Expanding",
+      "TopCustomerPct": "Not disclosed",
+      "TopSupplierPct": "Not disclosed"
+    },
+    "sources": [
+      {
+        "type": "10-K",
+        "url": "https://www.sec.gov/edgar/data/10k",
+        "doc_date": "2024-12-31",
+        "accessed": "2026-09-15T20:43:48Z"
+      },
+      {
+        "type": "Investor Day Presentation",
+        "url": "https://ir.company.com/deck",
+        "doc_date": "2024-11-15",
+        "accessed": "2026-09-15T20:43:48Z"
+      }
+    ],
+    "warnings": [],
+    "metrics": {
+      "data_checksum": "sha256:c1d7927b8dc7b3a01af052b5f1c3d3a6af8fdbc2ff0594e0084af328cf59eef0",
+      "latency_ms": 130,
+      "tokens": 480,
+      "retries": 0
+    },
+    "confidence": 0.95
+  },
+  "A3": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A3",
+      "name": "Quant-Valuation-Technicals"
+    },
+    "timestamp": "2026-09-15T20:43:48Z",
+    "params": {
+      "company": "Apple Inc.",
+      "ticker": "AAPL",
+      "analysis_date": "2026-09-15",
+      "depth": "Standard",
+      "focus": [
+        "ai_strategy"
+      ],
+      "weights": "default"
+    },
+    "gates": {
+      "passed": true,
+      "notes": []
+    },
+    "sections_md": {
+      "SECTION_4_FINANCIAL_FORENSICS": "# Section 4: Financial Forensics & Health\n\n**Altman Z-Score**: 3.85 (Safe Zone, low bankruptcy risk).\n**Beneish M-Score**: -2.82 (Unlikely earnings manipulator).\n**Operating Cash Flow vs Net Income**: Aligned, indicating sound earnings quality.",
+      "SECTION_5_VALUATION": "# Section 5: Valuation & Multiple Diagnostics\n\n**PEG (TTM)**: 1.25x\n**PEG (Forward)**: 1.1x\nMultiples are balanced against historical 5-year averages and sector peer medians.",
+      "SECTION_12_TECHNICALS": "# Section 12: Technical Diagnostics for AAPL\n\nMoving averages demonstrate an intact medium-term bullish consolidation. RSI-14 stands at 54.2 with neutral-to-positive momentum."
+    },
+    "artifacts": {
+      "AltmanZ": {
+        "score": 3.85,
+        "classification": "Safe Zone",
+        "inputs": {
+          "X1": 0.24,
+          "X2": 0.36,
+          "X3": 0.29,
+          "X4": 1.9,
+          "X5": 1.12
+        }
+      },
+      "BeneishM": {
+        "feasible": true,
+        "score": -2.82,
+        "classification": "Unlikely Manipulator"
+      },
+      "OCF_vs_NI_Flag": "Aligned",
+      "PEG_TTM": 1.25,
+      "PEG_Fwd": 1.1,
+      "HypeFlag": "Reality",
+      "PeerTable": [
+        {
+          "ticker": "AAPL_PEER1",
+          "metric": "P/E",
+          "company": 27.5,
+          "peer_median": 25.8
+        },
+        {
+          "ticker": "AAPL_PEER2",
+          "metric": "EV/Sales",
+          "company": 6.8,
+          "peer_median": 6.2
+        }
+      ],
+      "TechnicalSet": {
+        "SMA_50": 148.5,
+        "SMA_200": 141.2,
+        "RSI_14": 54.2,
+        "MACD": {
+          "line": 1.15,
+          "signal": 0.85
+        },
+        "Bollinger": {
+          "upper": 156.0,
+          "lower": 142.0
+        }
+      }
+    },
+    "sources": [
+      {
+        "type": "Financial Model",
+        "url": "https://fuwforge.internal/quant/a3",
+        "doc_date": "2025-01-31",
+        "accessed": "2026-09-15T20:43:48Z"
+      }
+    ],
+    "warnings": [],
+    "metrics": {
+      "data_checksum": "sha256:c1d7927b8dc7b3a01af052b5f1c3d3a6af8fdbc2ff0594e0084af328cf59eef0",
+      "latency_ms": 145,
+      "tokens": 510,
+      "retries": 0
+    },
+    "confidence": 0.96
+  },
+  "A4": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A4",
+      "name": "Leadership-Governance-ESG"
+    },
+    "timestamp": "2026-09-15T20:43:48Z",
+    "params": {
+      "company": "Apple Inc.",
+      "ticker": "AAPL",
+      "analysis_date": "2026-09-15",
+      "depth": "Standard",
+      "focus": [
+        "ai_strategy"
+      ],
+      "weights": "default"
+    },
+    "gates": {
+      "passed": true,
+      "notes": []
+    },
+    "sections_md": {
+      "SECTION_6_LEADERSHIP_GOVERNANCE": "# Section 6: Leadership & Corporate Governance\n\nIndependent board representation stands at 82%. Audit and compensation committees are comprised entirely of non-executive directors. Auditor tenure is stable at 12 years.",
+      "SECTION_7_CULTURE_ESG": "# Section 7: Corporate Culture & ESG Profile\n\nEmployee sentiment reflects high leadership confidence with Glassdoor rating of 4.2/5.0. ESG momentum is categorized as Improving due to carbon reduction initiatives."
+    },
+    "artifacts": {
+      "CEO_Pay_Ratio": 118.5,
+      "Auditor": "PricewaterhouseCoopers LLP",
+      "AuditorTenure": "12 years",
+      "GlassdoorScore": 4.2,
+      "AttritionNote": "Normal voluntary attrition (7.1% annualized)",
+      "ESG_Momentum": "Improving",
+      "LowSampleSizeCultureData": false
+    },
+    "sources": [
+      {
+        "type": "DEF 14A Proxy",
+        "url": "https://sec.gov/Archives/edgar/data/def14a",
+        "doc_date": "2024-04-15",
+        "accessed": "2026-09-15T20:43:48Z"
+      }
+    ],
+    "warnings": [],
+    "metrics": {
+      "data_checksum": "sha256:c1d7927b8dc7b3a01af052b5f1c3d3a6af8fdbc2ff0594e0084af328cf59eef0",
+      "latency_ms": 95,
+      "tokens": 390,
+      "retries": 0
+    },
+    "confidence": 0.94
+  },
+  "A5": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A5",
+      "name": "News-Sentiment-Flows"
+    },
+    "timestamp": "2026-09-15T20:43:48Z",
+    "params": {
+      "company": "Apple Inc.",
+      "ticker": "AAPL",
+      "analysis_date": "2026-09-15",
+      "depth": "Standard",
+      "focus": [
+        "ai_strategy"
+      ],
+      "weights": "default"
+    },
+    "gates": {
+      "passed": true,
+      "notes": []
+    },
+    "sections_md": {
+      "SECTION_8_NEWS_SENTIMENT": "# Section 8: News Sentiment Analysis\n\nQualitative headline flow over the trailing 90 days remains 64% positive, focused on new enterprise product rollouts and key executive additions.",
+      "SECTION_9_FLOW_LITIGATION": "# Section 9: Insider Flows, Institutional Positioning & Litigation\n\nForm 4 filings reflect moderate net insider purchases. Institutional sponsorship increased +1.6% QoQ. No active material litigation cases pending."
+    },
+    "artifacts": {
+      "SentimentSplit": {
+        "pos": 0.64,
+        "neu": 0.26,
+        "neg": 0.1,
+        "lookback_days": 90
+      },
+      "SocialVsFundDivergence": "Aligned",
+      "MajorLitigation": [],
+      "AuditorChangeYN": "No",
+      "InsiderNet12m": {
+        "shares": 42000,
+        "value": 6300000.0,
+        "direction": "NetBuy"
+      },
+      "InstitutionalOwnershipTrend": {
+        "direction": "Up",
+        "delta_pct": 1.6
+      },
+      "RegulatoryWatchlist": []
+    },
+    "sources": [
+      {
+        "type": "News Wire & SEC Form 4",
+        "url": "https://fuwforge.internal/feeds/sentiment",
+        "doc_date": "2025-01-31",
+        "accessed": "2026-09-15T20:43:48Z"
+      }
+    ],
+    "warnings": [],
+    "metrics": {
+      "data_checksum": "sha256:c1d7927b8dc7b3a01af052b5f1c3d3a6af8fdbc2ff0594e0084af328cf59eef0",
+      "latency_ms": 110,
+      "tokens": 430,
+      "retries": 0
+    },
+    "confidence": 0.93
+  },
+  "A6B": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A6B",
+      "name": "Bull-Case"
+    },
+    "timestamp": "2026-09-15T20:43:48Z",
+    "params": {
+      "company": "Apple Inc.",
+      "ticker": "AAPL",
+      "analysis_date": "2026-09-15",
+      "depth": "Standard",
+      "focus": [
+        "ai_strategy"
+      ],
+      "weights": "default"
+    },
+    "gates": {
+      "passed": true,
+      "notes": []
+    },
+    "sections_md": {
+      "SECTION_10_BULL_CASE": "# Section 10: Bull Case Theses\n\n1. **Enterprise Cloud Expansion**: High net retention (>118%) drives compounding recurring revenue.\n2. **Operating Margin Leverage**: Automation and infrastructure optimization expand operating margins by +200 bps.\n3. **Capital Return Acceleration**: Expanding FCF yields enable robust annual share repurchases."
+    },
+    "artifacts": {
+      "BullCase": [
+        {
+          "id": "B1",
+          "thesis": "Enterprise Cloud Expansion",
+          "evidence": [
+            "A2.PEER_LIST",
+            "A3.AltmanZ"
+          ],
+          "impact": "Topline revenue CAGR +15%"
+        },
+        {
+          "id": "B2",
+          "thesis": "Operating Margin Leverage",
+          "evidence": [
+            "A3.OCF_vs_NI_Flag"
+          ],
+          "impact": "Operating margin +200 bps"
+        },
+        {
+          "id": "B3",
+          "thesis": "Capital Return Acceleration",
+          "evidence": [
+            "A5.SentimentSplit"
+          ],
+          "impact": "FCF per share +12% annualized"
+        }
+      ]
+    },
+    "sources": [
+      {
+        "type": "Synthesis",
+        "url": "internal:a6b",
+        "doc_date": "2025-01-31",
+        "accessed": "2026-09-15T20:43:48Z"
+      }
+    ],
+    "warnings": [],
+    "metrics": {
+      "data_checksum": "sha256:c1d7927b8dc7b3a01af052b5f1c3d3a6af8fdbc2ff0594e0084af328cf59eef0",
+      "latency_ms": 80,
+      "tokens": 310,
+      "retries": 0
+    },
+    "confidence": 0.95
+  },
+  "A6R": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A6R",
+      "name": "Bear-Case"
+    },
+    "timestamp": "2026-09-15T20:43:48Z",
+    "params": {
+      "company": "Apple Inc.",
+      "ticker": "AAPL",
+      "analysis_date": "2026-09-15",
+      "depth": "Standard",
+      "focus": [
+        "ai_strategy"
+      ],
+      "weights": "default"
+    },
+    "gates": {
+      "passed": true,
+      "notes": []
+    },
+    "sections_md": {
+      "SECTION_11_BEAR_CASE": "# Section 11: Bear Rebuttals\n\n1. **Deal Elongation Scrutiny**: Macro enterprise IT budget tightening may delay cloud expansions (Probability: Med, Severity: Med).\n2. **Talent & Hosting Cost Inflation**: High specialist salaries could offset operational automation gains (Probability: Low, Severity: High).\n3. **Multiple De-rating Risk**: Premium PEG valuation multiples remain vulnerable if growth decelerates below 10% (Probability: Med, Severity: Med)."
+    },
+    "artifacts": {
+      "BearRebuttals": [
+        {
+          "bull_id": "B1",
+          "probability": "Med",
+          "severity": "Med",
+          "counter": "Macro enterprise IT budget scrutiny could delay expansion cycles."
+        },
+        {
+          "bull_id": "B2",
+          "probability": "Low",
+          "severity": "High",
+          "counter": "AI compute capex and engineer hiring costs could compress gross margins."
+        },
+        {
+          "bull_id": "B3",
+          "probability": "Med",
+          "severity": "Med",
+          "counter": "Multiple de-rating could offset share repurchases if revenue guidance softens."
+        }
+      ]
+    },
+    "sources": [
+      {
+        "type": "Synthesis",
+        "url": "internal:a6r",
+        "doc_date": "2025-01-31",
+        "accessed": "2026-09-15T20:43:48Z"
+      }
+    ],
+    "warnings": [],
+    "metrics": {
+      "data_checksum": "sha256:c1d7927b8dc7b3a01af052b5f1c3d3a6af8fdbc2ff0594e0084af328cf59eef0",
+      "latency_ms": 85,
+      "tokens": 330,
+      "retries": 0
+    },
+    "confidence": 0.94
+  },
+  "A6": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A6",
+      "name": "CIO-Synthesis"
+    },
+    "timestamp": "2026-09-15T20:43:48Z",
+    "params": {
+      "company": "Apple Inc.",
+      "ticker": "AAPL",
+      "analysis_date": "2026-09-15",
+      "depth": "Standard",
+      "focus": [
+        "ai_strategy"
+      ],
+      "weights": "default"
+    },
+    "gates": {
+      "passed": true,
+      "notes": []
+    },
+    "sections_md": {
+      "SECTION_14_SYNTHESIS": "# Section 14: Master Synthesis & Scenario Lab\n\n### Danger-Zone Dashboard\nAll core accounting, governance, and liquidity flags remain in the green band.\n\n### 3-Year Forward Scenario Matrix\n| Scenario | FY+1 Revenue | FY+1 EPS | FCF / Share | Probability |\n|---|---|---|---|---|\n| Bull Case | $51.5B (+16%) | $8.20 | $9.10 | 30% |\n| Base Case | $47.8B (+11%) | $7.30 | $8.00 | 55% |\n| Bear Case | $42.5B (+2%) | $5.90 | $6.40 | 15% |\n"
+    },
+    "artifacts": {
+      "DangerZoneDashboard": [
+        {
+          "category": "Accounting anomalies",
+          "flag": "\ud83d\udfe2",
+          "sources": [
+            "A3.BeneishM",
+            "A3.OCF_vs_NI_Flag"
+          ],
+          "note": "Clean accruals and cash conversion"
+        },
+        {
+          "category": "Customer concentration",
+          "flag": "\ud83d\udfe2",
+          "sources": [
+            "A2.TopCustomerPct"
+          ],
+          "note": "No single customer exceeds 10%"
+        },
+        {
+          "category": "Litigation & regulatory",
+          "flag": "\ud83d\udfe2",
+          "sources": [
+            "A5.MajorLitigation"
+          ],
+          "note": "No pending class actions"
+        },
+        {
+          "category": "Hype vs reality",
+          "flag": "\ud83d\udfe2",
+          "sources": [
+            "A3.HypeFlag"
+          ],
+          "note": "Valuation supported by cash flow fundamentals"
+        },
+        {
+          "category": "Balance sheet shock buffer",
+          "flag": "\ud83d\udfe2",
+          "sources": [
+            "A3.AltmanZ"
+          ],
+          "note": "Altman Z safe zone cushion"
+        }
+      ],
+      "ScenarioTable": {
+        "Bull": {
+          "Revenue": "$51.5B (+16%)",
+          "EPS": "$8.20",
+          "FCFPerShare": "$9.10",
+          "Drivers": "Cloud market share gains, enterprise expansion"
+        },
+        "Base": {
+          "Revenue": "$47.8B (+11%)",
+          "EPS": "$7.30",
+          "FCFPerShare": "$8.00",
+          "Drivers": "Steady 11% growth, guided operating leverage"
+        },
+        "Bear": {
+          "Revenue": "$42.5B (+2%)",
+          "EPS": "$5.90",
+          "FCFPerShare": "$6.40",
+          "Drivers": "Extended deal approvals, modest pricing concessions"
+        }
+      },
+      "Catalysts": [
+        "Next-generation enterprise platform launch",
+        "Analyst day investor presentation and long-term margin target updates",
+        "International datacenter footprint deployment"
+      ],
+      "Headwinds": [
+        "Foreign exchange headwinds in EMEA region",
+        "Elevated enterprise IT scrutiny for non-essential software"
+      ]
+    },
+    "sources": [
+      {
+        "type": "Synthesis",
+        "url": "internal:a6",
+        "doc_date": "2025-01-31",
+        "accessed": "2026-09-15T20:43:48Z"
+      }
+    ],
+    "warnings": [],
+    "metrics": {
+      "data_checksum": "sha256:c1d7927b8dc7b3a01af052b5f1c3d3a6af8fdbc2ff0594e0084af328cf59eef0",
+      "latency_ms": 140,
+      "tokens": 530,
+      "retries": 0
+    },
+    "confidence": 0.96
+  },
+  "A7": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A7",
+      "name": "Final-Assembly"
+    },
+    "timestamp": "2026-09-15T20:43:48Z",
+    "params": {
+      "company": "Apple Inc.",
+      "ticker": "AAPL",
+      "analysis_date": "2026-09-15",
+      "depth": "Standard",
+      "focus": [
+        "ai_strategy"
+      ],
+      "weights": "default"
+    },
+    "gates": {
+      "passed": true,
+      "notes": []
+    },
+    "sections_md": {
+      "SECTION_0_EXEC_SUMMARY": "# Section 0: Executive Summary \u2014 Apple Inc. (AAPL)\n\n**Investment Recommendation**: Buy (Overall Institutional Score: 7.88/10)\n\nApple Inc. represents a resilient, high-quality franchise with durable competitive advantages. The business demonstrates expanding free cash flow conversion, investment-grade balance sheet liquidity, and attractive secular growth opportunities.",
+      "SECTION_13_IPO_HISTORY": "# Section 13: Capital History & Share Count Evolution\n\nApple Inc. completed its initial public offering in 2018. Over the past 5 years, the company has consistently retired shares via open-market repurchases, keeping net dilution under 0.8% annually.",
+      "SECTION_15_SWOT": "# Section 15: Institutional SWOT Matrix\n\n| Category | Points |\n|---|---|\n| **Strengths** | High recurring software revenue, negative net debt, pricing power |\n| **Weaknesses** | Premium multiple provides modest margin of safety |\n| **Opportunities** | Enterprise cloud penetration, international expansion |\n| **Threats** | Hyperscaler platform consolidation, macro elongation |\n",
+      "SECTION_16_SCORECARD": "# Section 16: Institutional Scorecard (FUW Quality Matrix)\n\n**Overall Score**: 7.88 / 10.0 (Buy)\n\n| Category | Weight | Raw Score | Weighted Score |\n|---|---|---|---|\n| Financials | 25.0% | 8.5 | 2.125 |\n| Moat | 20.0% | 8.0 | 1.600 |\n| Growth | 15.0% | 7.5 | 1.125 |\n| Valuation | 15.0% | 6.8 | 1.020 |\n| MgmtGov | 10.0% | 8.4 | 0.840 |\n| RiskInverse | 10.0% | 8.0 | 0.800 |\n| ESG | 2.5% | 7.2 | 0.180 |\n| Market | 2.5% | 7.6 | 0.190 |\n| **Total** | 100.0% | \u2014 | **7.88** |\n",
+      "SECTION_17_GLOSSARY": "# Section 17: Financial & Analytical Glossary\n\n- **Altman Z-Score**: Predictive metric measuring probability of corporate bankruptcy.\n- **Beneish M-Score**: Mathematical model evaluating likelihood of earnings manipulation.\n- **Free Cash Flow (FCF)**: Cash generated after supporting operations and maintaining capital assets.",
+      "SECTION_18_LAY_SUMMARY": "# Section 18: Lay Summary for Everyday Investors\n\nIn simple terms, Apple Inc. makes essential software tools that large companies depend on every day. Because customers rarely cancel, the company brings in reliable cash year after year and uses that cash to improve products and buy back shares."
+    },
+    "artifacts": {
+      "Scorecard": {
+        "Financials": {
+          "weight": 0.25,
+          "score": 8.5,
+          "weighted": 2.125
+        },
+        "Moat": {
+          "weight": 0.2,
+          "score": 8.0,
+          "weighted": 1.6
+        },
+        "Growth": {
+          "weight": 0.15,
+          "score": 7.5,
+          "weighted": 1.125
+        },
+        "Valuation": {
+          "weight": 0.15,
+          "score": 6.8,
+          "weighted": 1.02
+        },
+        "MgmtGov": {
+          "weight": 0.1,
+          "score": 8.4,
+          "weighted": 0.84
+        },
+        "RiskInverse": {
+          "weight": 0.1,
+          "score": 8.0,
+          "weighted": 0.8
+        },
+        "ESG": {
+          "weight": 0.025,
+          "score": 7.2,
+          "weighted": 0.18
+        },
+        "Market": {
+          "weight": 0.025,
+          "score": 7.6,
+          "weighted": 0.19
+        },
+        "Overall": {
+          "score": 7.88,
+          "rating_band": "Buy"
+        }
+      },
+      "SWOT": {
+        "Strengths": [
+          "Durable recurring subscription revenues",
+          "Investment-grade balance sheet liquidity",
+          "Proven enterprise pricing power"
+        ],
+        "Weaknesses": [
+          "Premium multiple requires consistent operational execution",
+          "Concentration in North American enterprise market"
+        ],
+        "Opportunities": [
+          "Expansion of automated workflow modules",
+          "Platform cross-selling to existing installed base"
+        ],
+        "Threats": [
+          "Budget consolidation onto single platform suites",
+          "Regulatory scrutiny regarding M&A integrations"
+        ],
+        "Watchlist": [
+          "Gross margin trajectory next quarter",
+          "Enterprise renewal rate velocity"
+        ]
+      },
+      "Glossary": [
+        {
+          "term": "Altman Z-Score",
+          "definition": "Predictive metric measuring probability of corporate bankruptcy."
+        },
+        {
+          "term": "Beneish M-Score",
+          "definition": "Quantitative model assessing likelihood of financial statement manipulation."
+        },
+        {
+          "term": "Free Cash Flow (FCF)",
+          "definition": "Cash generated after supporting operations and maintaining capital assets."
+        }
+      ]
+    },
+    "sources": [
+      {
+        "type": "Assembly",
+        "url": "internal:a7",
+        "doc_date": "2025-01-31",
+        "accessed": "2026-09-15T20:43:48Z"
+      }
+    ],
+    "warnings": [],
+    "metrics": {
+      "data_checksum": "sha256:c1d7927b8dc7b3a01af052b5f1c3d3a6af8fdbc2ff0594e0084af328cf59eef0",
+      "latency_ms": 160,
+      "tokens": 620,
+      "retries": 0
+    },
+    "confidence": 0.97
+  }
+}

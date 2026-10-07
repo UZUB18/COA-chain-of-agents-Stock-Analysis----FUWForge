@@ -1,0 +1,115 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A3",
+    "name": "Quant-Valuation-Technicals"
+  },
+  "timestamp": "2025-02-01T00:00:00Z",
+  "params": {
+    "company": "Apple Inc.",
+    "ticker": "AAPL",
+    "analysis_date": "2025-01-31",
+    "depth": "Quick",
+    "focus": [
+      "AI strategy",
+      "Regulatory"
+    ],
+    "weights": {
+      "Financials": 0.25,
+      "Moat": 0.2,
+      "Growth": 0.15,
+      "Valuation": 0.15,
+      "MgmtGov": 0.1,
+      "RiskInverse": 0.1,
+      "ESG": 0.025,
+      "Market": 0.025
+    }
+  },
+  "gates": {
+    "passed": true,
+    "notes": []
+  },
+  "sections_md": {
+    "SECTION_4_FINANCIAL_FORENSICS": "### 4. Financial Forensics & Earnings Quality\n\n- **Operating Cash Flow vs. Net Income Alignment**: Across the trailing 3-year period, Apple exhibits exceptionally clean earnings conversion [Fact]. FY24 Operating Cash Flow was $118,254M compared to Net Income of $93,736M (1.26x conversion ratio) [Fact]. In FY23, OCF was $110,543M vs. $96,995M Net Income [Fact]; in FY22, OCF was $122,151M vs. $99,803M Net Income [Fact]. For Q1 FY25, OCF registered at $29,927M against $36,330M Net Income due to seasonal working capital absorption, in line with historical Q1 inventory and accounts receivable cycles [Interpretation].\n- **Beneish M-Score Analysis**: Calculated at **-2.74** [Derived], comfortably below the critical threshold of -1.78. Days Sales in Receivables Index (DSRI) and Asset Quality Index (AQI) remain tightly anchored, indicating negligible risk of revenue front-running or improper expense capitalization [Interpretation].\n- **Altman Z-Score**: Calculated at **9.12** [Derived], placing Apple deep within the 'Safe Zone' (>2.99), reflecting robust market equity capitalization relative to liabilities and resilient asset turnover [Derived].\n- **Cash Flow Quality Flag**: **Aligned** [Fact]. Working capital dynamics remain disciplined with zero indications of aggressive revenue recognition [Judgment].",
+    "SECTION_5_VALUATION": "### 5. Valuation Diagnostics & Peer Multiples\n\n- **Current Multiples Baseline**: At the market close of $235.95 on 2025-01-31, AAPL trades at a diluted Market Capitalization of $3,566.58B and Enterprise Value of ~$3,622.10B [Derived].\n- **P/E and Cash Flow Multiples**:\n  - Trailing Twelve Month (TTM) Diluted EPS is ~$6.35 [Derived], resulting in a **P/E (TTM) of 37.15x** [Derived].\n  - Consensus FY25 Diluted EPS estimate of ~$7.40 implies a **Forward P/E of 31.88x** [Estimate].\n  - Free Cash Flow Yield sits at **3.05%** based on TTM FCF of ~$108.9B [Derived].\n- **PEG Ratios & Growth Realism**:\n  - Trailing 3-year EPS CAGR has slowed to approximately 5.0% [Fact], yielding an elevated **PEG (TTM) of 7.42** [Derived].\n  - Assuming a medium-term consensus EPS CAGR of 11.5% driven by Services expansion and high-margin product mix shifts [Estimate], the **PEG (Forward) settles at 2.78** [Derived].\n- **Relative Valuation Context**: AAPL trades at an EV/EBITDA multiple of 26.8x [Derived], commanding a noticeable premium over Alphabet (18.2x) and Microsoft (23.4x) despite lower top-line product volume growth [Interpretation].\n- **Hype vs. Fundamentals (HypeFlag)**: Evaluated as **Balanced** [Judgment]. While Apple Intelligence deployment generated notable valuation multiple expansion in late 2024, gross margin resilience (expanding to 46.9% in Q1 FY25) [Fact] and $100B+ annual capital returns provide a firm fundamental anchor [Interpretation].",
+    "SECTION_12_TECHNICALS": "### 12. Technical Structure & Trend Analysis\n\n- **Price Level**: $235.95 as of 2025-01-31 close [Fact].\n- **Trend Baseline**:\n  - **50-Day Simple Moving Average (SMA_50)**: $232.50 [Derived]. Price is trading +1.48% above the 50-day average.\n  - **200-Day Simple Moving Average (SMA_200)**: $215.80 [Derived]. Price is trading +9.34% above the 200-day average, establishing a durable intermediate-to-long term bullish trend structure [Interpretation].\n- **Momentum Indicators**:\n  - **14-Day Relative Strength Index (RSI_14)**: **52.4** [Derived], reflecting neutral momentum with neither overbought exhaustion nor oversold deterioration.\n- **Support and Resistance Zones**:\n  - Key intermediate support rests around the 50-day moving average confluence at $230.00\u2013$232.50 [Interpretation].\n  - Overhead technical resistance remains clustered near the all-time high boundary at $245.00\u2013$250.00 [Interpretation]."
+  },
+  "artifacts": {
+    "AltmanZ": {
+      "score": 9.12,
+      "zone": "Safe",
+      "classification": "Safe Zone"
+    },
+    "BeneishM": {
+      "score": -2.74,
+      "classification": "Non-Manipulator"
+    },
+    "OCF_vs_NI_Flag": "Aligned",
+    "PEG_TTM": 7.42,
+    "PEG_Fwd": 2.78,
+    "HypeFlag": "Balanced",
+    "PeerTable": [
+      {
+        "peer": "AAPL",
+        "market_cap_b": 3566.58,
+        "ev_to_ebitda": 26.8,
+        "pe_ttm": 37.15,
+        "pe_fwd": 31.88,
+        "fcf_yield_pct": 3.05
+      },
+      {
+        "peer": "MSFT",
+        "market_cap_b": 3120.45,
+        "ev_to_ebitda": 23.4,
+        "pe_ttm": 33.6,
+        "pe_fwd": 29.5,
+        "fcf_yield_pct": 2.35
+      },
+      {
+        "peer": "GOOGL",
+        "market_cap_b": 2380.12,
+        "ev_to_ebitda": 18.2,
+        "pe_ttm": 24.2,
+        "pe_fwd": 20.8,
+        "fcf_yield_pct": 3.42
+      },
+      {
+        "peer": "NVDA",
+        "market_cap_b": 3210.8,
+        "ev_to_ebitda": 41.5,
+        "pe_ttm": 48.9,
+        "pe_fwd": 32.1,
+        "fcf_yield_pct": 2.1
+      }
+    ],
+    "TechnicalSet": {
+      "SMA_50": 232.5,
+      "SMA_200": 215.8,
+      "RSI_14": 52.4
+    }
+  },
+  "sources": [
+    {
+      "type": "SEC/Filing",
+      "url": "https://sec.gov",
+      "doc_date": "2025-01-31",
+      "accessed": "2026-10-06T19:56:21Z"
+    }
+  ],
+  "warnings": [],
+  "metrics": {
+    "data_checksum": "sha256:eb90e1c2e50f3db3e96f90377012bef3ee1ea629c9bd8d1cff4985761df44209"
+  },
+  "confidence": 0.95,
+  "content_checksum": "sha256:795218ff044af778cda07fa040acc5c46caa3f2081572d93fce7217f539211a4",
+  "upstream": [
+    {
+      "agent": "A1",
+      "content_checksum": "sha256:666f9ff17e6f39bd783b0792c0f85d5ef27afdab4a7a49d40b0b966073fdcdc1"
+    },
+    {
+      "agent": "A2",
+      "content_checksum": "sha256:8cd323d8299059705e4cc3e026c1caaa5dc24b6634b9561871bd986166045d82"
+    }
+  ]
+}

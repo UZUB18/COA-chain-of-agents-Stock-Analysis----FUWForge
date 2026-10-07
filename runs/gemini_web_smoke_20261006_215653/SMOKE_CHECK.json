@@ -1,0 +1,183 @@
+{
+  "kind": "web_tool_smoke_only_not_financial_analysis",
+  "model": "gemini-3.8-flash",
+  "analysis_date": "2026-10-06",
+  "request_count": 1,
+  "paid_retries": 0,
+  "interaction_status": "completed",
+  "observed_step_types": [
+    "google_search_call",
+    "google_search_result",
+    "model_output",
+    "thought",
+    "url_context_call",
+    "url_context_result"
+  ],
+  "usage": {
+    "total_tokens": 30188,
+    "total_input_tokens": 1699,
+    "input_tokens_by_modality": [
+      {
+        "modality": "text",
+        "tokens": 1699
+      }
+    ],
+    "total_cached_tokens": 0,
+    "total_output_tokens": 1581,
+    "total_tool_use_tokens": 23667,
+    "tool_use_tokens_by_modality": [
+      {
+        "modality": "text",
+        "tokens": 23667
+      }
+    ],
+    "total_thought_tokens": 3241,
+    "grounding_tool_count": [
+      {
+        "type": "google_search",
+        "count": 2,
+        "search_query_count": 2
+      }
+    ],
+    "raw_prompt_token": 24005,
+    "model_invocation_token_counts": [
+      {
+        "prompt_tokens_details": [
+          {
+            "modality": "text",
+            "tokens": 492
+          }
+        ],
+        "candidates_tokens_details": [
+          {
+            "modality": "text",
+            "tokens": 60
+          }
+        ],
+        "thoughts_tokens_details": [
+          {
+            "modality": "text",
+            "tokens": 222
+          }
+        ]
+      },
+      {
+        "prompt_tokens_details": [
+          {
+            "modality": "text",
+            "tokens": 10793
+          }
+        ],
+        "candidates_tokens_details": [
+          {
+            "modality": "text",
+            "tokens": 446
+          }
+        ],
+        "thoughts_tokens_details": [
+          {
+            "modality": "text",
+            "tokens": 1300
+          }
+        ]
+      },
+      {
+        "prompt_tokens_details": [
+          {
+            "modality": "text",
+            "tokens": 24005
+          }
+        ],
+        "candidates_tokens_details": [
+          {
+            "modality": "text",
+            "tokens": 1145
+          }
+        ],
+        "thoughts_tokens_details": [
+          {
+            "modality": "text",
+            "tokens": 1719
+          }
+        ]
+      }
+    ],
+    "non_grounding_model_invocation_token_counts": [
+      {
+        "prompt_tokens_details": [
+          {
+            "modality": "text",
+            "tokens": 492
+          }
+        ],
+        "candidates_tokens_details": [
+          {
+            "modality": "text",
+            "tokens": 60
+          }
+        ],
+        "thoughts_tokens_details": [
+          {
+            "modality": "text",
+            "tokens": 222
+          }
+        ]
+      },
+      {
+        "candidates_tokens_details": [
+          {
+            "modality": "text",
+            "tokens": 446
+          }
+        ],
+        "thoughts_tokens_details": [
+          {
+            "modality": "text",
+            "tokens": 1300
+          }
+        ]
+      },
+      {
+        "prompt_tokens_details": [
+          {
+            "modality": "text",
+            "tokens": 24005
+          }
+        ],
+        "candidates_tokens_details": [
+          {
+            "modality": "text",
+            "tokens": 1145
+          }
+        ],
+        "thoughts_tokens_details": [
+          {
+            "modality": "text",
+            "tokens": 1719
+          }
+        ]
+      }
+    ]
+  },
+  "accepted_new_pages": [
+    {
+      "id": "WEB001",
+      "url": "https://9to5mac.com/2026/10/06/apple-sets-q4-2026-earnings-release-for-november-2/",
+      "doc_date": "2026-10-06"
+    },
+    {
+      "id": "WEB002",
+      "url": "https://www.trefis.com/stock/aapl/articles/617545/apple-is-dealing-with-new-problems-now/2026-10-05",
+      "doc_date": "2026-10-05"
+    }
+  ],
+  "excluded_candidate_count": 4,
+  "evidence_checksum": "sha256:07c850af26849c1c627949e77860969d74d0d2ee1c862f6c3ec7ab1675ba24c3",
+  "evidence_path": "/home/trbuzu/Documents/COA-chain-of-agents-Stock-Analysis----FUWForge/runs/gemini_web_smoke_20261006_215653/pack/evidence.json",
+  "limitations": [
+    "Request count/output limits are not a hard query-count or dollar cap.",
+    "Publisher metadata and current downloaded pages are not certified point-in-time archives.",
+    "Provider prose is not analysis evidence; only accepted cached source bodies are supplied.",
+    "Unavailable/undated/redirecting/paywalled pages remain coverage gaps, never neutral signals."
+  ]
+}

@@ -1,0 +1,17 @@
+2026-10-06T21:34:50Z | EVIDENCE   | Retrieved-document snapshot sha256:bc63d25c69090ee1e32e2fc0434f914c0557ff377a467ac42ae79eb7436d05d4; documents=6 | sha256:b8acaf0b5366ff0733c7e5dea9e41577c2d454f5ac1c2938b0edefb5f308a10d
+2026-10-06T21:34:50Z | ORCH       | A1 envelope accepted (attempts=1, latency_ms=1). | sha256:bbe002a98968ca7f1a08ab9c2742f80a812e9d929bd26099269ae374df9ad2d0
+2026-10-06T21:34:50Z | ORCH       | A1 checkpoint recorded (checksum=sha256:e4ab88e41b08bf513ca62a9f6d77910dd02c5204776d7f3871beb887e83cf712). | sha256:07c41b54aa06c922cd8f84af6fce7d3defc2956ccfe592b863ffdd576992c815
+2026-10-06T21:34:50Z | CONTRACT   | A2 warning: Explicit unavailable research inputs: TopCustomerPct, TopSupplierPct | sha256:bfb404ec5c949f312d4108c481c264f27e4679b69b6e978f2de4d732a112a7ef
+2026-10-06T21:34:50Z | ORCH       | A2 envelope accepted (attempts=1, latency_ms=1). | sha256:602b7c7a0709b875261f7d8f686864fd5144e269344c5a10a6e98f2faabb4413
+2026-10-06T21:34:50Z | CONTRACT   | A3 warning: Explicit unavailable research inputs: BeneishM.score, HypeFlag, PEG_Fwd, PEG_TTM, PeerTable | sha256:78956ec9f8857caa32c8887ffbeacaf90be5c4501f15b60d3b5abacad5335168
+2026-10-06T21:34:50Z | ORCH       | A3 envelope accepted (attempts=1, latency_ms=1). | sha256:d91efee173f75ff389660d42acc2377ab6ac96af6eaed419344ff7e0bdd40193
+2026-10-06T21:34:50Z | CONTRACT   | A4 warning: Explicit unavailable research inputs: AttritionNote, GlassdoorScore | sha256:e027937e02410cdf833d5c3b8b6e0d4ab2967cdd03ce5a5013f7c528047e2332
+2026-10-06T21:34:50Z | ORCH       | A4 envelope accepted (attempts=1, latency_ms=1). | sha256:05430d3e19f54328e6b5ea17dea5da0426ffd7e0bef1bc5a0b4944499e06bee4
+2026-10-06T21:34:50Z | CONTRACT   | A5 warning: Explicit unavailable research inputs: InsiderNet12m, InstitutionalOwnershipTrend, MajorLitigation, RegulatoryWatchlist, SentimentSplit, SocialVsFundDivergence | sha256:a498dcfa97061221c7eb29c14077f4382ae42b964d54881128c8a0fe75793564
+2026-10-06T21:34:50Z | ORCH       | A5 envelope accepted (attempts=1, latency_ms=1). | sha256:ff51fa360e3e6c8421c5eaf215d9fe3f2a8c2e48ace52587e480290165b397a4
+2026-10-06T21:34:51Z | ORCH       | A6B envelope accepted (attempts=1, latency_ms=1). | sha256:7a0bde351dffdad083e59db7a5183bd46e1057e839ac0a963568158601854c94
+2026-10-06T21:34:51Z | ORCH       | A6R envelope accepted (attempts=1, latency_ms=1). | sha256:d46446bc4614195d06d1252e22addcaf6d6bc2c1a5e959d7dce056bb1e2685eb
+2026-10-06T21:34:51Z | CONTRACT   | A6 warning: section 'MISSING_DATA_TABLE' is not part of agent A6's contract | sha256:d5773eba6461ae37a985204257bda878c4cf365a1b15bfa41f8c13c6f74fda41
+2026-10-06T21:34:51Z | ORCH       | A6 envelope accepted (attempts=1, latency_ms=1). | sha256:9353fd286f269add8cb3920cdd997eb0c2074137d590a6264f5bb2c2aeeee3c4
+2026-10-06T21:34:51Z | CONTRACT   | A7 warning: Explicit unavailable research inputs: comparison_fields.fcf_yield_ttm_pct | sha256:22bdb43ac67bedb4fef5fe74a1825bf12889ea0a50476f6bb18a66a7a0313d5e
+2026-10-06T21:34:51Z | ORCH       | A7 envelope accepted (attempts=1, latency_ms=1). | sha256:9fd3de79af074e4491c2f91e029a4238f9478b342deb9ea5d9615e7cec0ca715
