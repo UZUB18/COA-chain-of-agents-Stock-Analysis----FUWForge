@@ -7,9 +7,11 @@ agent abstractions, and orchestrator utilities for the gated research flow.
 
 __all__ = [
     "config",
+    "contracts",
     "envelope",
     "orchestrator",
     "provenance",
+    "run_audit",
     "runtime_metrics",
     "validators",
 ]

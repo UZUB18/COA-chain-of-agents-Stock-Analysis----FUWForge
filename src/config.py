@@ -17,11 +17,17 @@ except ImportError:  # pragma: no cover - dependency optional at runtime
 
 def _load_yaml(path: Path) -> Dict[str, Any]:
     """
-    Load YAML from path, falling back to JSON parsing if PyYAML is unavailable.
+    Load YAML from path, falling back to JSON parsing or companion .json file if PyYAML is unavailable.
     """
-    text = path.read_text()
     if yaml is not None:
+        text = path.read_text(encoding="utf-8")
         return yaml.safe_load(text) or {}
+
+    json_companion = path.with_suffix(".json")
+    if json_companion.exists():
+        return json.loads(json_companion.read_text(encoding="utf-8"))
+
+    text = path.read_text(encoding="utf-8")
     try:
         return json.loads(text)
     except json.JSONDecodeError as exc:  # pragma: no cover - configuration error
@@ -43,7 +49,9 @@ def load_depth_modes(config_dir: Path) -> Dict[str, DepthModeConfig]:
     """
     file_path = config_dir / "depth_modes.yaml"
     data = _load_yaml(file_path)
-    return {key: DepthModeConfig(name=key, payload=value) for key, value in data.items()}
+    return {
+        key: DepthModeConfig(name=key, payload=value) for key, value in data.items()
+    }
 
 
 def load_focus_routing(config_dir: Path) -> Dict[str, Dict[str, Any]]:
@@ -56,7 +64,14 @@ def load_focus_routing(config_dir: Path) -> Dict[str, Dict[str, Any]]:
 
 def load_orchestrator_config(config_dir: Path) -> Dict[str, Any]:
     """
-    Load the orchestrator flow definition from config/orchestrator.yaml.
+    Load orchestrator run settings from config/orchestrator.yaml.
     """
     file_path = config_dir / "orchestrator.yaml"
     return _load_yaml(file_path)
+
+
+def load_mapping(path: Path) -> Dict[str, Any]:
+    """
+    Load an arbitrary YAML (preferred) or JSON mapping from disk.
+    """
+    return _load_yaml(path)

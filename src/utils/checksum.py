@@ -32,7 +32,8 @@ def _normalize_json(data: Any) -> str:
     """
     if isinstance(data, dict):
         items = ",".join(
-            f"{k}:{_normalize_json(v)}" for k, v in sorted(data.items(), key=lambda kv: kv[0])
+            f"{k}:{_normalize_json(v)}"
+            for k, v in sorted(data.items(), key=lambda kv: kv[0])
         )
         return "{" + items + "}"
     if isinstance(data, (list, tuple, set)):
@@ -43,6 +44,27 @@ def _normalize_json(data: Any) -> str:
     if data is None:
         return "null"
     return str(data)
+
+
+def envelope_content_checksum(
+    envelope_dict: Any, exclude: Iterable[str] = ("content_checksum", "metrics")
+) -> str:
+    """
+    Hash the semantic content of an envelope (sections, artifacts, sources, lineage).
+
+    ``metrics`` and ``content_checksum`` are excluded: most metrics are runtime telemetry
+    and the checksum field would be self-referential. Explicit missing-data reasons
+    are semantic research content and are hashed when present. The result is stable across
+    JSON round-trips because ``checksum_json`` canonicalizes key order and types.
+    """
+    excluded = set(exclude)
+    payload = {
+        key: value for key, value in envelope_dict.items() if key not in excluded
+    }
+    gaps = (envelope_dict.get("metrics") or {}).get("missing_data")
+    if gaps:
+        payload["research_missing_data"] = gaps
+    return checksum_json(payload)
 
 
 def checksum_file(path: Path, chunk_size: int = 65536) -> str:

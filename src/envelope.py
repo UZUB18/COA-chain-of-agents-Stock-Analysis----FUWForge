@@ -28,6 +28,8 @@ class Envelope:
     warnings: List[str]
     metrics: Dict[str, Any]
     confidence: Optional[float] = None
+    content_checksum: Optional[str] = None
+    upstream: List[Dict[str, Any]] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "Envelope":
@@ -49,6 +51,8 @@ class Envelope:
             warnings=list(data.get("warnings", [])),
             metrics=dict(data.get("metrics", {})),
             confidence=data.get("confidence"),
+            content_checksum=data.get("content_checksum"),
+            upstream=list(data.get("upstream", [])),
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -64,6 +68,8 @@ class Envelope:
             "warnings": self.warnings,
             "metrics": self.metrics,
             "confidence": self.confidence,
+            "content_checksum": self.content_checksum,
+            "upstream": self.upstream,
         }
 
     def set_timestamp_now(self) -> None:

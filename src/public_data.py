@@ -1,0 +1,152 @@
+"""Automatic date-bounded SEC filing discovery plus public daily price history.
+
+Requires a real SEC contact User-Agent; no Gemini credentials are sent to sources.
+Public prices are provider-adjusted history, not a certified point-in-time archive.
+"""
+from __future__ import annotations
+
+import json
+import re
+import urllib.parse
+from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any, Dict, List
+
+from src.evidence import MAX_DOCUMENTS, _document_text, download_public_document, fetch_evidence, sec_user_agent
+from src.utils.checksum import sha256_digest
+
+
+class _Discovery:
+    def __init__(self, root: Path):
+        self.root = root
+        self.records = []
+
+    def get(self, url: str):
+        payload, content_type, accessed = download_public_document(url)
+        name = f"lookup_{len(self.records) + 1:02d}.json"
+        (self.root / name).write_bytes(payload)
+        self.records.append({"url": url, "accessed": accessed, "file": name, "content_sha256": sha256_digest(payload)})
+        return json.loads(payload)
+
+
+def _filing_rows(columns: Dict[str, Any], as_of: date) -> List[Dict[str, str]]:
+    rows = []
+    forms = columns.get("form") or []
+    for index, form in enumerate(forms):
+        if form not in ("10-K", "10-Q", "DEF 14A", "20-F", "40-F"):
+            continue
+        row = {key: str((columns.get(key) or [])[index]) for key in ("form", "filingDate", "accessionNumber", "primaryDocument")}
+        if date.fromisoformat(row["filingDate"]) <= as_of:
+            rows.append(row)
+    return rows
+
+
+def _select_filings(rows, years):
+    unique = {row["accessionNumber"]: row for row in rows}
+    rows = sorted(unique.values(), key=lambda row: row["filingDate"], reverse=True)
+    annuals = [row for row in rows if row["form"] in ("10-K", "20-F", "40-F")][:years]
+    quarters = [row for row in rows if row["form"] == "10-Q"][:1]
+    proxies = [row for row in rows if row["form"] == "DEF 14A"][:1]
+    return annuals, quarters, proxies
+
+
+def _price_document(ticker: str, as_of: date):
+    symbol = ticker.replace(".", "-")
+    start = as_of - timedelta(days=550)
+    period1 = int(datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc).timestamp())
+    period2 = int(datetime.combine(as_of + timedelta(days=1), datetime.min.time(), tzinfo=timezone.utc).timestamp())
+    yahoo = f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(symbol)}?period1={period1}&period2={period2}&interval=1d"
+    stooq = f"https://stooq.com/q/d/l/?s={urllib.parse.quote(ticker.lower())}.us&i=d&d1={start:%Y%m%d}&d2={as_of:%Y%m%d}"
+    failures = []
+    for url, kind in ((yahoo, "yahoo_daily"), (stooq, "stooq_daily")):
+        transform = {"kind": kind, "ticker": ticker, "symbol": symbol, "analysis_date": as_of.isoformat()}
+        try:
+            payload, content_type, accessed = download_public_document(url)
+            snapshot = json.loads(_document_text(payload, content_type, transform))
+            return {
+                "title": f"{ticker} daily price history through {as_of.isoformat()}", "type": "MarketHistory",
+                "url": url, "doc_date": as_of.isoformat(), "date_basis": "requested_market_history_cutoff",
+                "transform": transform,
+            }, {"provider": kind, "last_bar_date": snapshot["last_bar_date"], "price_basis": snapshot["price_basis"], "probe_accessed": accessed}
+        except Exception as exc:
+            failures.append({"provider": kind, "error": str(exc)[:250]})
+    raise ValueError("Public price providers did not return valid date-bounded history: " + json.dumps(failures))
+
+
+def collect_public_sources(ticker: str, analysis_date: str, depth: str, output_dir: Path, cik: str | None = None) -> Path:
+    """Discover actual filing URLs/dates, fetch their content, and add price history."""
+    ticker = ticker.strip().upper()
+    if not re.fullmatch(r"[A-Z0-9][A-Z0-9.-]{0,14}", ticker):
+        raise ValueError("Use a valid US-listed equity ticker.")
+    as_of = date.fromisoformat(analysis_date)
+    if as_of > datetime.now(timezone.utc).date():
+        raise ValueError("Cannot collect research inputs for a future analysis date.")
+    years = {"quick": 3, "standard": 5, "deep": 10}.get(depth.lower())
+    if years is None:
+        raise ValueError("Depth must be Quick, Standard or Deep.")
+    sec_user_agent()  # Fail before paid analysis or network requests if contact is missing.
+    output_dir = Path(output_dir).resolve()
+    output_dir.mkdir(parents=True, exist_ok=False)
+    lookup_dir = output_dir / "discovery"
+    lookup_dir.mkdir()
+    discovery = _Discovery(lookup_dir)
+    if cik is None:
+        directory = discovery.get("https://www.sec.gov/files/company_tickers.json")
+        match = next((entry for entry in directory.values() if str(entry.get("ticker", "")).upper().replace(".", "-") == ticker.replace(".", "-")), None)
+        if match is None:
+            raise ValueError("Ticker was not found in the current SEC identifier directory; specify --cik if appropriate.")
+        cik = str(match["cik_str"])
+    if not re.fullmatch(r"\d{1,10}", str(cik)):
+        raise ValueError("CIK must contain 1–10 digits.")
+    cik_number = str(int(cik))
+    submissions = discovery.get(f"https://data.sec.gov/submissions/CIK{int(cik):010d}.json")
+    sec_tickers = [str(value).upper().replace(".", "-") for value in submissions.get("tickers", [])]
+    if ticker.replace(".", "-") not in sec_tickers:
+        raise ValueError("The SEC company record does not confirm this ticker/CIK pairing.")
+    filings = submissions.get("filings") or {}
+    rows = _filing_rows(filings.get("recent") or {}, as_of)
+    annuals, quarters, proxies = _select_filings(rows, years)
+    older = filings.get("files") or []
+    requests = 0
+    for file in older:
+        if len(annuals) >= years and (quarters or any(row["form"] in ("20-F", "40-F") for row in annuals)) and proxies:
+            break
+        if date.fromisoformat(file["filingFrom"]) > as_of:
+            continue
+        name = str(file["name"])
+        if not re.fullmatch(r"CIK\d+-submissions-\d+\.json", name):
+            raise ValueError("Unexpected SEC submission-history file name.")
+        requests += 1
+        if requests > 12:
+            break
+        rows.extend(_filing_rows(discovery.get(f"https://data.sec.gov/submissions/{name}"), as_of))
+        annuals, quarters, proxies = _select_filings(rows, years)
+    if not annuals:
+        raise ValueError("No date-appropriate annual filing was found for this ticker.")
+    documents = []
+    for row in annuals + quarters + proxies:
+        accession = row["accessionNumber"]
+        primary = row["primaryDocument"]
+        if not re.fullmatch(r"\d{10}-\d{2}-\d{6}", accession) or not re.fullmatch(r"[A-Za-z0-9_.-]+", primary):
+            raise ValueError("Unexpected SEC primary-document metadata.")
+        url = f"https://www.sec.gov/Archives/edgar/data/{cik_number}/{accession.replace('-', '')}/{primary}"
+        documents.append({"title": f"{ticker} {row['form']} filed {row['filingDate']}", "type": "SECFiling",
+                          "url": url, "doc_date": row["filingDate"], "date_basis": "SEC_filing_date"})
+    price_document, price_info = _price_document(ticker, as_of)
+    documents.append(price_document)
+    if len(documents) > MAX_DOCUMENTS:
+        raise ValueError("Collected evidence exceeds the configured document limit.")
+    coverage = {
+        "ticker": ticker, "cik": cik_number, "company": submissions.get("name"), "analysis_date": analysis_date,
+        "annual_filings_requested": years, "annual_filings_found": len(annuals),
+        "quarterly_filing_found": bool(quarters), "proxy_found": bool(proxies), "market": price_info,
+        "discovery_records": discovery.records,
+        "limitations": ["Identifier lookup uses the current SEC ticker/CIK mapping, not a historical ticker database.",
+                        "SEC inclusion is based on filing date, not an intraday publication-time cutoff.",
+                        "Market-provider corporate-action adjustment policies apply; this is not a certified point-in-time backtest dataset.",
+                        "Culture, peer estimates, social media and broader news may still be unavailable; never fabricate them."],
+    }
+    (output_dir / "collection.json").write_text(json.dumps(coverage, indent=2) + "\n")
+    manifest = output_dir / "manifest.json"
+    manifest.write_text(json.dumps({"ticker": ticker, "documents": documents}, indent=2) + "\n")
+    return fetch_evidence(manifest, output_dir / "pack")

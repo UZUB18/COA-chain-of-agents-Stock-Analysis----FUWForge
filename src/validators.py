@@ -4,7 +4,7 @@ Validation helpers for agent envelopes and orchestrator gates.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -20,6 +20,7 @@ except ImportError:  # pragma: no cover - optional dependency
 class ValidationResult:
     valid: bool
     errors: List[str]
+    warnings: List[str] = field(default_factory=list)
 
 
 class EnvelopeValidator:
@@ -43,7 +44,9 @@ class EnvelopeValidator:
         if self.validator is not None:
             errors = sorted(self.validator.iter_errors(data), key=lambda e: e.path)
             if errors:
-                rendered = [f"{'/'.join(map(str, err.path))}: {err.message}" for err in errors]
+                rendered = [
+                    f"{'/'.join(map(str, err.path))}: {err.message}" for err in errors
+                ]
                 return ValidationResult(valid=False, errors=rendered)
             return ValidationResult(valid=True, errors=[])
 
@@ -59,11 +62,15 @@ class EnvelopeValidator:
         ]
         missing = [key for key in required_keys if key not in data]
         if missing:
-            return ValidationResult(valid=False, errors=[f"Missing keys: {', '.join(missing)}"])
+            return ValidationResult(
+                valid=False, errors=[f"Missing keys: {', '.join(missing)}"]
+            )
         return ValidationResult(valid=True, errors=[])
 
 
-def validate_required_artifacts(envelope: Envelope, required: Iterable[str]) -> ValidationResult:
+def validate_required_artifacts(
+    envelope: Envelope, required: Iterable[str]
+) -> ValidationResult:
     missing = [key for key in required if key not in envelope.artifacts]
     if missing:
         return ValidationResult(
@@ -84,9 +91,13 @@ def validate_checksum(envelope: Envelope, expected_checksum: str) -> ValidationR
 
 
 def validate_gate_passed(envelope: Envelope) -> ValidationResult:
+    """Hard gate check; a failed gate in any agent halts the run."""
     passed = envelope.gates.get("passed")
     if not passed:
         notes = envelope.gates.get("notes", [])
         note_text = "; ".join(notes) if notes else "No notes provided."
-        return ValidationResult(valid=False, errors=[f"A1 gate failed: {note_text}"])
+        agent_id = envelope.agent.id or "AGENT"
+        return ValidationResult(
+            valid=False, errors=[f"{agent_id} gate failed: {note_text}"]
+        )
     return ValidationResult(valid=True, errors=[])

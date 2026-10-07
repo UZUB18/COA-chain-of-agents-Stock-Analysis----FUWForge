@@ -19,6 +19,10 @@ class AgentContext:
     workdir: Path
     provenance_path: Path
     retries: int = 0
+    envelopes: Dict[str, Envelope] = field(default_factory=dict)
+    source_documents: list[Dict[str, Any]] = field(default_factory=list)
+    source_text: str = ""
+    evidence_checksum: str = ""
 
 
 @dataclass
