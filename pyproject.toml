@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fuwforge"
+version = "2.1.0"
+description = "FUWForge - Chain of Agents Stock Analysis Framework v2.1"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pyyaml>=6.0",
+    "jsonschema>=4.0",
+    "python-dotenv>=1.0",
+    "pypdf>=5.0",
+    "fonttools>=4.0",
+]
+
+[project.scripts]
+fuwforge = "src.controller:main"
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0",
+]
+model = [
+    "requests>=2.28.0",
+]
+typesafe = [
+    "typesafe-sdk>=0.6.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-m 'not live'"
+markers = [
+    "live: requires the AGY CLI and network access; run explicitly with `pytest -m live`",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
