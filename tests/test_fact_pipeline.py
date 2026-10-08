@@ -35,6 +35,7 @@ from src.facts import (
     validate_fact,
 )
 from src.sec_facts import (
+    AVAILABILITY_POLICY,
     EXTRACTOR_VERSION_SEC,
     ingest_company_facts_file,
     is_arelle_available,
@@ -178,11 +179,15 @@ def test_sec_companyfacts_ingestion_preserves_accession_units_and_precision():
     assert rev_original.kind == FactKind.REPORTED
     assert rev_original.supersedes is None
 
-    # Preserves available-at precision limitation in metadata
-    assert rev_original.availability_time == "2023-11-03T00:00:00Z"
+    # Availability is conservative: the SEC 'filed' field has no intraday
+    # publication time, so a fact is available at the END of its filed day,
+    # never claimed public from 00:00. See sec_facts.AVAILABILITY_POLICY.
+    assert rev_original.availability_time == "2023-11-03T23:59:59Z"
     assert rev_original.metadata is not None
     assert rev_original.metadata.get("availability_precision") == "date_only_intraday_unspecified"
     assert rev_original.metadata.get("date_basis") == "SEC_filing_date"
+    assert rev_original.metadata.get("availability_policy") == AVAILABILITY_POLICY
+    assert rev_original.metadata.get("disclosure_relation") == "initial_disclosure"
 
     # Check instant fact (EntityCommonStockSharesOutstanding)
     shares_fact = next(f for f in facts if f.concept == "EntityCommonStockSharesOutstanding")

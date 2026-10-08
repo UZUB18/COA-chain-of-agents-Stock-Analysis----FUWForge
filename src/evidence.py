@@ -21,7 +21,7 @@ import urllib.request
 from datetime import date, datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from dotenv import dotenv_values
 
@@ -224,8 +224,21 @@ def _document_text(payload: bytes, content_type: str, transform=None) -> str:
     return text
 
 
-def fetch_evidence(manifest: Path, output_dir: Path) -> Path:
-    """Download only explicit manifest URLs, with bounded size and no redirects."""
+def fetch_evidence(
+    manifest: Path,
+    output_dir: Path,
+    attachments: Optional[List[Dict[str, Any]]] = None,
+) -> Path:
+    """
+    Download only explicit manifest URLs, with bounded size and no redirects.
+
+    ``attachments`` is an optional list of already-retrieved, already-hashed
+    files to copy into the pack verbatim, each of the form
+    ``{"path": Path, "kind": str}``. The bytes are not re-downloaded; they are
+    copied and re-hashed on load. This keeps non-document artefacts (typed fact
+    ledgers, SEC CompanyFacts, web-research traces) under the same checksum and
+    containment guarantees as documents.
+    """
     config = json.loads(Path(manifest).read_text(encoding="utf-8"))
     ticker = str(config.get("ticker") or "").strip().upper()
     documents = config.get("documents")
@@ -254,8 +267,27 @@ def fetch_evidence(manifest: Path, output_dir: Path) -> Path:
             "raw_file": raw_file, "text_file": text_file, "verification": "retrieved",
             **({"transform": document["transform"]} if document.get("transform") else {}),
         })
+    attachment_records = []
+    for spec in attachments or []:
+        source_path = Path(spec["path"]).resolve()
+        name = str(spec["kind"]) + Path(source_path).suffix if spec.get("kind") else source_path.name
+        # Choose a simple, contained filename based on the provided name.
+        filename = str(spec.get("name") or Path(source_path).name)
+        if Path(filename).is_absolute() or ".." in Path(filename).parts:
+            raise ValueError("Evidence attachment filenames must be simple relative names.")
+        target = output_dir / filename
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source_path, target)
+        attachment_records.append({
+            "file": filename,
+            "sha256": sha256_digest(target.read_bytes()),
+            "kind": str(spec.get("kind") or "attachment"),
+        })
+    pack = {"schema_version": "1", "ticker": ticker, "documents": records}
+    if attachment_records:
+        pack["attachments"] = attachment_records
     path = output_dir / "evidence.json"
-    path.write_text(json.dumps({"schema_version": "1", "ticker": ticker, "documents": records}, indent=2) + "\n")
+    path.write_text(json.dumps(pack, indent=2) + "\n", encoding="utf-8")
     return path
 
 

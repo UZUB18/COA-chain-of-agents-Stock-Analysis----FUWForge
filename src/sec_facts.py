@@ -33,6 +33,59 @@ logger = logging.getLogger(__name__)
 
 EXTRACTOR_VERSION_SEC = "sec_companyfacts_v1"
 
+#: Point-in-time availability policy for SEC-sourced facts.
+#:
+#: The SEC ``filed`` field carries a calendar date with **no intraday
+#: publication time**. A filing is accepted at an unknown moment on that date;
+#: EDGAR may even accept it after the close of business. Therefore:
+#:
+#: - A fact is treated as available at the **end of its filed date**
+#:   (``23:59:59Z``), the latest moment the evidence supports, never at
+#:   ``00:00:00Z``.
+#: - We never claim a fact was public earlier than the filing date itself.
+#: - A fact whose filing date equals the research cutoff day is therefore only
+#:   usable by a cutoff at or after the end of that day, which is the
+#:   conservative, defensible choice.
+#:
+#: This is deliberately conservative: it can exclude a fact that was in fact
+#: public intraday, but it can never include one that was not yet public.
+AVAILABILITY_POLICY = "sec-filed-date-end-of-day-v1"
+
+
+def _conservative_availability(filed: str) -> str:
+    """
+    Convert an SEC calendar ``filed`` date into a conservative UTC timestamp.
+
+    ``YYYY-MM-DD`` -> ``YYYY-MM-DDT23:59:59Z`` (end of the filed day).
+
+    If a full timestamp is supplied (some upstream fixtures carry one), it is
+    normalised but *floored to the end of its own calendar day* so the policy is
+    applied uniformly. A malformed date falls back to a clearly-unusable epoch
+    so the fact is never accidentally treated as recent.
+    """
+    raw = str(filed or "").strip()
+    if not raw:
+        # Unknown filing date: use an obviously unavailable epoch rather than
+        # guessing "now".
+        return "1970-01-01T23:59:59Z"
+    day = raw[:10]
+    try:
+        date.fromisoformat(day)
+    except ValueError:
+        # Unparseable filing date -> never available early.
+        return "1970-01-01T23:59:59Z"
+    return f"{day}T23:59:59Z"
+
+
+def _values_equal(a: Optional[float], b: Optional[float]) -> bool:
+    """Exact float equality for disclosure comparison (no tolerance)."""
+    if a is None or b is None:
+        return a is None and b is None
+    try:
+        return float(a) == float(b)
+    except (TypeError, ValueError):
+        return False
+
 # Standard known currency codes
 KNOWN_CURRENCIES = {
     "USD", "EUR", "GBP", "JPY", "CAD", "AUD", "CHF", "CNY", "HKD", "SEK", "NZD", "KRW", "SGD", "NOK", "MXN", "INR"
@@ -288,6 +341,8 @@ def parse_sec_company_facts(
 
         prior_fact_id: Optional[str] = None
         prior_val: Optional[float] = None
+        prior_unit: Optional[str] = None
+        prior_basis: Optional[AccountingBasis] = None
 
         for idx, entry in enumerate(sorted_entries):
             filed = entry["filed"] or "1970-01-01"
@@ -303,17 +358,71 @@ def parse_sec_company_facts(
             if any(f.id == fact_id for f in facts):
                 fact_id = f"{fact_id}_{idx}"
 
-            # Availability time with calendar-day precision
-            avail_iso = f"{filed}T00:00:00Z" if len(filed) == 10 else filed
+            # Conservative availability: the SEC 'filed' field is a calendar date
+            # with no intraday publication time. We therefore treat the fact as
+            # available at the END of the filed day, not its start. This never
+            # claims the fact was public earlier than the evidence supports
+            # (a filing accepted after the close of business is still only
+            # knowable from the filing date onward, not from 00:00).
+            avail_iso = _conservative_availability(filed)
 
-            # Determine kind and supersession
+            entry_value = entry.get("val")
+            entry_unit = entry.get("unit")
+            entry_basis = entry.get("basis", AccountingBasis.US_GAAP)
+
+            # Classification of this observation relative to the previous one.
+            #
+            # Not every later disclosure of the same period is a restatement.
+            # The four distinct cases are:
+            #
+            # - first disclosure                      -> reported
+            # - later filing, SAME value              -> repeated_disclosure
+            # - later filing, DIFFERENT value         -> restatement
+            # - later filing on an /A amendment form  -> amended
+            #
+            # A repeated disclosure does not supersede the original: the original
+            # was never wrong, so discarding it would erase the original
+            # provenance. It is recorded as its own observation.
+            form = str(entry.get("form") or "").upper()
+            is_amendment_form = form.endswith("/A")
+            is_same_value = (
+                prior_val is not None
+                and entry_value is not None
+                and _values_equal(prior_val, entry_value)
+            )
+            is_same_unit = (prior_unit is None or prior_unit == entry_unit)
+            is_same_basis = (prior_basis is None or prior_basis == entry_basis)
+
             if idx == 0:
                 kind = FactKind.REPORTED
                 supersedes = None
-            else:
-                # Later filing for the same concept and period -> restatement / amendment
+                disclosure_relation = "initial_disclosure"
+            elif is_amendment_form:
                 kind = FactKind.RESTATEMENT
                 supersedes = prior_fact_id
+                disclosure_relation = "amended"
+            elif is_same_value and is_same_unit and is_same_basis:
+                # Same number re-reported in a later filing (e.g. a comparative
+                # column restated to an unchanged figure, or the same fact
+                # re-tagged). This is a repeat, not a restatement.
+                kind = FactKind.REPORTED
+                supersedes = None
+                disclosure_relation = "repeated_disclosure"
+            elif (
+                prior_val is not None
+                and entry_value is not None
+                and not _values_equal(prior_val, entry_value)
+            ):
+                kind = FactKind.RESTATEMENT
+                supersedes = prior_fact_id
+                disclosure_relation = "restated"
+            else:
+                # A later observation that is not a same-value repeat but whose
+                # value is not directly comparable (null, or unit/basis changed)
+                # is treated as superseding rather than silently coexisting.
+                kind = FactKind.RESTATEMENT
+                supersedes = prior_fact_id
+                disclosure_relation = "superseded_incomparable"
 
             source_url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik_str}.json"
             source_loc = {
@@ -325,13 +434,23 @@ def parse_sec_company_facts(
                 "filed": filed,
             }
 
+            metadata = dict(entry.get("metadata") or {})
+            metadata.update(
+                {
+                    "disclosure_relation": disclosure_relation,
+                    "prior_fact_id": prior_fact_id,
+                    "prior_value": prior_val,
+                    "availability_policy": AVAILABILITY_POLICY,
+                }
+            )
+
             fact = Fact(
                 id=fact_id,
                 company=company_symbol,
                 concept=concept_name,
                 unit=unit,
                 currency=entry.get("currency"),
-                value=entry.get("val"),
+                value=entry_value,
                 missing_reason=entry.get("missing_reason"),
                 period_start=entry.get("start"),
                 period_end=entry.get("end"),
@@ -340,17 +459,19 @@ def parse_sec_company_facts(
                 availability_time=avail_iso,
                 retrieval_time=now_iso,
                 source_location=source_loc,
-                accounting_basis=entry.get("basis", AccountingBasis.US_GAAP),
+                accounting_basis=entry_basis,
                 extractor_version=EXTRACTOR_VERSION_SEC,
                 kind=kind,
                 supersedes=supersedes,
                 dimensions=entry.get("dimensions"),
-                metadata=entry.get("metadata"),
+                metadata=metadata,
             )
 
             facts.append(fact)
             prior_fact_id = fact.id
             prior_val = fact.value
+            prior_unit = unit
+            prior_basis = entry_basis
 
     # Optional as_of filtering if specified
     if as_of is not None:

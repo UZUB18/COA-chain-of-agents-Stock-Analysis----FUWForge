@@ -93,6 +93,32 @@ def test_full_public_collection_is_date_bounded_and_hash_checked(monkeypatch, tm
         if url.endswith("company_tickers.json"):
             data = {"0": {"ticker": "TEST", "cik_str": 1}}
             payload, kind = json.dumps(data).encode(), "application/json"
+        elif "companyfacts" in url:
+            data = {
+                "cik": 1,
+                "entityName": "Test Co",
+                "facts": {
+                    "us-gaap": {
+                        "Revenues": {
+                            "units": {
+                                "USD": [
+                                    {
+                                        "start": "2023-01-01",
+                                        "end": "2023-12-31",
+                                        "val": 123,
+                                        "accn": "0000000001-24-000001",
+                                        "fy": 2023,
+                                        "fp": "FY",
+                                        "form": "10-K",
+                                        "filed": "2024-12-01",
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+            }
+            payload, kind = json.dumps(data).encode(), "application/json"
         elif url.endswith("CIK0000000001.json"):
             data = {"name": "Test Co", "tickers": ["TEST"], "filings": {"recent": columns, "files": []}}
             payload, kind = json.dumps(data).encode(), "application/json"
@@ -115,8 +141,59 @@ def test_full_public_collection_is_date_bounded_and_hash_checked(monkeypatch, tm
     assert snapshot.checksum == pack.checksum
     coverage = json.loads((path.parent.parent / "collection.json").read_text())
     assert coverage["annual_filings_found"] == 3 and coverage["proxy_found"]
-    assert len(coverage["discovery_records"]) == 2
+    assert len(coverage["discovery_records"]) == 3
     assert not any("future.htm" in url for url in fetched)
+
+    # SEC CompanyFacts is attached as a typed-facts attachment and routed
+    # through the SEC parser, producing a provenance-complete fact.
+    assert coverage["company_facts"]["collected"] is True
+    assert coverage["company_facts"]["fact_count"] == 1
+    assert any(a["kind"] == "sec_companyfacts" for a in pack.attachments)
+    assert len(pack.facts) == 1
+    fact = pack.facts[0]
+    assert fact.extractor_version == "sec_companyfacts_v1"
+    assert fact.value == 123.0
+    assert fact.filing_accession == "0000000001-24-000001"
+    # Conservative point-in-time availability: end of the filed day.
+    assert fact.availability_time == "2024-12-01T23:59:59Z"
+
+
+def test_companyfacts_unavailable_is_recorded_not_silently_missing(monkeypatch, tmp_path):
+    """If SEC CompanyFacts cannot be retrieved, that is recorded explicitly."""
+    monkeypatch.setenv("SEC_USER_AGENT", "Test Research test@example.com")
+    filings = [
+        ("10-K", "2024-12-01", "0000000001-24-000001", "annual24.htm"),
+        ("10-K", "2023-12-01", "0000000001-23-000001", "annual23.htm"),
+        ("10-K", "2022-12-01", "0000000001-22-000001", "annual22.htm"),
+    ]
+    columns = {
+        key: [row[index] for row in filings]
+        for index, key in enumerate(("form", "filingDate", "accessionNumber", "primaryDocument"))
+    }
+
+    def download(url):
+        if url.endswith("company_tickers.json"):
+            payload, kind = json.dumps({"0": {"ticker": "TEST", "cik_str": 1}}).encode(), "application/json"
+        elif "companyfacts" in url:
+            raise OSError("simulated SEC outage")
+        elif url.endswith("CIK0000000001.json"):
+            payload, kind = json.dumps(
+                {"name": "Test Co", "tickers": ["TEST"], "filings": {"recent": columns, "files": []}}
+            ).encode(), "application/json"
+        elif "finance.yahoo.com" in url:
+            payload, kind = json.dumps(chart()).encode(), "application/json"
+        else:
+            payload, kind = b"<p>Statement</p>", "text/html"
+        return payload, kind, "2026-10-06T20:00:00Z"
+
+    monkeypatch.setattr(public_data, "download_public_document", download)
+    monkeypatch.setattr(evidence, "download_public_document", download)
+    path = collect_public_sources("TEST", "2025-01-31", "Quick", tmp_path / "collected")
+    pack = EvidencePack(path, ticker="TEST", analysis_date="2025-01-31")
+    assert pack.facts == []
+    coverage = json.loads((path.parent.parent / "collection.json").read_text())
+    assert coverage["company_facts"]["collected"] is False
+    assert "unavailable" in coverage["company_facts"]["reason"].lower()
 
 
 def test_filing_context_preserves_middle_statement_tables():

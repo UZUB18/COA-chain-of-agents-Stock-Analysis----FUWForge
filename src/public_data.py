@@ -20,12 +20,22 @@ class _Discovery:
     def __init__(self, root: Path):
         self.root = root
         self.records = []
+        self.last_path: Path | None = None
 
     def get(self, url: str):
         payload, content_type, accessed = download_public_document(url)
         name = f"lookup_{len(self.records) + 1:02d}.json"
-        (self.root / name).write_bytes(payload)
-        self.records.append({"url": url, "accessed": accessed, "file": name, "content_sha256": sha256_digest(payload)})
+        target = self.root / name
+        target.write_bytes(payload)
+        self.records.append(
+            {
+                "url": url,
+                "accessed": accessed,
+                "file": name,
+                "content_sha256": sha256_digest(payload),
+            }
+        )
+        self.last_path = target
         return json.loads(payload)
 
 
@@ -150,11 +160,18 @@ def collect_public_sources(ticker: str, analysis_date: str, depth: str, output_d
     documents.append(price_document)
     if len(documents) > MAX_DOCUMENTS:
         raise ValueError("Collected evidence exceeds the configured document limit.")
+    # Fetch SEC CompanyFacts as a first-class typed-facts attachment. This is
+    # optional: if it cannot be retrieved the run still proceeds, but the typed
+    # facts are then explicitly unavailable rather than silently absent.
+    company_facts = _collect_company_facts(ticker, cik_number, as_of, discovery)
+    facts_info = company_facts["coverage"]
+    attachments = company_facts.get("attachments") or []
     coverage = {
         "ticker": ticker, "cik": cik_number, "company": submissions.get("name"), "analysis_date": analysis_date,
         "annual_filings_requested": years, "annual_filings_found": len(annuals),
         "quarterly_filing_found": bool(quarters), "proxy_found": bool(proxies),
         "material_events_found": len(material_events), "market": price_info,
+        "company_facts": facts_info,
         "discovery_records": discovery.records,
         "limitations": ["Identifier lookup uses the current SEC ticker/CIK mapping, not a historical ticker database.",
                         "SEC inclusion is based on filing date, not an intraday publication-time cutoff.",
@@ -164,4 +181,80 @@ def collect_public_sources(ticker: str, analysis_date: str, depth: str, output_d
     (output_dir / "collection.json").write_text(json.dumps(coverage, indent=2) + "\n")
     manifest = output_dir / "manifest.json"
     manifest.write_text(json.dumps({"ticker": ticker, "documents": documents}, indent=2) + "\n")
-    return fetch_evidence(manifest, output_dir / "pack")
+    return fetch_evidence(manifest, output_dir / "pack", attachments=attachments)
+
+
+def _collect_company_facts(
+    ticker: str,
+    cik_number: str,
+    as_of: date,
+    discovery: "_Discovery",
+) -> Dict[str, Any]:
+    """
+    Retrieve SEC CompanyFacts for the ticker and prepare it as a typed-facts
+    attachment.
+
+    This is a *best-effort enrichment*: if the SEC endpoint is unreachable or
+    the payload is unusable, the run continues with typed facts explicitly
+    unavailable (recorded in ``collection.json``), never silently missing. When
+    it succeeds, the raw CompanyFacts bytes are attached with kind
+    ``sec_companyfacts`` so ``EvidencePack`` routes them through the SEC parser.
+
+    The raw SEC JSON is attached (not a pre-filtered subset) so the full
+    provenance — every filing, period, unit and value the issuer reported — is
+    preserved and independently re-parsable. Size is bounded by the SEC
+    download guard; an oversized response is reported as unavailable rather than
+    truncated into something that looks complete.
+    """
+    from src.sec_facts import parse_sec_company_facts
+
+    url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{int(cik_number):010d}.json"
+    coverage: Dict[str, Any] = {
+        "collected": False,
+        "url": url,
+        "availability_policy": None,
+        "fact_count": 0,
+        "reason": None,
+    }
+    try:
+        payload = discovery.get(url)
+    except Exception as exc:
+        coverage["reason"] = (
+            f"SEC CompanyFacts could not be retrieved ({type(exc).__name__}: {exc}). "
+            "Typed financial facts are unavailable for this run; they must not be "
+            "guessed or substituted."
+        )
+        return {"coverage": coverage, "attachments": []}
+
+    # Parse to compute coverage and confirm the payload is usable; the attachment
+    # itself carries the raw bytes so provenance is never reduced.
+    try:
+        parsed = parse_sec_company_facts(payload, ticker=ticker)
+    except Exception as exc:
+        coverage["reason"] = (
+            f"SEC CompanyFacts retrieved but could not be parsed ({type(exc).__name__}: {exc}). "
+            "Typed financial facts are unavailable."
+        )
+        return {"coverage": coverage, "attachments": []}
+
+    from src.sec_facts import AVAILABILITY_POLICY
+
+    coverage.update(
+        {
+            "collected": True,
+            "availability_policy": AVAILABILITY_POLICY,
+            "fact_count": len(parsed),
+            "reason": None,
+        }
+    )
+    # The discovery cache already stored the exact bytes; attach that file.
+    if discovery.last_path is None:
+        coverage["collected"] = False
+        coverage["reason"] = "SEC CompanyFacts bytes were not cached and cannot be attached."
+        return {"coverage": coverage, "attachments": []}
+    return {
+        "coverage": coverage,
+        "attachments": [
+            {"path": discovery.last_path, "kind": "sec_companyfacts", "name": "sec_companyfacts.json"}
+        ],
+    }
