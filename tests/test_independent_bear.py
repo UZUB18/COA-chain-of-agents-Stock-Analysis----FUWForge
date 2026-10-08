@@ -156,3 +156,110 @@ def test_independent_phase_preserves_model_local_ids(a6r_agent, tmp_path):
     out = normalize(payload, context)
     ids = [item["bull_id"] for item in out["artifacts"]["BearRebuttals"]]
     assert ids == ["H1", "H2"], f"local independent ids were rewritten to {ids}"
+
+# --------------------------------------------- orchestration-level independence
+
+
+def test_independent_bear_is_opt_in_and_capped():
+    """
+    The blind bear pass is an experiment, not a default.
+
+    It must cost exactly one extra call, be off unless requested, and stay
+    labelled as pending evaluation. Promoting it automatically would assert a
+    benefit (better research) that has not been demonstrated.
+    """
+    from src.orchestrator import FUWForgeOrchestrator, OrchestratorParams
+
+    params = OrchestratorParams(
+        company="Probe Co", ticker="PRB", analysis_date="2026-02-01",
+        depth="Standard", focus=[], weights="default",
+    )
+
+    off = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock")
+    assert off.independent_bear is False, "the blind bear pass must be opt-in"
+
+    on = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", independent_bear=True)
+    assert on.independent_bear is True
+
+
+def test_blind_phase_cannot_see_the_bull_case_and_has_distinct_identity(tmp_path):
+    """
+    The blind pass must not see the bull thesis, and must be a distinct,
+    separately-identified execution from the reconciled pass.
+
+    Independence is structural: the blind envelope's upstream set excludes A6B,
+    so its execution identity differs from the reconciled pass and a receipt
+    can never be reused across the two.
+    """
+    import shutil
+
+    from src.orchestrator import FUWForgeOrchestrator, OrchestratorParams
+
+    out = tmp_path / "bear"
+    orchestrator = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", independent_bear=True)
+    orchestrator.run(
+        "bear_probe",
+        OrchestratorParams(
+            company="Probe Co", ticker="PRB", analysis_date="2026-02-01",
+            depth="Standard", focus=[], weights="default",
+        ),
+        output_root=out,
+    )
+
+    a6r = json.loads((out / "a6r_envelope.json").read_text(encoding="utf-8"))
+    record = a6r["artifacts"]["_independent_bear_reconciliation"]
+
+    blind = record["initial_envelope"]
+    blind_parents = {e["agent"] for e in blind["upstream"]}
+    final_parents = {e["agent"] for e in a6r["upstream"]}
+
+    # Independence: the blind pass never sees the bull case.
+    assert "A6B" not in blind_parents
+    assert "A6B" in final_parents
+
+    # Distinct identity: the blind phase is separately identified.
+    assert blind["content_checksum"] == record["initial_checksum"]
+    assert blind["content_checksum"] != a6r["content_checksum"]
+
+    # Cost is bounded and the feature remains experimental.
+    assert record["extra_calls_max"] == 1
+    assert record["promotion_status"] == "experimental_pending_cost_and_review_evaluation"
+
+
+def test_beneish_version_and_coefficients_are_frozen():
+    """
+    The calculator's published coefficients and version are a contract.
+
+    Changing them silently would invalidate every recorded witness, so they are
+    pinned here.
+    """
+    from src.utils.beneish import (
+        BENEISH_COEFFICIENTS,
+        BENEISH_SCREENING_THRESHOLD,
+        BENEISH_VARIANT,
+        CALCULATOR_VERSION,
+    )
+
+    assert CALCULATOR_VERSION == "2.0.0"
+    assert BENEISH_VARIANT == "m-score-8-variable"
+    assert BENEISH_COEFFICIENTS["tata"] == 4.679
+    assert BENEISH_COEFFICIENTS["lvgi"] == -0.327
+    assert BENEISH_COEFFICIENTS["intercept"] == -4.84
+    assert BENEISH_SCREENING_THRESHOLD == -1.78
+
+
+def test_beneish_threshold_is_not_described_as_proof_of_fraud():
+    """
+    Crossing the screening threshold is a signal, not a finding.
+
+    The module that implements it must keep saying so, and must not use
+    fraud-proof language.
+    """
+    import inspect
+
+    from src.utils import beneish
+
+    source = inspect.getsource(beneish).lower()
+    assert "screening signal" in source
+    for phrase in ("proves fraud", "proof of fraud", "confirms fraud", "fraudulent"):
+        assert phrase not in source, f"unfounded fraud claim in beneish module: {phrase}"
