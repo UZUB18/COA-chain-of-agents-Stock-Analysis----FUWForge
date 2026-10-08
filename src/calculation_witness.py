@@ -22,7 +22,9 @@ from __future__ import annotations
 
 import math
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Dict, List, Mapping, Optional, Union
+
+from src.fact_binding import binding_failures, verify_witness_bindings
 
 #: The only accepted provenance for a value produced by local arithmetic.
 COMPUTED_BY_DETERMINISTIC = "deterministic"
@@ -149,10 +151,20 @@ def validate_witness(
     *,
     fact_ledger: Optional[Mapping[str, Any]] = None,
     cutoff: Optional[str] = None,
+    expected_company: Optional[str] = None,
 ) -> List[str]:
     """
     Validate a calculation witness for typed structure, provenance, arithmetic,
-    input fact linkage in ledger, unit consistency, and as-of chronology.
+    and source binding.
+
+    Source binding is the load-bearing part: an input that cites a fact is
+    verified against that fact's *actual* value, unit, period, accounting basis,
+    filing identity and point-in-time availability under the documented
+    numeric-comparison policy in :mod:`src.fact_binding`. An existing fact ID is
+    not sufficient; the number must equal the fact's number.
+
+    An input with no cited fact is reported as unverified rather than assumed
+    correct.
     """
     errors: List[str] = []
     if isinstance(witness, CalculationWitness):
@@ -209,33 +221,23 @@ def validate_witness(
         if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
             errors.append(f"witness input '{k}' must be a finite number, got {v!r}")
 
-    # Verify input_fact_ids against ledger and chronology
-    input_fact_ids = data.get("input_fact_ids") or {}
-    units = data.get("units") or {}
-    if isinstance(input_fact_ids, dict) and fact_ledger is not None:
-        for input_key, fact_id in input_fact_ids.items():
-            if not fact_id or not isinstance(fact_id, str):
-                continue
-            if fact_id not in fact_ledger:
-                errors.append(f"witness input '{input_key}' references fact ID '{fact_id}' not found in fact ledger")
-                continue
-            fact = fact_ledger[fact_id]
-            # Verify unit consistency if units is provided
-            if isinstance(units, dict) and input_key in units:
-                expected_unit = units[input_key]
-                fact_unit = getattr(fact, "unit", None) or (fact.get("unit") if isinstance(fact, dict) else None)
-                if expected_unit and fact_unit and expected_unit != "ratio" and fact_unit != expected_unit:
-                    errors.append(
-                        f"witness input '{input_key}' unit mismatch: witness specifies '{expected_unit}', fact '{fact_id}' has '{fact_unit}'"
-                    )
-            # Verify chronology
-            if cutoff:
-                from src.facts import usable_as_of
-                if not usable_as_of(fact, cutoff):
-                    avail = getattr(fact, "availability_time", None) or (fact.get("availability_time") if isinstance(fact, dict) else None)
-                    errors.append(
-                        f"witness input '{input_key}' references fact '{fact_id}' with availability_time '{avail}' after cutoff '{cutoff}' (chronology violation)"
-                    )
+    # Source binding. Every input that cites a fact must match that fact's
+    # actual recorded value, unit, period, basis, filing identity and
+    # availability. This is delegated to the shared policy in
+    # ``src.fact_binding`` so the witness validator and the independent run
+    # audit can never drift apart.
+    if isinstance(input_fact_ids, dict):
+        bindings = verify_witness_bindings(
+            data,
+            fact_ledger=fact_ledger or {},
+            expected_company=expected_company,
+            cutoff=cutoff,
+            expected_periods=data.get("input_periods"),
+            expected_bases=data.get("input_bases"),
+        )
+        # Only genuine binding failures are errors. An input that cites no fact
+        # is disclosed as unverified, not treated as a false claim.
+        errors.extend(binding_failures(bindings))
 
     # Formula-specific replay if known
     if formula_id == "beneish_m_score":

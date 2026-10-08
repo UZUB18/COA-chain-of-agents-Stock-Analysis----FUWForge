@@ -263,6 +263,10 @@ def cmd_verify_run(args: argparse.Namespace) -> None:
             print("\nWarnings:")
             for warning in report.warnings:
                 print(f"  [warn] {warning}")
+        if report.unavailable:
+            print("\nNot established by this audit (disclosed gaps):")
+            for item in report.unavailable:
+                print(f"  [unavailable] {item}")
         if report.errors:
             print("\nFindings:")
             for error in report.errors:

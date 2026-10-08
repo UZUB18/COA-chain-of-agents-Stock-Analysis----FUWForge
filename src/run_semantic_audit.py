@@ -42,6 +42,7 @@ from typing import Any, Dict, List, Mapping, Optional, Set, Tuple, Union
 
 from src.contracts import AGENT_IDS, validate_contract
 from src.envelope import Envelope
+from src.fact_binding import binding_failures, binding_notes, verify_witness_bindings
 from src.utils.checksum import checksum_file, envelope_content_checksum
 from src.validators import EnvelopeValidator, ValidationResult
 
@@ -68,6 +69,11 @@ class AuditReport:
     levels: Dict[str, str] = field(default_factory=dict)
     errors: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
+    #: What a level could NOT establish. These are not defects and are not
+    #: escalated by ``--strict``: they state the boundary of what was verified,
+    #: so "the arithmetic replayed" is never confused with "every input was
+    #: source-backed".
+    unavailable: List[str] = field(default_factory=list)
     complete: bool = False
     halted: bool = False
 
@@ -95,6 +101,7 @@ class AuditReport:
             "failed_levels": self.failed_levels(),
             "errors": list(self.errors),
             "warnings": list(self.warnings),
+            "unavailable": list(self.unavailable),
         }
 
 
@@ -342,54 +349,70 @@ def validate_run_manifest(manifest: Dict[str, Any]) -> List[str]:
 # --------------------------------------------------------------- calculation
 
 
-def _load_fact_ledger(run_dir: Path, envelopes: Dict[str, Envelope]) -> Dict[str, Any]:
-    """Load fact ledger from files in run_dir or from envelope artifacts."""
+def _load_fact_ledger(
+    run_dir: Path,
+    envelopes: Dict[str, Envelope],
+    *,
+    problems: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """
+    Load the fact ledger from run files and envelope artifacts.
+
+    A ledger that exists but cannot be parsed is a **defect**, not an absence.
+    Swallowing the error (the previous behaviour) made a corrupted ledger
+    indistinguishable from no ledger, which in turn let a fabricated input pass
+    as "no fact cited". When ``problems`` is supplied, a load failure is
+    reported there so the audit can fail the run instead of silently degrading.
+    """
+    if problems is None:
+        problems = []
     facts_map: Dict[str, Any] = {}
     try:
         from src.facts import Fact, load_fact_ledger
+    except Exception as exc:  # pragma: no cover - import of core module
+        problems.append(f"fact ledger support unavailable: {exc}")
+        return facts_map
 
-        for candidate in (
-            run_dir / "facts",
-            run_dir / "fact_ledger.json",
-            run_dir / "facts.json",
-        ):
-            if candidate.exists():
-                try:
-                    loaded = load_fact_ledger(candidate)
-                    for f in loaded:
-                        facts_map[f.id] = f
-                except Exception:
-                    pass
-        for env in envelopes.values():
-            art_facts = (env.artifacts or {}).get("facts") or (
-                env.artifacts or {}
-            ).get("fact_ledger")
-            if isinstance(art_facts, list):
-                for item in art_facts:
-                    if isinstance(item, dict) and "id" in item:
-                        try:
-                            f = (
-                                Fact.from_dict(item)
-                                if not isinstance(item, Fact)
-                                else item
-                            )
-                            facts_map[f.id] = f
-                        except Exception:
-                            facts_map[item["id"]] = item
-            elif isinstance(art_facts, dict):
-                for k, item in art_facts.items():
-                    if isinstance(item, dict) and "id" in item:
-                        try:
-                            f = (
-                                Fact.from_dict(item)
-                                if not isinstance(item, Fact)
-                                else item
-                            )
-                            facts_map[f.id] = f
-                        except Exception:
-                            facts_map[item["id"]] = item
-    except Exception:
-        pass
+    for candidate in (
+        run_dir / "facts",
+        run_dir / "fact_ledger.json",
+        run_dir / "facts.json",
+    ):
+        if not candidate.exists():
+            continue
+        try:
+            loaded = load_fact_ledger(candidate)
+        except Exception as exc:
+            problems.append(
+                f"fact ledger at {candidate.name} could not be loaded: {exc}. "
+                "An unreadable ledger must not be treated as an absent one."
+            )
+            continue
+        for f in loaded:
+            facts_map[f.id] = f
+
+    for env in envelopes.values():
+        art_facts = (env.artifacts or {}).get("facts") or (
+            env.artifacts or {}
+        ).get("fact_ledger")
+        if isinstance(art_facts, list):
+            items = art_facts
+        elif isinstance(art_facts, dict):
+            items = list(art_facts.values())
+        else:
+            continue
+        for item in items:
+            if not isinstance(item, dict) or "id" not in item:
+                continue
+            try:
+                fact = item if isinstance(item, Fact) else Fact.from_dict(item)
+            except Exception as exc:
+                problems.append(
+                    f"fact {item.get('id')!r} embedded in an envelope could not be "
+                    f"parsed as a typed fact: {exc}"
+                )
+                continue
+            facts_map[fact.id] = fact
     return facts_map
 
 
@@ -397,12 +420,27 @@ def replay_beneish(
     envelope: Envelope,
     fact_ledger: Optional[Mapping[str, Any]] = None,
     analysis_date: Optional[str] = None,
+    expected_company: Optional[str] = None,
+    unavailable: Optional[List[str]] = None,
 ) -> List[str]:
     """
     Independently recompute A3's Beneish score from its recorded witness.
 
     Returns a list of problems. An empty list means the score was recomputed and
     matched. This never accepts "the number was finite and in range".
+
+    Two distinct properties are checked, and passing one does not imply the
+    other:
+
+    * **Arithmetic consistency** — the recorded result is recomputed from the
+      recorded inputs.
+    * **Source binding** — each input that cites a fact is verified to equal
+      that fact's actual value, with compatible unit, period, accounting basis,
+      filing identity and point-in-time availability (see
+      :mod:`src.fact_binding`).
+
+    A witness whose inputs are internally consistent but cite a real fact ID
+    with a fabricated number is rejected by the second check.
     """
     beneish = (envelope.artifacts or {}).get("BeneishM")
     if not isinstance(beneish, dict):
@@ -468,39 +506,26 @@ def replay_beneish(
                 f"A3 BeneishM calculation witness input '{key}' is not a finite number: {val!r}"
             ]
 
-    # Fact linkage, unit consistency, and as-of chronology verification
-    input_fact_ids = witness.get("input_fact_ids")
-    units = witness.get("units")
-    if isinstance(input_fact_ids, dict) and fact_ledger is not None:
-        for input_key, fact_id in input_fact_ids.items():
-            if not fact_id or not isinstance(fact_id, str):
-                continue
-            if fact_id not in fact_ledger:
-                return [
-                    f"A3 BeneishM witness input '{input_key}' references fact ID '{fact_id}' not found in fact ledger"
-                ]
-            fact = fact_ledger[fact_id]
-            # Unit consistency
-            if isinstance(units, dict) and input_key in units:
-                expected_unit = units[input_key]
-                fact_unit = getattr(fact, "unit", None) or (
-                    fact.get("unit") if isinstance(fact, dict) else None
-                )
-                if expected_unit and fact_unit and expected_unit != "ratio" and fact_unit != expected_unit:
-                    return [
-                        f"A3 BeneishM witness input '{input_key}' unit mismatch: witness specifies '{expected_unit}', fact '{fact_id}' has '{fact_unit}'"
-                    ]
-            # Chronology check
-            if analysis_date:
-                from src.facts import usable_as_of
-
-                if not usable_as_of(fact, analysis_date):
-                    avail = getattr(fact, "availability_time", None) or (
-                        fact.get("availability_time") if isinstance(fact, dict) else None
-                    )
-                    return [
-                        f"A3 BeneishM witness input '{input_key}' references fact '{fact_id}' with availability_time '{avail}' after analysis cutoff '{analysis_date}' (chronology violation)"
-                    ]
+    # Source binding: every input that cites a fact must match that fact's
+    # recorded value, unit, period, basis, filing identity and availability.
+    #
+    # This replaces the previous check, which verified only that a cited fact ID
+    # *exists* and passed a chronology test. A witness could therefore cite a
+    # real fact while using a fabricated number and replay "successfully".
+    bindings = verify_witness_bindings(
+        witness,
+        fact_ledger=fact_ledger or {},
+        expected_company=expected_company,
+        cutoff=analysis_date,
+    )
+    binding_problems = [
+        f"A3 BeneishM {problem}" for problem in binding_failures(bindings)
+    ]
+    if binding_problems:
+        return binding_problems
+    if unavailable is not None:
+        for note in binding_notes(bindings):
+            unavailable.append(f"A3 BeneishM {note}")
 
     try:
         recomputed = beneish_score(
@@ -653,22 +678,33 @@ def semantic_audit(run_dir: Path) -> AuditReport:
     report.levels["graph_and_contracts"] = "failed" if graph_errors else "passed"
 
     # Level 4 — calculation replay.
-    fact_ledger = _load_fact_ledger(run_dir, envelopes)
+    ledger_problems: List[str] = []
+    fact_ledger = _load_fact_ledger(run_dir, envelopes, problems=ledger_problems)
     analysis_date = None
+    ticker = None
     if "A1" in envelopes and envelopes["A1"].params:
         analysis_date = envelopes["A1"].params.get("analysis_date")
+        ticker = envelopes["A1"].params.get("ticker")
     elif envelopes:
         first_env = next(iter(envelopes.values()))
         if first_env.params:
             analysis_date = first_env.params.get("analysis_date")
+            ticker = first_env.params.get("ticker")
+    # SEC CompanyFacts records the ticker as the fact's company identity, so
+    # that is the value a cited fact must carry.
+    expected_company = str(ticker).strip().upper() if ticker else None
 
-    calc_errors: List[str] = []
+    # A ledger that could not be loaded is itself a calculation-replay defect:
+    # it is indistinguishable, to a reader, from arithmetic with no sources.
+    calc_errors: List[str] = list(ledger_problems)
     if "A3" in envelopes:
         calc_errors.extend(
             replay_beneish(
                 envelopes["A3"],
                 fact_ledger=fact_ledger,
                 analysis_date=analysis_date,
+                expected_company=expected_company,
+                unavailable=report.unavailable,
             )
         )
 
@@ -685,6 +721,7 @@ def semantic_audit(run_dir: Path) -> AuditReport:
                         witness,
                         fact_ledger=fact_ledger,
                         cutoff=analysis_date,
+                        expected_company=expected_company,
                     )
                     calc_errors.extend(
                         f"{agent_id}.{art_name} witness: {e}" for e in w_errors
