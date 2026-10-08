@@ -388,18 +388,28 @@ def fact_period_kind(fact: Any) -> str:
 
 _ACCESSION_RE = re.compile(r"^\d{10}-\d{2}-\d{6}$")
 
+#: The SEC placeholder used when an entry carries no real accession. It is
+#: well-formed by shape but identifies no filing, so it must not satisfy a
+#: citation.
+_PLACEHOLDER_ACCESSIONS = frozenset({"0000000000-00-000000", "00000000000000"})
+
 
 def fact_filing_identity_valid(fact: Any) -> Tuple[bool, str]:
     """
     Validate filing identity: the accession number must be well-formed.
 
-    A fact whose accession is an empty string or a placeholder is not evidence
-    of a filing, and must not be allowed to satisfy a citation.
+    A fact whose accession is an empty string, malformed, or the SEC's
+    all-zero placeholder is not evidence of a filing, and must not be allowed
+    to satisfy a citation.
     """
     accession = _fact_get(fact, "filing_accession")
     if not accession or not str(accession).strip():
         return False, "fact carries no filing accession"
     text = str(accession).strip()
+    if text in _PLACEHOLDER_ACCESSIONS:
+        return False, (
+            f"filing accession {text!r} is the SEC placeholder, not a real filing identity"
+        )
     if not _ACCESSION_RE.match(text):
         return False, (
             f"filing accession {text!r} is not a well-formed SEC accession "
@@ -618,8 +628,12 @@ def verify_input_binding(
 
     - fact exists and is non-``None``
     - company matches the run's company (case-insensitive)
-    - value equality against the recorded fact value
-    - unit dimension/currency/scale compatibility
+    - value equality against the recorded fact value, **or** — when the input is
+      explicitly marked ``derived`` — equality against the derivation's declared
+      result, with every operand fact present in the ledger
+    - unit dimension/currency/scale compatibility (skipped against an operand
+      when a derivation is declared, since the operand's unit is the operand's,
+      not the derived ratio's)
     - period and period type match
     - accounting basis compatible
     - filing identity and source reference well-formed
@@ -647,6 +661,49 @@ def verify_input_binding(
             )
             return result
 
+    # --- 1b. derived inputs take the derivation path -----------------------
+    # A derived input's number comes from a stated formula over other facts, so
+    # its cited fact is an *operand*, not the source of the value. Require an
+    # inspectable derivation and bind the value to that derivation's result.
+    derivation = Derivation.from_spec(derivation_spec) if derivation_spec is not None else None
+    is_derived = derivation_spec is not None
+    if is_derived:
+        if derivation is None:
+            result.status = "failed"
+            result.problems.append(
+                f"witness input '{input_key}' is marked derived but supplies no inspectable "
+                "derivation (an expression plus at least one operand fact ID is required)"
+            )
+            return result
+        result.derivation = derivation
+        missing_ops = [oid for oid in derivation.operand_fact_ids if oid not in fact_ledger]
+        if missing_ops:
+            result.status = "failed"
+            result.problems.append(
+                f"witness input '{input_key}' derivation cites operand fact(s) {missing_ops} "
+                "that do not exist in the fact ledger"
+            )
+            return result
+        # Bind the claimed value to the derivation's declared result.
+        if derivation.result_value is not None:
+            ok_d, detail_d = compare_numbers(claimed_value, derivation.result_value, rel_tol=rel_tol)
+            if not ok_d:
+                result.status = "failed"
+                result.problems.append(
+                    f"witness input '{input_key}' derived value {detail_d} "
+                    f"(derivation {derivation.expression!r}, policy={NUMERIC_COMPARISON_POLICY})"
+                )
+            else:
+                result.notes.append(
+                    f"derived value bound: {derivation.expression} over "
+                    f"{list(derivation.operand_fact_ids)}"
+                )
+        else:
+            result.notes.append(
+                f"derivation inspectable but declares no result_value for '{input_key}'; "
+                "the recomputed value cannot be cross-checked from the ledger alone"
+            )
+
     # --- 2. the fact must carry an actual value ----------------------------
     fact_value = _fact_get(fact, "value")
     if fact_value is None:
@@ -661,16 +718,21 @@ def verify_input_binding(
         return result
 
     # --- 3. the core binding: numeric equality -----------------------------
-    ok, detail = compare_numbers(claimed_value, fact_value, rel_tol=rel_tol)
-    if not ok:
-        result.status = "failed"
-        result.problems.append(
-            f"witness input '{input_key}' {detail} (fact '{fact_id}', policy={NUMERIC_COMPARISON_POLICY})"
-        )
+    # For a derived input the value is bound to the derivation (above), so we do
+    # NOT additionally require it to equal the operand's raw value.
+    if not is_derived:
+        ok, detail = compare_numbers(claimed_value, fact_value, rel_tol=rel_tol)
+        if not ok:
+            result.status = "failed"
+            result.problems.append(
+                f"witness input '{input_key}' {detail} (fact '{fact_id}', policy={NUMERIC_COMPARISON_POLICY})"
+            )
 
     # --- 4. unit compatibility ---------------------------------------------
+    # A derived input's cited fact is an operand, so the operand's own unit is
+    # not the derived ratio's unit; comparing them would be a category error.
     fact_unit = _fact_get(fact, "unit")
-    if expected_unit:
+    if expected_unit and not is_derived:
         if not fact_unit:
             result.problems.append(
                 f"witness input '{input_key}' expects unit {expected_unit!r} but fact "
@@ -680,8 +742,7 @@ def verify_input_binding(
         else:
             exp_dim = unit_dimension(expected_unit)
             fact_dim = unit_dimension(fact_unit)
-            is_derived = derivation_spec is not None
-            if not is_derived and exp_dim == DIM_RATIO and fact_dim in (DIM_CURRENCY, DIM_COUNT):
+            if exp_dim == DIM_RATIO and fact_dim in (DIM_CURRENCY, DIM_COUNT):
                 # The historical bypass, now explicit and rejected.
                 result.problems.append(
                     f"witness input '{input_key}' expects a 'ratio' but fact '{fact_id}' is a "
@@ -701,6 +762,11 @@ def verify_input_binding(
                     f"unit bound: {expected_unit!r} compatible with fact unit {fact_unit!r} "
                     f"(dimension {exp_dim})"
                 )
+    elif expected_unit and is_derived and derivation is not None:
+        result.notes.append(
+            f"derived input '{input_key}' declares unit {expected_unit!r}; its operand "
+            f"'{fact_id}' carries unit {fact_unit!r}"
+        )
 
     # --- 5. period and period type -----------------------------------------
     if expected_period:
@@ -776,36 +842,7 @@ def verify_input_binding(
                 f"{_fact_get(fact, 'availability_time')!r}"
             )
 
-    # --- 9. derived inputs need an inspectable derivation -------------------
-    if derivation_spec is not None:
-        derivation = Derivation.from_spec(derivation_spec)
-        if derivation is None:
-            result.problems.append(
-                f"witness input '{input_key}' is marked derived but supplies no inspectable "
-                "derivation (an expression plus at least one operand fact ID is required)"
-            )
-            result.status = "failed"
-        else:
-            result.derivation = derivation
-            missing_ops = [oid for oid in derivation.operand_fact_ids if oid not in fact_ledger]
-            if missing_ops:
-                result.problems.append(
-                    f"witness input '{input_key}' derivation cites operand fact(s) "
-                    f"{missing_ops} that do not exist in the fact ledger"
-                )
-                result.status = "failed"
-            else:
-                result.notes.append(
-                    f"derivation inspectable: {derivation.expression} over "
-                    f"{list(derivation.operand_fact_ids)}"
-                )
-            if derivation.result_value is not None:
-                ok_d, detail_d = compare_numbers(claimed_value, derivation.result_value, rel_tol=rel_tol)
-                if not ok_d:
-                    result.problems.append(
-                        f"witness input '{input_key}' derived value {detail_d}"
-                    )
-                    result.status = "failed"
+    # --- 9. (derived inputs were resolved up front, in step 1b) --------------
 
     if result.status != "failed":
         result.bound = True

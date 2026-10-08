@@ -221,6 +221,8 @@ def validate_witness(
         if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
             errors.append(f"witness input '{k}' must be a finite number, got {v!r}")
 
+    input_fact_ids = data.get("input_fact_ids")
+
     # Source binding. Every input that cites a fact must match that fact's
     # actual recorded value, unit, period, basis, filing identity and
     # availability. This is delegated to the shared policy in

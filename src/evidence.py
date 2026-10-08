@@ -353,24 +353,126 @@ class EvidencePack:
             file = self._file(relative)
             if file.stat().st_size > MAX_DOCUMENT_BYTES or sha256_digest(file.read_bytes()) != attachment["sha256"]:
                 raise ValueError("Evidence attachment checksum mismatch.")
-        # Load typed facts if available
-        self.facts = []
-        if "facts" in self.data and isinstance(self.data["facts"], list):
-            from src.facts import Fact
-            for f_item in self.data["facts"]:
-                if isinstance(f_item, Fact):
-                    self.facts.append(f_item)
-                elif isinstance(f_item, dict):
-                    self.facts.append(Fact.from_dict(f_item))
-        for attachment in self.attachments:
-            if attachment.get("kind") in ("fact_ledger", "sec_companyfacts", "financial_facts") or attachment.get("file", "").endswith(".facts.json"):
-                from src.facts import load_fact_ledger
-                fact_file = self._file(attachment["file"])
-                try:
-                    self.facts.extend(load_fact_ledger(fact_file))
-                except Exception:
-                    pass
+        # Typed facts. Optional fact-bearing attachments are loaded with explicit,
+        # typed error handling: a genuinely absent attachment is simply "no facts",
+        # but a malformed or incompatible one raises, so corruption can never be
+        # mistaken for absence.
+        self.facts = self._load_embedded_facts()
+        self.facts.extend(self._load_fact_attachments())
         self.checksum = sha256_digest(json.dumps(self.data, sort_keys=True, separators=(",", ":")).encode())
+
+    # --- typed attachment loading -------------------------------------------
+
+    def _load_embedded_facts(self) -> List[Any]:
+        """Load facts embedded directly in ``evidence.json`` under ``facts``."""
+        from src.facts import Fact
+
+        embedded = self.data.get("facts")
+        if embedded is None:
+            return []
+        if not isinstance(embedded, list):
+            raise ValueError(
+                "Evidence pack 'facts' must be a list of typed facts; got "
+                f"{type(embedded).__name__}."
+            )
+        loaded: List[Any] = []
+        for index, item in enumerate(embedded):
+            if isinstance(item, Fact):
+                loaded.append(item)
+            elif isinstance(item, dict):
+                try:
+                    loaded.append(Fact.from_dict(item))
+                except (TypeError, ValueError, KeyError) as exc:
+                    raise ValueError(
+                        f"Embedded fact at index {index} is malformed and cannot be "
+                        f"loaded as a typed fact: {exc}"
+                    ) from exc
+            else:
+                raise ValueError(
+                    f"Embedded fact at index {index} must be a Fact or dict, got "
+                    f"{type(item).__name__}."
+                )
+        return loaded
+
+    def _load_fact_attachments(self) -> List[Any]:
+        """
+        Load typed facts from fact-bearing attachments.
+
+        Routing is by attachment *kind*:
+
+        - ``sec_companyfacts`` -> the raw SEC CompanyFacts parser.
+        - ``fact_ledger`` / ``financial_facts`` (or a ``.facts.json`` file) ->
+          the typed fact-ledger loader.
+
+        A malformed or incompatible attachment raises :class:`ValueError`. It is
+        never silently skipped, because "the ledger is corrupt" and "there are
+        no facts" lead to opposite conclusions and must never look alike.
+        """
+        from src.facts import Fact, load_fact_ledger, validate_fact
+        from src.sec_facts import parse_sec_company_facts
+
+        collected: List[Any] = []
+        for attachment in self.attachments:
+            kind = attachment.get("kind")
+            relative = attachment["file"]
+            is_sec_kind = kind == "sec_companyfacts"
+            is_ledger_kind = kind in ("fact_ledger", "financial_facts") or relative.endswith(
+                ".facts.json"
+            )
+            if not (is_sec_kind or is_ledger_kind):
+                continue
+
+            fact_file = self._file(relative)
+            try:
+                payload = json.loads(fact_file.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+                raise ValueError(
+                    f"Fact attachment '{relative}' is not valid JSON and cannot be "
+                    f"loaded: {exc}"
+                ) from exc
+
+            if is_sec_kind:
+                # Raw SEC CompanyFacts JSON must go through the SEC parser, not
+                # the typed-ledger loader. Validate it looks like CompanyFacts.
+                from src.facts import _is_sec_companyfacts_payload
+
+                if not _is_sec_companyfacts_payload(payload):
+                    raise ValueError(
+                        f"Attachment '{relative}' is declared kind 'sec_companyfacts' "
+                        "but its payload is not a SEC CompanyFacts document "
+                        "(expected top-level 'facts' plus 'cik' or 'entityName')."
+                    )
+                try:
+                    collected.extend(
+                        parse_sec_company_facts(payload, ticker=self.data.get("ticker"))
+                    )
+                except (TypeError, ValueError, KeyError) as exc:
+                    raise ValueError(
+                        f"SEC CompanyFacts attachment '{relative}' could not be parsed "
+                        f"into typed facts: {exc}"
+                    ) from exc
+                continue
+
+            # Typed fact-ledger path.
+            try:
+                loaded = load_fact_ledger(fact_file)
+            except (ValueError, TypeError, FileNotFoundError, json.JSONDecodeError) as exc:
+                raise ValueError(
+                    f"Fact ledger attachment '{relative}' could not be loaded as typed "
+                    f"facts: {exc}"
+                ) from exc
+
+            # A ledger that loads but whose entries do not validate is malformed,
+            # not empty: reject it rather than trusting unusable facts.
+            for fact in loaded:
+                problems = validate_fact(fact).errors
+                if problems:
+                    raise ValueError(
+                        f"Fact ledger attachment '{relative}' contains an invalid fact "
+                        f"{getattr(fact, 'id', '<unknown>')!r}: " + "; ".join(problems)
+                    )
+            collected.extend(loaded)
+        return collected
 
     def get_facts(self, as_of: Optional[Union[str, date, datetime]] = None, allow_forecasts: bool = False):
         from src.facts import filter_facts_as_of
