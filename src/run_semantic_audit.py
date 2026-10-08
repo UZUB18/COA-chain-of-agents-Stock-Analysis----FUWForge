@@ -517,6 +517,12 @@ def replay_beneish(
         fact_ledger=fact_ledger or {},
         expected_company=expected_company,
         cutoff=analysis_date,
+        expected_periods=(
+            witness.get("input_periods") if isinstance(witness.get("input_periods"), dict) else None
+        ),
+        expected_bases=(
+            witness.get("input_bases") if isinstance(witness.get("input_bases"), dict) else None
+        ),
     )
     binding_problems = [
         f"A3 BeneishM {problem}" for problem in binding_failures(bindings)
@@ -578,6 +584,10 @@ def semantic_audit(run_dir: Path) -> AuditReport:
     envelopes: Dict[str, Envelope] = {}
     by_file: Dict[str, Dict[str, Any]] = {}
     integrity_errors: List[str] = []
+    #: Graph-level defects detected while loading (e.g. duplicate roles), so
+    #: they are attributed to ``graph_and_contracts`` rather than to an
+    #: unattributed top-level error.
+    duplicate_role_errors: List[str] = []
 
     envelope_files = sorted(run_dir.glob("*_envelope.json"))
     for path in envelope_files:
@@ -599,7 +609,10 @@ def semantic_audit(run_dir: Path) -> AuditReport:
             agent_id = path.stem.replace("_envelope", "").upper()
 
         if agent_id in envelopes:
-            report.errors.append(
+            # A duplicate role makes the run's role set ambiguous. It is a
+            # graph defect, so it is attributed to ``graph_and_contracts``
+            # rather than to an unattributed top-level error.
+            duplicate_role_errors.append(
                 f"duplicate role ID '{agent_id}' appears in more than one envelope "
                 f"({path.name}); the run's role set is ambiguous"
             )
@@ -674,6 +687,7 @@ def semantic_audit(run_dir: Path) -> AuditReport:
 
     # Level 3 — graph and contracts.
     graph_errors = _audit_graph(envelopes, run_dir, report)
+    graph_errors = list(duplicate_role_errors) + graph_errors
     report.errors.extend(graph_errors)
     report.levels["graph_and_contracts"] = "failed" if graph_errors else "passed"
 
