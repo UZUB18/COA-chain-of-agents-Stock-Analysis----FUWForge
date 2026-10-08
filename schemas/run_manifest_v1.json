@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fuwforge.local/schemas/run_manifest_v1.json",
+  "title": "FUWForge run manifest v1",
+  "description": "Binds the final report, artifact bundle, evidence root, calculator versions, configuration and prompt hashes of one run into a single root that can be re-verified independently.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "status",
+    "complete",
+    "ticker",
+    "analysis_date",
+    "roles",
+    "outputs",
+    "calculator_versions"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "run_manifest_v1"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": ["completed", "halted", "incomplete"]
+    },
+    "complete": {
+      "type": "boolean"
+    },
+    "ticker": {
+      "type": "string",
+      "minLength": 1
+    },
+    "analysis_date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "halt_reason": {
+      "type": ["string", "null"]
+    },
+    "roles": {
+      "type": "object",
+      "description": "Sealed role id -> content checksum. Exactly the expected role set for a completed run.",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    },
+    "graph": {
+      "type": "object",
+      "description": "agent -> consumed parent agent ids, as recorded in each sealed envelope.",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "outputs": {
+      "type": "object",
+      "description": "Logical output name -> relative path and sha256 of the exact final bytes.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "description": "Evidence pack identity and its bundle/verification state.",
+      "properties": {
+        "pack_checksum": {
+          "type": ["string", "null"]
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "source_bytes_verified",
+            "source_bytes_unavailable",
+            "extraction_mismatch",
+            "untrusted_root"
+          ]
+        },
+        "bundle_manifest_sha256": {
+          "type": ["string", "null"]
+        }
+      },
+      "additionalProperties": true
+    },
+    "calculator_versions": {
+      "type": "object",
+      "description": "Calculator id -> version actually used by this run's artifacts.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "prompt_sha256": {
+      "type": "object",
+      "description": "agent -> sha256 of the exact rendered prompt supplied to the provider.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "execution_keys": {
+      "type": "object",
+      "description": "agent -> content-addressed execution identity (provider/model/prompt/evidence/parents).",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "description": "Provenance log identity and its hash-chain tail.",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "tail": {
+          "type": ["string", "null"]
+        }
+      },
+      "additionalProperties": true
+    },
+    "configuration": {
+      "type": "object",
+      "description": "Run configuration that affects reproducibility (provider, model, depth, strict).",
+      "additionalProperties": true
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

@@ -311,6 +311,7 @@ def _context_excerpt(text: str, budget: int) -> str:
 class EvidencePack:
     def __init__(self, path: Path, *, ticker: str, analysis_date: str):
         self.path = Path(path).resolve()
+        self.analysis_date = str(analysis_date)
         self.data = json.loads(self.path.read_text(encoding="utf-8"))
         self.documents: List[Dict[str, Any]] = self.data.get("documents", [])
         if self.data.get("schema_version") != "1" or self.data.get("ticker") != ticker.upper():
@@ -352,7 +353,29 @@ class EvidencePack:
             file = self._file(relative)
             if file.stat().st_size > MAX_DOCUMENT_BYTES or sha256_digest(file.read_bytes()) != attachment["sha256"]:
                 raise ValueError("Evidence attachment checksum mismatch.")
+        # Load typed facts if available
+        self.facts = []
+        if "facts" in self.data and isinstance(self.data["facts"], list):
+            from src.facts import Fact
+            for f_item in self.data["facts"]:
+                if isinstance(f_item, Fact):
+                    self.facts.append(f_item)
+                elif isinstance(f_item, dict):
+                    self.facts.append(Fact.from_dict(f_item))
+        for attachment in self.attachments:
+            if attachment.get("kind") in ("fact_ledger", "sec_companyfacts", "financial_facts") or attachment.get("file", "").endswith(".facts.json"):
+                from src.facts import load_fact_ledger
+                fact_file = self._file(attachment["file"])
+                try:
+                    self.facts.extend(load_fact_ledger(fact_file))
+                except Exception:
+                    pass
         self.checksum = sha256_digest(json.dumps(self.data, sort_keys=True, separators=(",", ":")).encode())
+
+    def get_facts(self, as_of: Optional[Union[str, date, datetime]] = None, allow_forecasts: bool = False):
+        from src.facts import filter_facts_as_of
+        cutoff = as_of or self.analysis_date
+        return filter_facts_as_of(self.facts, cutoff, allow_forecasts=allow_forecasts)
 
     def _file(self, relative: str) -> Path:
         if Path(relative).is_absolute() or ".." in Path(relative).parts:
@@ -402,4 +425,28 @@ class EvidencePack:
                 # or Search suggestions HTML as authoritative source content.
                 coverage = {"web_research_accepted_pages": len(trace["accepted"]), "limitations": trace["limitations"]}
                 chunks.append(html.escape(json.dumps(coverage), quote=False))
+        if self.facts:
+            usable = self.get_facts(as_of=self.analysis_date, allow_forecasts=False)
+            if usable:
+                fact_payload = [
+                    {
+                        "id": f.id,
+                        "concept": f.concept,
+                        "value": f.value,
+                        "unit": f.unit,
+                        "period": f.period_key(),
+                        "accession": f.filing_accession,
+                        "available": f.availability_time,
+                        "basis": str(f.accounting_basis.value if hasattr(f.accounting_basis, "value") else f.accounting_basis),
+                        **({"supersedes": f.supersedes} if f.supersedes else {}),
+                    }
+                    for f in usable[:100]
+                ]
+                fact_block = (
+                    f"### Date-Bounded Typed Fact Ledger (Authoritative Reported Facts as of {self.analysis_date})\n"
+                    f"Facts count: {len(usable)} (showing top {len(fact_payload)}).\n"
+                    f"Note: Forward forecasts/guidance are excluded from reported facts.\n\n"
+                    + json.dumps(fact_payload, indent=2)
+                )
+                chunks.append(html.escape(fact_block, quote=False))
         return "\n\n".join(chunks)

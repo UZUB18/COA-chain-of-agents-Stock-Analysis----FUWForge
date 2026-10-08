@@ -19,3 +19,14 @@ jobs:
         run: pip install -e ".[test]"
       - name: Test (live tests excluded by default addopts)
         run: pytest -q
+      - name: Deterministic eval scorer smoke
+        run: |
+          # The scorer is deterministic and offline; a wrong answer here is a
+          # defect, not a flaky provider. The clean fixture must score 100% —
+          # if it does not, the scorer or the pipeline regressed.
+          python -m py_compile evals/score_research.py
+          python evals/score_research.py \
+            evals/research_cases.jsonl \
+            tests/fixtures/eval/sample_predictions_clean.jsonl \
+            --markdown \
+            --fail-on-errors

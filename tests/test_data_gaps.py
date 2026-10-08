@@ -10,6 +10,7 @@ from src.agents.registry import mock_registry
 from src.agents.output_schema import envelope_schema
 from src.contracts import validate_contract
 from src.data_gaps import ALLOWED_DATA_GAPS, missing_data_map
+from src.utils.beneish import unavailable_beneish
 from src.utils.checksum import envelope_content_checksum
 
 
@@ -33,6 +34,31 @@ def set_null(artifacts, path):
     target[keys[-1]] = None
 
 
+def mark_beneish_unavailable_without_reason(beneish):
+    """
+    Transition a computed BeneishM artifact to "explicitly unavailable" by clearing
+    every numeric output field (score, raw_score, and the deterministic witness).
+
+    An unavailable result must not keep a numeric score anywhere. Leaving raw_score
+    numeric while score is null is exactly the inconsistency the contract catches,
+    so the fixture must clear it rather than the contract being weakened.
+    """
+    unavailable = unavailable_beneish("placeholder reason")
+    # This fixture exercises the "unavailable with NO documented reason yet" phase,
+    # so blank the reason the canonical helper requires.
+    unavailable["unavailable_reason"] = None
+    for key in (
+        "calculator_id",
+        "calculator_version",
+        "formula_variant",
+        "formula_source",
+        "threshold_policy",
+    ):
+        if key in beneish:
+            unavailable[key] = beneish[key]
+    return unavailable
+
+
 CASES = [(agent_id, path) for agent_id, paths in ALLOWED_DATA_GAPS.items() for path in sorted(paths)]
 
 
@@ -41,7 +67,9 @@ def test_only_documented_explicit_allowlisted_nulls_pass(context, agent_id, path
     env = envelope(agent_id, context)
     set_null(env.artifacts, path)
     if path == "BeneishM.score":
-        env.artifacts["BeneishM"]["feasible"] = False
+        env.artifacts["BeneishM"] = mark_beneish_unavailable_without_reason(
+            env.artifacts["BeneishM"]
+        )
     if path == "GlassdoorScore":
         env.artifacts["LowSampleSizeCultureData"] = True
     assert not validate_contract(env, strict=True).valid

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from src.envelope import Envelope
 
@@ -23,6 +23,8 @@ class AgentContext:
     source_documents: list[Dict[str, Any]] = field(default_factory=list)
     source_text: str = ""
     evidence_checksum: str = ""
+    challenge_initial: Optional[Dict[str, Any]] = None
+    on_provider_return: Optional[Callable[[str], Any]] = None
 
 
 @dataclass
@@ -49,3 +51,10 @@ class BaseAgent:
         if not self.prompt_path:
             raise FileNotFoundError("Prompt path not configured for agent.")
         return self.prompt_path.read_text(encoding="utf-8")
+
+    def build_prompt(self, context: AgentContext) -> str:
+        if hasattr(self, "_build_prompt") and callable(getattr(self, "_build_prompt")):
+            return getattr(self, "_build_prompt")(context)
+        ticker = context.params.get("ticker", "TICK")
+        checksum = context.frozen_checksum or "unfrozen"
+        return f"Agent {self.id} ({self.name}) - {ticker} - {checksum}"

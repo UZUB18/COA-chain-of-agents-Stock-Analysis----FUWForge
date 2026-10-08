@@ -29,11 +29,23 @@ class _Discovery:
         return json.loads(payload)
 
 
+SUPPORTED_ANNUAL_FORMS = ("10-K", "10-K/A", "20-F", "20-F/A", "40-F", "40-F/A")
+SUPPORTED_QUARTER_FORMS = ("10-Q", "10-Q/A")
+SUPPORTED_PROXY_FORMS = ("DEF 14A", "DEFA14A")
+SUPPORTED_MATERIAL_FORMS = ("8-K", "8-K/A")
+ALL_SUPPORTED_FORMS = (
+    SUPPORTED_ANNUAL_FORMS
+    + SUPPORTED_QUARTER_FORMS
+    + SUPPORTED_PROXY_FORMS
+    + SUPPORTED_MATERIAL_FORMS
+)
+
+
 def _filing_rows(columns: Dict[str, Any], as_of: date) -> List[Dict[str, str]]:
     rows = []
     forms = columns.get("form") or []
     for index, form in enumerate(forms):
-        if form not in ("10-K", "10-Q", "DEF 14A", "20-F", "40-F"):
+        if form not in ALL_SUPPORTED_FORMS:
             continue
         row = {key: str((columns.get(key) or [])[index]) for key in ("form", "filingDate", "accessionNumber", "primaryDocument")}
         if date.fromisoformat(row["filingDate"]) <= as_of:
@@ -44,10 +56,11 @@ def _filing_rows(columns: Dict[str, Any], as_of: date) -> List[Dict[str, str]]:
 def _select_filings(rows, years):
     unique = {row["accessionNumber"]: row for row in rows}
     rows = sorted(unique.values(), key=lambda row: row["filingDate"], reverse=True)
-    annuals = [row for row in rows if row["form"] in ("10-K", "20-F", "40-F")][:years]
-    quarters = [row for row in rows if row["form"] == "10-Q"][:1]
-    proxies = [row for row in rows if row["form"] == "DEF 14A"][:1]
-    return annuals, quarters, proxies
+    annuals = [row for row in rows if row["form"] in SUPPORTED_ANNUAL_FORMS][:years]
+    quarters = [row for row in rows if row["form"] in SUPPORTED_QUARTER_FORMS][:1]
+    proxies = [row for row in rows if row["form"] in SUPPORTED_PROXY_FORMS][:1]
+    material_events = [row for row in rows if row["form"] in SUPPORTED_MATERIAL_FORMS][:2]
+    return annuals, quarters, proxies, material_events
 
 
 def _price_document(ticker: str, as_of: date):
@@ -105,7 +118,7 @@ def collect_public_sources(ticker: str, analysis_date: str, depth: str, output_d
         raise ValueError("The SEC company record does not confirm this ticker/CIK pairing.")
     filings = submissions.get("filings") or {}
     rows = _filing_rows(filings.get("recent") or {}, as_of)
-    annuals, quarters, proxies = _select_filings(rows, years)
+    annuals, quarters, proxies, material_events = _select_filings(rows, years)
     older = filings.get("files") or []
     requests = 0
     for file in older:
@@ -120,17 +133,18 @@ def collect_public_sources(ticker: str, analysis_date: str, depth: str, output_d
         if requests > 12:
             break
         rows.extend(_filing_rows(discovery.get(f"https://data.sec.gov/submissions/{name}"), as_of))
-        annuals, quarters, proxies = _select_filings(rows, years)
+        annuals, quarters, proxies, material_events = _select_filings(rows, years)
     if not annuals:
         raise ValueError("No date-appropriate annual filing was found for this ticker.")
     documents = []
-    for row in annuals + quarters + proxies:
+    for row in annuals + quarters + proxies + material_events:
         accession = row["accessionNumber"]
         primary = row["primaryDocument"]
         if not re.fullmatch(r"\d{10}-\d{2}-\d{6}", accession) or not re.fullmatch(r"[A-Za-z0-9_.-]+", primary):
             raise ValueError("Unexpected SEC primary-document metadata.")
         url = f"https://www.sec.gov/Archives/edgar/data/{cik_number}/{accession.replace('-', '')}/{primary}"
-        documents.append({"title": f"{ticker} {row['form']} filed {row['filingDate']}", "type": "SECFiling",
+        doc_type = "SECMaterialEvent" if row["form"] in SUPPORTED_MATERIAL_FORMS else "SECFiling"
+        documents.append({"title": f"{ticker} {row['form']} filed {row['filingDate']}", "type": doc_type,
                           "url": url, "doc_date": row["filingDate"], "date_basis": "SEC_filing_date"})
     price_document, price_info = _price_document(ticker, as_of)
     documents.append(price_document)
@@ -139,7 +153,8 @@ def collect_public_sources(ticker: str, analysis_date: str, depth: str, output_d
     coverage = {
         "ticker": ticker, "cik": cik_number, "company": submissions.get("name"), "analysis_date": analysis_date,
         "annual_filings_requested": years, "annual_filings_found": len(annuals),
-        "quarterly_filing_found": bool(quarters), "proxy_found": bool(proxies), "market": price_info,
+        "quarterly_filing_found": bool(quarters), "proxy_found": bool(proxies),
+        "material_events_found": len(material_events), "market": price_info,
         "discovery_records": discovery.records,
         "limitations": ["Identifier lookup uses the current SEC ticker/CIK mapping, not a historical ticker database.",
                         "SEC inclusion is based on filing date, not an intraday publication-time cutoff.",

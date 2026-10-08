@@ -55,8 +55,11 @@ class RegistryEntry:
 
 
 class AgentRegistry:
-    def __init__(self, provider: str = "custom") -> None:
+    def __init__(self, provider: str = "custom", model: Optional[str] = None) -> None:
         self.provider = provider
+        # Real backend model identity when known (None means "not a model backend").
+        # Never fabricated: summaries and execution keys must reflect the true backend.
+        self.model = model
         self._registry: Dict[str, RegistryEntry] = {}
         self._instances: Dict[str, BaseAgent] = {}
 
@@ -157,7 +160,10 @@ def model_registry(
     """
     Registry populated with model agents powered by the given ModelBackend.
     """
-    registry = AgentRegistry(provider=provider)
+    registry = AgentRegistry(
+        provider=provider,
+        model=getattr(backend, "model", None),
+    )
     for agent_id, name in AGENT_SPECS:
         cls = make_model_agent_cls(
             agent_id,

@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fuwforge.local/schemas/execution_receipt_v1.json",
+  "title": "FUWForge execution receipt v1",
+  "description": "Durable execution receipt tracking one agent execution across provider call and orchestrator validation.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "execution_key",
+    "agent_id",
+    "state",
+    "provider",
+    "model",
+    "prompt_sha256",
+    "evidence_sha256",
+    "upstream",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "execution_receipt_v1"
+    },
+    "execution_key": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "running",
+        "returned",
+        "validated",
+        "failed",
+        "unknown_completion"
+      ]
+    },
+    "provider": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model": {
+      "type": "string"
+    },
+    "prompt_sha256": {
+      "type": "string",
+      "pattern": "^(?:sha256:)?[a-f0-9]{64}$"
+    },
+    "evidence_sha256": {
+      "type": "string",
+      "pattern": "^(?:sha256:)?[a-f0-9]{64}$"
+    },
+    "upstream": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["agent", "content_checksum"],
+        "properties": {
+          "agent": {
+            "type": "string",
+            "minLength": 1
+          },
+          "content_checksum": {
+            "type": "string",
+            "pattern": "^(?:sha256:)?[a-f0-9]{64}$"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "raw_checksum": {
+      "type": ["string", "null"],
+      "pattern": "^(?:sha256:)?[a-f0-9]{64}$"
+    },
+    "accepted_checksum": {
+      "type": ["string", "null"],
+      "pattern": "^(?:sha256:)?[a-f0-9]{64}$"
+    },
+    "raw_response": {
+      "type": ["object", "null"]
+    },
+    "accepted_envelope": {
+      "type": ["object", "null"]
+    },
+    "usage": {
+      "type": ["object", "null"]
+    },
+    "latency_ms": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "error": {
+      "type": ["string", "null"]
+    },
+    "recovery_choice": {
+      "type": ["string", "null"],
+      "enum": ["retry", "abandon", null]
+    },
+    "metadata": {
+      "type": ["object", "null"]
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "updated_at": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

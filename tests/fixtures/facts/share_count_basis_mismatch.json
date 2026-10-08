@@ -1,0 +1,27 @@
+{
+  "schema_version": "financial_fact_v1",
+  "id": "fact_aapl_shares_diluted_2023",
+  "company": "AAPL",
+  "concept": "CommonStockSharesOutstanding",
+  "value": 15550000000.0,
+  "unit": "shares_diluted",
+  "currency": null,
+  "period_start": null,
+  "period_end": null,
+  "instant": "2023-09-30",
+  "filing_accession": "0000320193-23-000106",
+  "availability_time": "2023-11-03T18:00:00Z",
+  "retrieval_time": "2023-11-03T19:00:00Z",
+  "source_location": "https://www.sec.gov/ix?doc=/Archives/edgar/data/320193/000032019323000106/aapl-20230930.htm#Cover",
+  "accounting_basis": "US-GAAP",
+  "extractor_version": "sec_facts_v1.0",
+  "supersedes": null,
+  "kind": "reported",
+  "missing_reason": null,
+  "dimensions": {
+    "share_basis": "diluted"
+  },
+  "metadata": {
+    "basis": "diluted"
+  }
+}

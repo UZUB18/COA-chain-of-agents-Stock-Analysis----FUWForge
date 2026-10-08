@@ -1,0 +1,25 @@
+{
+  "schema_version": "financial_fact_v1",
+  "id": "fact_aapl_rev_2024_guidance",
+  "company": "AAPL",
+  "concept": "Revenues",
+  "value": 395000000000.0,
+  "unit": "USD",
+  "currency": "USD",
+  "period_start": "2023-10-01",
+  "period_end": "2024-09-30",
+  "instant": null,
+  "filing_accession": "MANAGEMENT-GUIDANCE-2023Q4",
+  "availability_time": "2023-11-03T21:00:00Z",
+  "retrieval_time": "2023-11-03T22:00:00Z",
+  "source_location": "https://www.apple.com/investor/earnings-call-q4-2023",
+  "accounting_basis": "NON-GAAP",
+  "extractor_version": "guidance_v1.0",
+  "supersedes": null,
+  "kind": "forecast",
+  "missing_reason": null,
+  "dimensions": null,
+  "metadata": {
+    "guidance_source": "earnings_call"
+  }
+}

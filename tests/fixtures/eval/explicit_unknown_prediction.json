@@ -1,0 +1,40 @@
+{
+  "case_id": "case_05_missing_source_item",
+  "ticker": "EPSILON",
+  "summary_prose": "Beneish M-Score cannot be computed deterministically because total accruals data (TATA) is missing from the 10-K excerpt.",
+  "claims": [
+    {
+      "claim_id": "c1",
+      "text": "DSRI is 1.05 and GMI is 0.98.",
+      "source_id": "src_10k_2023",
+      "status": "supported"
+    }
+  ],
+  "facts": {
+    "DSRI": { "value": 1.05, "source_id": "src_10k_2023" },
+    "GMI": { "value": 0.98, "source_id": "src_10k_2023" },
+    "AQI": { "value": 1.02, "source_id": "src_10k_2023" },
+    "SGI": { "value": 1.10, "source_id": "src_10k_2023" },
+    "DEPI": { "value": 1.01, "source_id": "src_10k_2023" },
+    "SGAI": { "value": 0.95, "source_id": "src_10k_2023" },
+    "LVGI": { "value": 1.00, "source_id": "src_10k_2023" },
+    "TATA": { "value": null, "missing_reason": "Not disclosed in source excerpt" }
+  },
+  "calculations": {
+    "beneish_m_score": {
+      "result": null,
+      "is_unavailable": true,
+      "reason": "Missing required input TATA"
+    }
+  },
+  "missing_items": [
+    { "item": "tata", "status": "unavailable", "reason": "Not disclosed in source" }
+  ],
+  "sources_used": ["src_10k_2023"],
+  "reviewer_effort": {
+    "open_items_count": 1,
+    "open_items": ["tata"],
+    "review_priority": "high",
+    "review_priority_score": 3
+  }
+}

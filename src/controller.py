@@ -181,6 +181,13 @@ def cmd_run(args: argparse.Namespace) -> None:
     if web_enabled and not (evidence_pack or getattr(args, "auto_sources", False)):
         raise ValueError("Gemini web search requires --auto-sources or --evidence-pack for financial inputs; use --no-web-search to disable it.")
     source_root = (Path(args.run_dir).resolve() if args.run_dir else PROJECT_ROOT / "runs" / run_id)
+    if not getattr(args, "resume", False) and ((source_root / "run_summary.json").exists() or any(source_root.glob("*_envelope.json"))):
+        raise FileExistsError("Existing run will not be overwritten. Use --resume or a fresh run directory.")
+    if getattr(args, "resume", False):
+        if getattr(args, "auto_sources", False) or web_enabled:
+            raise ValueError("Resume cannot repeat automatic/paid source intake. Use --no-web-search and the original --evidence-pack.")
+        if evidence_pack is None and (source_root / "evidence" / "evidence.json").is_file():
+            evidence_pack = source_root / "evidence" / "evidence.json"
     if getattr(args, "auto_sources", False):
         from src.public_data import collect_public_sources
 
@@ -203,6 +210,9 @@ def cmd_run(args: argparse.Namespace) -> None:
         randomize=args.random_data,
         strict=strict,
         evidence_pack=evidence_pack,
+        resume=getattr(args, "resume", False),
+        recovery_choice=getattr(args, "recovery_choice", None),
+        independent_bear=getattr(args, "independent_bear", False),
     )
     output_root = Path(args.run_dir).resolve() if args.run_dir else None
     summary = orchestrator.run(
@@ -216,15 +226,71 @@ def cmd_run(args: argparse.Namespace) -> None:
 
 
 def cmd_verify_run(args: argparse.Namespace) -> None:
-    result = verify_run(Path(args.run_dir), strict=args.strict)
-    for warning in result.warnings:
-        print(f"[warn] {warning}")
-    if not result.valid:
-        print("Run verification FAILED:")
-        for error in result.errors:
+    """
+    Audit a run and report each level separately.
+
+    The output deliberately does not collapse to one reassuring word: matching
+    bytes, a valid graph, replayable arithmetic and reviewed factual support are
+    different claims, and only the first is established by hashing.
+    """
+    from src.run_audit import semantic_audit
+
+    run_dir = Path(args.run_dir)
+
+    if getattr(args, "integrity_only", False):
+        result = verify_run(run_dir, strict=args.strict)
+        for warning in result.warnings:
+            print(f"[warn] {warning}")
+        if not result.valid:
+            print("Envelope integrity FAILED:")
+            for error in result.errors:
+                print(f"- {error}")
+            raise SystemExit(1)
+        print(f"Run integrity succeeded ({len(result.warnings)} warning(s)).")
+        return
+
+    report = semantic_audit(run_dir)
+
+    if getattr(args, "json", False):
+        print(json.dumps(report.to_dict(), indent=2))
+    else:
+        print(f"Run audit: {run_dir}")
+        print(f"Overall state: {report.overall_state}")
+        print("\nIndependent levels:")
+        for level, state in report.levels.items():
+            print(f"  - {level:<24} {state}")
+        if report.warnings:
+            print("\nWarnings:")
+            for warning in report.warnings:
+                print(f"  [warn] {warning}")
+        if report.errors:
+            print("\nFindings:")
+            for error in report.errors:
+                print(f"  - {error}")
+
+    if args.strict:
+        report.errors.extend(report.warnings)
+        if not report.complete:
+            report.errors.append("strict: run is incomplete")
+
+    if report.errors:
+        print("\nRun audit FAILED:")
+        for error in report.errors:
             print(f"- {error}")
         raise SystemExit(1)
-    print(f"Run verification succeeded ({len(result.warnings)} warning(s)).")
+
+    if report.overall_state == "incomplete":
+        print(
+            "\nAudit passed for the completed subgraph only. This run is NOT a "
+            "complete research report."
+        )
+        raise SystemExit(1)
+
+    print(
+        "\nAudit passed. Matching bytes are established; source reconstruction, "
+        "arithmetic replay and factual support are reported at their own levels "
+        "above and are not implied by this result."
+    )
 
 
 def cmd_seal(args: argparse.Namespace) -> None:
@@ -232,22 +298,163 @@ def cmd_seal(args: argparse.Namespace) -> None:
     files = sorted(run_dir.glob("*_envelope.json"))
     if not files:
         raise SystemExit(f"No *_envelope.json files found in {run_dir}.")
-    sealed = 0
+
     force = bool(getattr(args, "force", False))
+    payloads: List[Tuple[Path, Dict[str, Any], str]] = []
     for path in files:
         data = json.loads(path.read_text(encoding="utf-8"))
-        actual = envelope_content_checksum(data)
+        agent_id = str((data.get("agent") or {}).get("id") or "")
+        payloads.append((path, data, agent_id))
+
+    # A pre-existing seal that does not match the bytes is a tampering signal.
+    # Refuse once, before we start rewriting anything, so a forced re-seal is an
+    # explicit operator decision rather than a side effect of the fixpoint loop.
+    for path, data, agent_id in payloads:
         recorded = data.get("content_checksum")
-        if recorded and recorded != actual and not force:
+        if recorded and recorded != envelope_content_checksum(data) and not force:
             raise SystemExit(
-                f"{path.name}: content checksum mismatch; refusing to re-seal a modified envelope (use --force to override)."
+                f"{path.name}: content checksum mismatch; refusing to re-seal a "
+                "modified envelope (use --force to override)."
             )
-        if recorded == actual:
-            continue
-        data["content_checksum"] = actual
+
+    checksums: Dict[str, str] = {}
+    restored_agents: set[str] = set()
+    sealed_agents: set[str] = set()
+    for path, data, agent_id in payloads:
+        # Missing empty root lineage is recoverable; non-root digests must be recorded.
+        if agent_id == "A1":
+            data.setdefault("upstream", [])
+        lineage = (data.get("artifacts") or {}).get("_execution_lineage")
+        if isinstance(lineage, dict) and lineage.get("consumed_upstream") and not data.get("upstream"):
+            # Names alone cannot prove historical consumed bytes. Restore ONLY
+            # exact digest-bearing references retained by the runner.
+            original = lineage.get("upstream")
+            if not isinstance(original, list) or {r.get("agent") for r in original if isinstance(r, dict)} != set(lineage["consumed_upstream"]):
+                raise SystemExit(f"{path.name}: original consumed digests unavailable; refusing to invent historical lineage.")
+            data["upstream"] = original
+            restored_agents.add(agent_id)
+        checksums[agent_id] = envelope_content_checksum(data)
+
+    # A parent's bytes changed, so every descendant's recorded parent digest is
+    # stale. Without --force that is a hard stop: re-sealing would assert a
+    # history the run did not produce. With --force the operator has explicitly
+    # accepted the edited bytes, so descendants are recomputed against the new
+    # parent digests rather than silently re-stamped with the stale ones.
+    #
+    # Re-stamping one descendant changes that descendant's own digest, which
+    # invalidates its children in turn, so this runs to a fixpoint: every
+    # descendant of an edited parent is brought onto the recomputed chain.
+    restamped_agents: set[str] = set()
+    while True:
+        changed: set[str] = set()
+        for path, data, agent_id in payloads:
+            for ref in data.get("upstream") or []:
+                parent = ref.get("agent")
+                if parent not in checksums:
+                    raise SystemExit(
+                        f"{path.name}: consumed parent {parent} is not present in this run; "
+                        "refusing to seal lineage that references a missing role."
+                    )
+                if ref.get("content_checksum") == checksums[parent]:
+                    continue
+                if not force:
+                    raise SystemExit(
+                        f"{path.name}: consumed parent {parent} no longer matches original bytes; "
+                        "recompute descendants instead of re-sealing lineage."
+                    )
+                ref["content_checksum"] = checksums[parent]
+                changed.add(agent_id)
+        if not changed:
+            break
+        restamped_agents |= changed
+        # These envelopes' bytes just changed; re-derive their own digests so the
+        # next pass sees the propagated values. Parent sets are untouched — only
+        # the digest stamps move.
+        for path, data, agent_id in payloads:
+            if agent_id in changed:
+                checksums[agent_id] = envelope_content_checksum(data)
+
+    written = 0
+    for path, data, _agent_id in payloads:
+        # Seal every envelope, including ones this command did not need to
+        # modify: an envelope that was never stamped (or whose stamp was
+        # stripped) must still end up sealed.
+        data["content_checksum"] = envelope_content_checksum(data)
+        checksums[str((data.get("agent") or {}).get("id") or "")] = data[
+            "content_checksum"
+        ]
+        sealed_agents.add(str((data.get("agent") or {}).get("id") or ""))
         path.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        sealed += 1
-    print(f"Sealed {sealed} envelope(s) in {run_dir}.")
+        written += 1
+
+    # Re-sealing changes envelope bytes, so any manifest sealed alongside them is
+    # now stale. Rebuild it from the newly sealed envelopes; leaving a stale
+    # manifest behind would report the run as unverifiable for no good reason.
+    manifest_rebuilt = _rebuild_run_manifest(run_dir)
+
+    print(
+        f"Sealed {len(sealed_agents)} envelope(s) in {run_dir}"
+        + (
+            f"; restored lineage for {len(restored_agents)} envelope(s) from the "
+            "runner's recorded execution lineage"
+            if restored_agents
+            else ""
+        )
+        + f". Wrote {written} envelope file(s)."
+        + (
+            f" Recomputed parent digests for {len(restamped_agents)} descendant "
+            "envelope(s) because a parent's bytes changed; this run now certifies "
+            "the edited bytes, not the original execution."
+            if restamped_agents
+            else ""
+        )
+        + (" Rebuilt run_manifest.json." if manifest_rebuilt else "")
+    )
+
+
+def _rebuild_run_manifest(run_dir: Path) -> bool:
+    """Rebuild run_manifest.json from the run's current sealed envelopes."""
+    manifest_path = run_dir / "run_manifest.json"
+    if not manifest_path.is_file():
+        return False
+    try:
+        from src.run_semantic_audit import build_run_manifest
+
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        envelopes: Dict[str, Envelope] = {}
+        for path in sorted(run_dir.glob("*_envelope.json")):
+            data = json.loads(path.read_text(encoding="utf-8"))
+            env = Envelope.from_dict(data)
+            envelopes[env.agent.id or path.stem] = env
+        if not envelopes:
+            return False
+        summary_path = run_dir / "run_summary.json"
+        summary = (
+            json.loads(summary_path.read_text(encoding="utf-8"))
+            if summary_path.is_file()
+            else {}
+        )
+        first = next(iter(envelopes.values()))
+        rebuilt = build_run_manifest(
+            run_dir,
+            envelopes,
+            run_id=str(manifest.get("run_id") or run_dir.name),
+            ticker=str(first.params.get("ticker") or manifest.get("ticker") or ""),
+            analysis_date=str(
+                first.params.get("analysis_date") or manifest.get("analysis_date") or ""
+            ),
+            status=str(manifest.get("status") or "completed"),
+            halt_reason=manifest.get("halt_reason"),
+            summary=summary,
+        )
+        # Preserve the evidence state recorded at run time; sealing does not
+        # re-verify source bytes.
+        if manifest.get("evidence"):
+            rebuilt["evidence"] = manifest["evidence"]
+        manifest_path.write_text(json.dumps(rebuilt, indent=2), encoding="utf-8")
+        return True
+    except (OSError, ValueError, KeyError, json.JSONDecodeError):
+        return False
 
 
 def _load_a7(
@@ -518,6 +725,108 @@ def cmd_fetch_sources(args: argparse.Namespace) -> None:
     print(f"Retrieved evidence pack: {path}")
 
 
+def cmd_bundle_evidence(args: argparse.Namespace) -> None:
+    from src.evidence_bundle import build_bundle
+
+    run_path = Path(args.run_dir)
+    if run_path.is_file() and run_path.name == "evidence.json":
+        ev_path = run_path
+    elif (run_path / "evidence" / "evidence.json").is_file():
+        ev_path = run_path / "evidence" / "evidence.json"
+    elif (run_path / "evidence.json").is_file():
+        ev_path = run_path / "evidence.json"
+    else:
+        raise SystemExit(
+            f"evidence.json not found in {run_path} (checked {run_path / 'evidence' / 'evidence.json'} and {run_path / 'evidence.json'})."
+        )
+
+    out_path = Path(args.output)
+    try:
+        res = build_bundle(ev_path, out_path)
+    except Exception as exc:
+        raise SystemExit(f"Failed to build evidence bundle: {exc}")
+
+    print("Evidence bundle packaged successfully.")
+    print(f"Bundle directory: {res['bundle_dir']}")
+    print(f"Files packaged:   {res['verified_files']}")
+    print(f"Total bytes:      {res['total_bytes']}")
+    print(f"Manifest SHA-256: {res['manifest_sha256']}")
+    print("\nIMPORTANT: Record the Manifest SHA-256 digest out-of-band as the trusted root.")
+    print("A self-contained bundle cannot prove its own authenticity; verification requires this independently supplied digest.")
+
+
+def cmd_verify_evidence(args: argparse.Namespace) -> None:
+    from src.evidence_bundle import verify_bundle
+
+    bundle_dir = Path(args.directory)
+    if not bundle_dir.exists() or not bundle_dir.is_dir():
+        raise SystemExit(f"Bundle directory not found: {bundle_dir}")
+
+    try:
+        res = verify_bundle(bundle_dir, args.manifest_sha256)
+    except Exception as exc:
+        raise SystemExit(f"Evidence bundle verification FAILED: {exc}")
+
+    print("Evidence bundle verification succeeded.")
+    print(f"Verified files:   {res['verified_files']}")
+    print(f"Verified bytes:   {res['verified_bytes']}")
+    print(f"Manifest SHA-256: {res['manifest_sha256']}")
+
+
+def cmd_restore_evidence(args: argparse.Namespace) -> None:
+    from src.evidence_bundle import restore_bundle
+
+    bundle_dir = Path(args.directory)
+    if not bundle_dir.exists() or not bundle_dir.is_dir():
+        raise SystemExit(f"Bundle directory not found: {bundle_dir}")
+
+    target_dir = Path(args.output)
+    try:
+        pack = restore_bundle(bundle_dir, target_dir, args.manifest_sha256)
+    except Exception as exc:
+        raise SystemExit(f"Evidence bundle restoration FAILED: {exc}")
+
+    print("Evidence bundle restored successfully.")
+    print(f"Target directory: {pack.path.parent}")
+    print(f"Ticker:           {pack.data.get('ticker')}")
+    print(f"Documents:        {len(pack.documents)}")
+    print(f"Pack checksum:    {pack.checksum}")
+
+
+def cmd_export_packet(args: argparse.Namespace) -> None:
+    from src.research_packet import export_packet
+
+    run_dir = Path(args.run_dir)
+    if not run_dir.exists() or not run_dir.is_dir():
+        raise SystemExit(f"Run directory not found: {run_dir}")
+
+    output_path = Path(args.output)
+    try:
+        res = export_packet(
+            run_dir,
+            output_path,
+            packet_version=getattr(args, "packet_version", "research_packet_v1"),
+        )
+    except Exception as exc:
+        raise SystemExit(f"Research packet export FAILED: {exc}")
+
+    packet = res.get("packet") or {}
+    audit = packet.get("audit") or {}
+    overall_state = audit.get("overall_state", "unknown")
+
+    if getattr(args, "strict", False) and overall_state != "verified":
+        raise SystemExit(
+            f"Strict export failed: run audit state is {overall_state!r} (expected 'verified')."
+        )
+
+    print(f"Exported research packet: {res['path']}")
+    print(f"External SHA-256:         {res['sha256']}")
+    print(f"Audit state:              {overall_state}")
+    company = packet.get("company") or {}
+    print(f"Company:                  {company.get('ticker')} ({company.get('name')})")
+    print(f"Approval status:          {packet.get('approval_status')}")
+
+
 # ------------------------------------------------------------------ parser
 
 
@@ -620,6 +929,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--allow-defaults", action="store_true",
         help="Legacy diagnostic mode: permit flagged placeholders; not verified research (--strict takes precedence).",
     )
+    run_parser.add_argument("--resume", action="store_true", help="Reuse only checksum-verified validated receipts; recompute changed requests and descendants.")
+    run_parser.add_argument("--recovery-choice", choices=["retry", "abandon"], help="Resolve uncertain completion explicitly; retry may repeat paid external calls.")
+    run_parser.add_argument("--independent-bear", action="store_true", help="Opt-in experiment: one additional blind bear pass, then reconcile; disabled by default.")
     source_mode = run_parser.add_mutually_exclusive_group()
     source_mode.add_argument(
         "--evidence-pack", default=None,
@@ -650,13 +962,23 @@ def build_parser() -> argparse.ArgumentParser:
 
     verify_parser = subparsers.add_parser(
         "verify-run",
-        help="Verify schemas, content checksums, lineage and provenance for a run directory.",
+        help="Audit a run across independent levels: byte integrity, source reconstruction, graph/contracts, calculation replay, final-artifact binding.",
     )
-    verify_parser.add_argument("run_dir", help="Run directory to verify.")
+    verify_parser.add_argument("run_dir", help="Run directory to audit.")
     verify_parser.add_argument(
         "--strict",
         action="store_true",
-        help="Treat missing integrity metadata as errors.",
+        help="Treat warnings and incompleteness as errors.",
+    )
+    verify_parser.add_argument(
+        "--integrity-only",
+        action="store_true",
+        help="Only run the legacy hash/schema/lineage integrity check (faster).",
+    )
+    verify_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the audit report as machine-readable JSON.",
     )
     verify_parser.set_defaults(func=cmd_verify_run)
 
@@ -746,6 +1068,75 @@ def build_parser() -> argparse.ArgumentParser:
         "--out", default=None, help="Write JSON results to a specified file."
     )
     monitor_parser.set_defaults(func=cmd_monitor)
+
+    bundle_ev_parser = subparsers.add_parser(
+        "bundle-evidence",
+        help="Package a run's evidence pack into a portable verified bundle.",
+    )
+    bundle_ev_parser.add_argument(
+        "run_dir", help="Run directory (or path to evidence.json)."
+    )
+    bundle_ev_parser.add_argument(
+        "--output", required=True, help="Destination directory for the evidence bundle."
+    )
+    bundle_ev_parser.set_defaults(func=cmd_bundle_evidence)
+
+    verify_ev_parser = subparsers.add_parser(
+        "verify-evidence",
+        help="Verify an evidence bundle directory against an independently trusted manifest SHA-256.",
+    )
+    verify_ev_parser.add_argument(
+        "directory", help="Path to the evidence bundle directory."
+    )
+    verify_ev_parser.add_argument(
+        "--manifest-sha256",
+        required=True,
+        help="Independently trusted 64-character hex SHA-256 manifest digest.",
+    )
+    verify_ev_parser.set_defaults(func=cmd_verify_evidence)
+
+    restore_ev_parser = subparsers.add_parser(
+        "restore-evidence",
+        help="Verify and restore an evidence bundle into an active EvidencePack directory.",
+    )
+    restore_ev_parser.add_argument(
+        "directory", help="Path to the source evidence bundle directory."
+    )
+    restore_ev_parser.add_argument(
+        "--manifest-sha256",
+        required=True,
+        help="Independently trusted 64-character hex SHA-256 manifest digest.",
+    )
+    restore_ev_parser.add_argument(
+        "--output",
+        required=True,
+        help="Clean destination directory for the restored evidence pack.",
+    )
+    restore_ev_parser.set_defaults(func=cmd_restore_evidence)
+
+    export_pkt_parser = subparsers.add_parser(
+        "export-packet",
+        help="Build, validate, and export a versioned research packet from a run.",
+    )
+    export_pkt_parser.add_argument(
+        "run_dir", help="Run directory containing envelopes and artifacts."
+    )
+    export_pkt_parser.add_argument(
+        "--output",
+        required=True,
+        help="Destination JSON file path for the research packet.",
+    )
+    export_pkt_parser.add_argument(
+        "--packet-version",
+        default="research_packet_v1",
+        help="Packet schema version (default: research_packet_v1).",
+    )
+    export_pkt_parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Treat unverified audit states as fatal.",
+    )
+    export_pkt_parser.set_defaults(func=cmd_export_packet)
 
     return parser
 

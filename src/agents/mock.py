@@ -10,7 +10,12 @@ from typing import Any, Dict, List, Optional
 from src.agents.base import AgentContext, AgentOutput, BaseAgent
 from src.envelope import Envelope
 from src.utils.checksum import checksum_json
-from src.utils.finance import generate_comparison_fields, resolve_weights
+from src.calculation_witness import beneish_witness
+from src.utils.finance import (
+    beneish_m_score,
+    generate_comparison_fields,
+    resolve_weights,
+)
 
 
 def _now_iso() -> str:
@@ -263,9 +268,30 @@ class MockAgent(BaseAgent):
         ticker = context.params.get("ticker", "TICK")
         delta = (random.uniform(-0.3, 0.4)) if self.randomize else 0.0
         altman_z = round(3.85 + delta, 2)
-        beneish_m = round(-2.82 + (delta * 0.2), 2)
         peg_ttm = round(1.25 + delta, 2)
         peg_fwd = round(1.10 + delta, 2)
+
+        # The Beneish score is computed by the deterministic calculator from
+        # explicit synthetic indices, never hard-coded. Mock output is test
+        # infrastructure, so the inputs are clearly synthetic; the point is
+        # that the arithmetic path under test is the real one.
+        beneish_indices = {
+            "dsri": 1.00 + delta * 0.10,
+            "gmi": 1.00 + delta * 0.05,
+            "aqi": 1.00 - delta * 0.05,
+            "sgi": 1.00 + delta * 0.08,
+            "depi": 1.00,
+            "sgai": 1.00,
+            "lvgi": 1.00 - delta * 0.05,
+            "tata": delta * 0.10,
+        }
+        beneish = beneish_m_score(**beneish_indices)
+        beneish_m = beneish["score"]
+        beneish_note = (
+            f"{beneish['classification']} "
+            f"(calculator {beneish['calculator_id']} v{beneish['calculator_version']}, "
+            "computed from explicit synthetic indices; screening signal only)"
+        )
 
         return {
             "schema_version": "2.1",
@@ -277,7 +303,7 @@ class MockAgent(BaseAgent):
                 "SECTION_4_FINANCIAL_FORENSICS": (
                     f"# Section 4: Financial Forensics & Health\n\n"
                     f"**Altman Z-Score**: {altman_z} (Safe Zone, low bankruptcy risk).\n"
-                    f"**Beneish M-Score**: {beneish_m} (Unlikely earnings manipulator).\n"
+                    f"**Beneish M-Score**: {beneish_m} ({beneish_note}).\n"
                     "**Operating Cash Flow vs Net Income**: Aligned, indicating sound earnings quality."
                 ),
                 "SECTION_5_VALUATION": (
@@ -294,6 +320,7 @@ class MockAgent(BaseAgent):
             },
             "artifacts": {
                 "AltmanZ": {
+                    "provenance": "synthetic",
                     "score": altman_z,
                     "classification": "Safe Zone",
                     "inputs": {
@@ -305,9 +332,11 @@ class MockAgent(BaseAgent):
                     },
                 },
                 "BeneishM": {
-                    "feasible": True,
-                    "score": beneish_m,
-                    "classification": "Unlikely Manipulator",
+                    **beneish,
+                    "provenance": "deterministic",
+                    "calculation_witness": beneish_witness(
+                        indices=beneish_indices, result=beneish["raw_score"]
+                    ).to_dict(),
                 },
                 "OCF_vs_NI_Flag": "Aligned",
                 "PEG_TTM": peg_ttm,

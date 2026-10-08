@@ -265,6 +265,8 @@ A manifest specifies the ticker and a list of public HTTPS document URLs, titles
 
 Retrieval supports HTML, text, CSV, JSON, XML and text-bearing PDFs, with at most 16 documents and 8 MiB per document. PDF extraction rejects encrypted/image-only documents and files over 300 pages; it does not invent OCR content. Redirects, credential-bearing URLs and private-address targets are refused. SEC URLs require `SEC_USER_AGENT` in your shell or ignored project `.env` with your organization/contact information; the contact header is sent only to SEC hosts, never to Google or other data providers. Long documents are explicitly excerpted in model context, prioritizing statement/share/pay-ratio sections over introductions. Publication dates come from the supplied manifest (or SEC filing metadata for automatic collection); documents dated after the analysis date are rejected to reduce look-ahead risk. Hashes prove which bytes were supplied, **not** that every document or generated claim is true. Review citations, data coverage, calculations and assumptions; incomplete inputs must remain visible.
 
+**Evidence bundles & storage policy:** Use `python -m src.controller bundle-evidence <run_dir> --output <dir>` to package raw retrieved bytes, extracted text, attachments, and `manifest.json` into a portable bundle. Bundles are verified against an independently trusted manifest SHA-256 hash (`verify-evidence` / `restore-evidence`). Full evidence bundles should be kept in content-addressed object storage or release artifacts rather than ordinary git history when repository size or third-party source redistribution limits apply (see `docs/evidence-portability.md`).
+
 **Billing:** Verify your credit eligibility on the [AI Studio billing page](https://aistudio.google.com/billing). Google's [billing guide](https://ai.google.dev/gemini-api/docs/billing) excludes newer $300 Google Cloud welcome/free-trial credits from Gemini API / AI Studio usage (accounts opened after March 2, 2026). Other promotional credits have their own terms. This integration is not Vertex AI. A full pipeline makes multiple API calls, including retries; monitor usage before running Deep mode. Merely setting a key does not enable paid analysis: `run` still defaults to `mock`, and `monitor --provider auto` retains its Jev/mock behavior. Explicit Gemini errors are not silently replaced by mock results.
 
 ### “Destroyer Mode” manual cockpit
@@ -306,6 +308,53 @@ Retrieval supports HTML, text, CSV, JSON, XML and text-bearing PDFs, with at mos
 - Honest defaults: normalization placeholders are recorded (`metrics.injected_defaults`) and penalize `data_completeness_score_10`; `--strict` / `FUWFORGE_STRICT=1` turns them into failures.
 - Every run writes `run_summary.json` (status, metrics, checksum, halt reason) and a report header with run metadata.
 - Manual controllers can seal legacy envelopes (`controller seal`) before verifying; tampered envelopes are rejected rather than silently accepted.
+
+## Independent verification, resume, and bounded delivery
+
+The eight research-compiler upgrades add capabilities whose limits matter as much as their behaviour. Read these before treating an output as verified research.
+
+### Audit levels are independent
+
+`controller verify-run` reports each layer separately and never collapses them into one reassuring word:
+
+| Level | What it establishes |
+| :--- | :--- |
+| `envelope_integrity` | Content checksums match the sealed bytes. |
+| `source_reconstruction` | Source bytes are present and match recorded digests. |
+| `graph_and_contracts` | Lineage is consistent and every envelope satisfies its contract. |
+| `calculation_replay` | Recorded arithmetic (e.g. Beneish) recomputes exactly. |
+| `final_artifacts` | The report/artifact bundle bytes match the run manifest. |
+| `completeness` | Every expected role is present. |
+
+Matching bytes are established by hashing. That does **not** prove a source is authentic, that its contents are true, or that a number was correct. Source authenticity, factual support, and arithmetic are reported at their own levels. A missing role means the run is incomplete; a clean completed-subgraph check does not imply a complete report.
+
+### Explicit missingness
+
+A value that could not be derived is never replaced with a neutral default, a zero, or an example number. It stays `null`, records a specific evidence-coverage reason in `metrics.missing_data`, and is disclosed in the Missing Data Table. The Beneish calculator follows the same rule: an uncomputable score is an explicit *unavailable* result with a reason, not a fabricated score, and an unavailable result carries no numeric score in any field.
+
+### Evidence trust root
+
+Evidence is integrity-checked, **not** signed. `fetch-sources` records SHA-256 digests and real retrieval timestamps; a run verifies and snapshots the pack under `evidence/` and `verify-run` detects changed bytes or metadata. There is no public-key signature, so a digest proves the bytes have not changed *since collection*, not that they came from the issuer or say what they appear to say. Missing bytes cannot be reconstructed from their digests.
+
+### Durable resume
+
+Receipts are persisted per execution node, so a halted run resumes by reusing verified work instead of re-billing it:
+
+```bash
+python -m src.controller run runs/<run_id> --resume
+```
+
+A receipt is reused only when it is `validated`, its stored envelope matches its recorded checksum, and the request identity (provider, model, prompt, evidence, upstream) is unchanged. Reuse preserves the exact sealed bytes. **Resume does not re-snapshot evidence**: an existing evidence directory is reloaded and re-verified, and resuming against *different* evidence is refused rather than silently invalidating prior receipts.
+
+Local idempotency is not exactly-once external billing. If a provider call's outcome is uncertain, the receipt is marked `unknown_completion` and the run stops for an explicit operator choice (`--recovery-choice retry|abandon`); retrying may re-bill. Durable execution also disables blind in-process retries, so an uncertain call is never silently repeated.
+
+### Optional independent-bear challenge (experimental, default off)
+
+`--independent-bear` adds one extra blind bear pass plus one reconciliation pass. It is **off by default**; a normal run makes no extra call. Status is experimental pending cost and reviewer evaluation, and `extra_calls_max` is capped at 1. The initial bear view is blind — it never sees the bull case — and its local hypotheses are preserved verbatim into reconciliation, so disagreements survive. Promotion out of experimental status requires cost and reviewer-effort evidence; no retrospective predictive-performance claim is justified.
+
+### Bounded research packets
+
+`controller export-packet <run_dir> --output <file>` exports a review-sized packet that excludes transcripts and raw source bodies. Every packet is `pending_human_review`: an exported packet is material for a human reviewer, not an approved conclusion.
 
 ## Gratitude
 

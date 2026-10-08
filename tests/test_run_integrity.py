@@ -60,6 +60,9 @@ def test_run_artifacts_and_verification():
             )
             assert data["content_checksum"] == envelope_content_checksum(data)
         a7 = json.loads((tmp / "a7_envelope.json").read_text(encoding="utf-8"))
+        # Lineage records what A7 actually consumed, in canonical (sorted)
+        # order. Acceptance order is a storage choice and is not evidence of
+        # causality: A6 sorts before A6B, and must still be recorded.
         assert a7["upstream"] == [
             {
                 "agent": agent,
@@ -67,7 +70,7 @@ def test_run_artifacts_and_verification():
                     (tmp / f"{agent.lower()}_envelope.json").read_text(encoding="utf-8")
                 )["content_checksum"],
             }
-            for agent in ["A1", "A2", "A3", "A4", "A5", "A6B", "A6R", "A6"]
+            for agent in sorted(["A1", "A2", "A3", "A4", "A5", "A6", "A6B", "A6R"])
         ]
 
         result = verify_run(tmp)

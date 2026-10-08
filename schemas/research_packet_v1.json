@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fuwforge.local/schemas/research_packet_v1.json",
+  "title": "FUWForge research packet v1",
+  "description": "Bounded, versioned research export for downstream review and dashboard integration. Contains bounded facts, calculations, claims, source references, versions, limitations, and explicit audit state. Does not claim dashboard approval.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "company",
+    "analysis_date",
+    "generated_at",
+    "status",
+    "approval_status",
+    "disclaimer",
+    "audit",
+    "facts",
+    "calculations",
+    "claims",
+    "sources",
+    "versions",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "research_packet_v1"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "company": {
+      "type": "object",
+      "required": ["ticker", "name"],
+      "properties": {
+        "ticker": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "analysis_date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["completed", "halted", "incomplete"]
+    },
+    "approval_status": {
+      "type": "string",
+      "enum": ["pending_human_review", "unapproved", "rejected", "approved"]
+    },
+    "disclaimer": {
+      "type": "string",
+      "minLength": 1
+    },
+    "audit": {
+      "type": "object",
+      "required": ["overall_state", "complete", "levels"],
+      "properties": {
+        "overall_state": {
+          "type": "string",
+          "enum": ["verified", "incomplete", "failed"]
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "halted": {
+          "type": "boolean"
+        },
+        "levels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "failed_levels": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "errors": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "facts": {
+      "type": "array",
+      "description": "Bounded typed financial facts.",
+      "items": {
+        "type": "object",
+        "required": ["id", "company", "concept"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "company": { "type": "string", "minLength": 1 },
+          "concept": { "type": "string", "minLength": 1 },
+          "value": { "type": ["number", "null"] },
+          "unit": { "type": ["string", "null"] },
+          "currency": { "type": ["string", "null"] },
+          "period_start": { "type": ["string", "null"] },
+          "period_end": { "type": ["string", "null"] },
+          "period_instant": { "type": ["string", "null"] },
+          "filing_date": { "type": ["string", "null"] },
+          "accession": { "type": ["string", "null"] },
+          "source_location": { "type": ["object", "string", "null"] },
+          "accounting_basis": { "type": ["string", "null"] },
+          "kind": { "type": ["string", "null"] },
+          "supersedes": { "type": ["string", "null"] },
+          "missing_reason": { "type": ["string", "null"] },
+          "extractor_version": { "type": ["string", "null"] },
+          "dimensions": { "type": ["object", "null"] },
+          "metadata": { "type": ["object", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "calculations": {
+      "type": "array",
+      "description": "Calculation witnesses for reproducible quantitative numbers.",
+      "items": {
+        "type": "object",
+        "required": ["formula_id", "formula_version", "calculator_id", "provenance"],
+        "properties": {
+          "formula_id": { "type": "string", "minLength": 1 },
+          "formula_version": { "type": "string", "minLength": 1 },
+          "calculator_id": { "type": "string", "minLength": 1 },
+          "result": { "type": ["number", "null"] },
+          "inputs": { "type": "object" },
+          "parameters": { "type": "object" },
+          "input_fact_ids": { "type": "object" },
+          "units": { "type": "object" },
+          "provenance": { "type": "string" },
+          "notes": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "claims": {
+      "type": "array",
+      "description": "Structured research claims referencing upstream facts or calculations.",
+      "items": {
+        "type": "object",
+        "required": ["id", "category"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "agent_id": { "type": ["string", "null"] },
+          "category": { "type": "string", "minLength": 1 },
+          "statement": { "type": ["string", "null"] },
+          "thesis": { "type": ["string", "null"] },
+          "evidence": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "fact_ids": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "calculation_ids": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "impact": { "type": ["string", "null"] },
+          "probability": { "type": ["string", "null"] },
+          "severity": { "type": ["string", "null"] },
+          "details": { "type": ["object", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "sources": {
+      "type": "array",
+      "description": "Bounded source references (metadata only; no full text or agent transcripts).",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "title": { "type": ["string", "null"] },
+          "url": { "type": ["string", "null"] },
+          "date": { "type": ["string", "null"] },
+          "filing_date": { "type": ["string", "null"] },
+          "form_type": { "type": ["string", "null"] },
+          "accession": { "type": ["string", "null"] },
+          "checksum": { "type": ["string", "null"] },
+          "verification": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "versions": {
+      "type": "object",
+      "description": "Versions of calculators, schemas, and components.",
+      "required": ["packet_schema_version"],
+      "properties": {
+        "packet_schema_version": { "type": "string" },
+        "beneish_m_score": { "type": "string" },
+        "run_manifest_version": { "type": "string" },
+        "envelope_schema_version": { "type": "string" },
+        "fact_schema_version": { "type": "string" }
+      },
+      "additionalProperties": { "type": "string" }
+    },
+    "limitations": {
+      "type": "array",
+      "description": "Explicit limitations, data gaps, audit warnings, and disclaimers.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "additionalProperties": false
+}

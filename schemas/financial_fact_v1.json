@@ -1,0 +1,112 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "COA Financial Fact v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "company",
+    "concept",
+    "unit",
+    "filing_accession",
+    "availability_time",
+    "retrieval_time",
+    "source_location",
+    "accounting_basis",
+    "extractor_version",
+    "kind"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["financial_fact_v1"]
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "company": {
+      "type": "string",
+      "minLength": 1
+    },
+    "concept": {
+      "type": "string",
+      "minLength": 1
+    },
+    "value": {
+      "type": ["number", "null"]
+    },
+    "unit": {
+      "type": "string",
+      "minLength": 1
+    },
+    "currency": {
+      "type": ["string", "null"]
+    },
+    "period_start": {
+      "type": ["string", "null"]
+    },
+    "period_end": {
+      "type": ["string", "null"]
+    },
+    "instant": {
+      "type": ["string", "null"]
+    },
+    "filing_accession": {
+      "type": "string",
+      "minLength": 1
+    },
+    "availability_time": {
+      "type": "string"
+    },
+    "retrieval_time": {
+      "type": "string"
+    },
+    "source_location": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "object",
+          "properties": {
+            "url": {"type": "string"},
+            "offset": {"type": ["integer", "string", "null"]},
+            "table": {"type": ["string", "null"]},
+            "xpath": {"type": ["string", "null"]}
+          },
+          "required": ["url"],
+          "additionalProperties": true
+        }
+      ]
+    },
+    "accounting_basis": {
+      "type": "string",
+      "enum": ["US-GAAP", "IFRS", "NON-GAAP", "OTHER", "TAX", "CASH", "US_GAAP", "NON_GAAP"]
+    },
+    "extractor_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "supersedes": {
+      "type": ["string", "null"]
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["reported", "forecast", "restatement", "derived", "estimate"]
+    },
+    "missing_reason": {
+      "type": ["string", "null"]
+    },
+    "dimensions": {
+      "type": ["object", "null"],
+      "additionalProperties": true
+    },
+    "metadata": {
+      "type": ["object", "null"],
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

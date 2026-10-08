@@ -1,0 +1,27 @@
+{
+  "schema_version": "financial_fact_v1",
+  "id": "fact_aapl_rev_2023_restated_2024_10k",
+  "company": "AAPL",
+  "concept": "Revenues",
+  "value": 383280000000.0,
+  "unit": "USD",
+  "currency": "USD",
+  "period_start": "2022-10-01",
+  "period_end": "2023-09-30",
+  "instant": null,
+  "filing_accession": "0000320193-24-000106",
+  "availability_time": "2024-11-01T18:00:00Z",
+  "retrieval_time": "2024-11-01T19:00:00Z",
+  "source_location": "https://www.sec.gov/ix?doc=/Archives/edgar/data/320193/000032019324000106/aapl-20240928.htm#Item8",
+  "accounting_basis": "US-GAAP",
+  "extractor_version": "sec_facts_v1.0",
+  "supersedes": "fact_aapl_rev_2023_10k",
+  "kind": "reported",
+  "missing_reason": null,
+  "dimensions": null,
+  "metadata": {
+    "form": "10-K",
+    "fiscal_year": 2024,
+    "restatement": true
+  }
+}

@@ -16,11 +16,17 @@ from __future__ import annotations
 
 import math
 import re
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Set
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Set, Tuple
 
 from src.data_gaps import ALLOWED_DATA_GAPS, documented_null, missing_data_map
+from src.calculation_witness import PROVENANCE_MODEL_REPORTED
 from src.envelope import Envelope
+from src.utils.beneish import (
+    BENEISH_INPUT_KEYS, CALCULATOR_VERSION, beneish_score, classify,
+)
 from src.validators import ValidationResult
+
+BENEISH_INDEX_KEYS = tuple(BENEISH_INPUT_KEYS)
 
 AGENT_IDS = ("A1", "A2", "A3", "A4", "A5", "A6B", "A6R", "A6", "A7")
 
@@ -245,9 +251,8 @@ def _check_a3(artifacts: Mapping[str, Any], missing=None) -> List[str]:
     elif not _is_num(altman.get("score")):
         errors.append("AltmanZ.score must be numeric or null")
     beneish = artifacts.get("BeneishM")
-    beneish_unavailable = isinstance(beneish, dict) and documented_null(artifacts, "BeneishM.score", missing) and beneish.get("feasible") is False and _is_text(beneish.get("classification"))
-    if not beneish_unavailable and (not isinstance(beneish, dict) or not _is_num(beneish.get("score"))):
-        errors.append("BeneishM must be an object with a numeric score")
+    beneish_errors, _ = _check_beneish(beneish, artifacts, missing)
+    errors.extend(beneish_errors)
     if not _in_enum(
         artifacts.get("OCF_vs_NI_Flag"), ("Aligned", "Divergent", "Negative")
     ):
@@ -267,6 +272,108 @@ def _check_a3(artifacts: Mapping[str, Any], missing=None) -> List[str]:
             if not _is_num(technical.get(key)) and not documented_null(artifacts, f"TechnicalSet.{key}", missing):
                 errors.append(f"TechnicalSet.{key} must be numeric or documented unavailable")
     return errors
+
+
+def _check_beneish(
+    beneish: Any, artifacts: Mapping[str, Any], missing: Mapping[str, str]
+) -> Tuple[List[str], List[str]]:
+    """
+    Beneish must be either a recomputed number or an explicit unknown.
+
+    Three acceptable states:
+
+    1. Deterministic: ``provenance='deterministic'`` plus a witness carrying all
+       eight index ratios, so any reader can recompute the score.
+    2. Documented unavailable: an explicit null score, with the reason recorded
+       either on the artifact or in ``metrics.missing_data``.
+    3. Model-reported or legacy: a bare score with no recomputation. Permitted
+       outside strict mode, but only when it says so — a reader must never
+       mistake an invented number for a computed one.
+
+    An automated run always produces one of states 1-3, because the runner
+    stamps provenance during normalization. An *unlabelled* bare score can only
+    arrive from a hand-written controller/legacy envelope; that is reported as a
+    warning so the historical identity is preserved and marked rather than
+    silently resealed or rejected outright. Strict mode promotes it to an error.
+    """
+    errors: List[str] = []
+    warnings: List[str] = []
+
+    if not isinstance(beneish, dict):
+        return ["BeneishM must be an object"], warnings
+
+    score = beneish.get("score")
+
+    # State 2 — explicitly unavailable.
+    if score is None or beneish.get("feasible") is False:
+        if score is not None or beneish.get("raw_score") is not None:
+            return ["an unavailable BeneishM must not carry a numeric score"], warnings
+        if _is_text(beneish.get("unavailable_reason")):
+            return errors, warnings
+        if documented_null(artifacts, "BeneishM.score", missing) and _is_text(
+            beneish.get("classification")
+        ):
+            return errors, warnings
+        return [
+            "an unavailable BeneishM requires either an unavailable_reason or a "
+            "documented missing_data entry for BeneishM.score"
+        ], warnings
+
+    if not _is_num(score):
+        return ["BeneishM.score must be numeric or an explicit unavailable result"], warnings
+
+    # State 3 — model-reported, labelled.
+    if beneish.get("provenance") == PROVENANCE_MODEL_REPORTED:
+        return errors, warnings
+
+    # State 1 — deterministic, recomputable.
+    witness = beneish.get("calculation_witness")
+    if beneish.get("provenance") == "deterministic" and isinstance(witness, dict):
+        if witness.get("provenance") != "deterministic":
+            errors.append("BeneishM.calculation_witness must record deterministic provenance")
+        if witness.get("formula_id") != "beneish_m_score":
+            errors.append("BeneishM.calculation_witness must name the beneish_m_score formula")
+        inputs = witness.get("inputs")
+        if not isinstance(inputs, dict) or set(inputs) != set(BENEISH_INDEX_KEYS):
+            errors.append(
+                "BeneishM.calculation_witness.inputs must carry all eight index ratios "
+                "so the score can be independently recomputed"
+            )
+        else:
+            try:
+                expected = beneish_score(**inputs)
+            except (ValueError, TypeError, OverflowError):
+                errors.append("BeneishM witness inputs must be finite numeric ratios")
+            else:
+                for label, actual, target in (
+                    ("witness.result", witness.get("result"), expected),
+                    ("raw_score", beneish.get("raw_score"), expected),
+                    ("score", score, round(expected, 2)),
+                ):
+                    if not _is_num(actual) or not math.isclose(
+                        actual, target, rel_tol=1e-12, abs_tol=1e-12
+                    ):
+                        errors.append(f"BeneishM.{label} disagrees with deterministic replay")
+                if beneish.get("classification") != classify(expected):
+                    errors.append("BeneishM classification disagrees with the raw-score policy")
+        if witness.get("formula_version") != CALCULATOR_VERSION:
+            errors.append("BeneishM witness formula version is unsupported")
+        if beneish.get("calculator_version") != CALCULATOR_VERSION:
+            errors.append("BeneishM calculator version is unsupported")
+        units = witness.get("units")
+        if not isinstance(units, dict) or any(
+            units.get(key) != "ratio" for key in BENEISH_INDEX_KEYS
+        ):
+            errors.append("BeneishM witness inputs require ratio units")
+        return errors, warnings
+
+    # Legacy / unlabelled: a bare score with no recorded provenance at all.
+    warnings.append(
+        "BeneishM carries a bare score with no recorded provenance and no index "
+        "ratios; it was not recomputed by the deterministic calculator. Treat as "
+        "unverified (typical of a legacy or hand-authored controller envelope)."
+    )
+    return errors, warnings
 
 
 def _check_a4(artifacts: Mapping[str, Any], missing=None) -> List[str]:
@@ -650,6 +757,19 @@ def validate_contract(
         errors.extend(checker(envelope.artifacts, valid_gaps) if agent_id in ("A2", "A3", "A4", "A5") else checker(envelope.artifacts))
     if strict and agent_id == "A3" and isinstance(envelope.artifacts.get("AltmanZ"), dict) and envelope.artifacts["AltmanZ"].get("score") is None and not documented_null(envelope.artifacts, "AltmanZ.score", valid_gaps):
         errors.append("AltmanZ.score=null requires a documented unavailable-data reason")
+    if strict and agent_id == "A3" and isinstance(envelope.artifacts.get("BeneishM"), dict) and envelope.artifacts["BeneishM"].get("provenance") == PROVENANCE_MODEL_REPORTED:
+        errors.append(
+            "strict mode: BeneishM score is model-reported with no index ratios; "
+            "supply BeneishM.indices for deterministic recomputation, or record the "
+            "score as unavailable"
+        )
+    if strict and agent_id == "A3" and isinstance(envelope.artifacts.get("BeneishM"), dict):
+        bm = envelope.artifacts["BeneishM"]
+        if bm.get("provenance") not in ("deterministic", PROVENANCE_MODEL_REPORTED, "unavailable") and bm.get("score") is not None:
+            errors.append(
+                "strict mode: BeneishM carries an unlabelled legacy score; supply "
+                "BeneishM.indices for deterministic recomputation, or mark it unavailable"
+            )
     if strict and agent_id == "A7" and isinstance(envelope.artifacts.get("comparison_fields"), dict):
         for key, value in envelope.artifacts["comparison_fields"].items():
             if value is None and not documented_null(envelope.artifacts, f"comparison_fields.{key}", valid_gaps):
@@ -665,6 +785,15 @@ def validate_contract(
         errors.extend(
             _check_bear_rebuttals(envelope.artifacts.get("BearRebuttals"), bull_ids)
         )
+
+    if agent_id == "A3":
+        # An unlabelled legacy Beneish score is preserved but flagged, so a
+        # hand-authored controller envelope keeps its identity while readers
+        # know it was never recomputed.
+        _, beneish_warnings = _check_beneish(
+            envelope.artifacts.get("BeneishM"), envelope.artifacts, valid_gaps
+        )
+        warnings.extend(beneish_warnings)
 
     sections = validate_sections(envelope, depth_config)
     errors.extend(sections.errors)

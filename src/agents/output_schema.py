@@ -32,7 +32,24 @@ ARTIFACT_SHAPES = {
     "TopCustomerPct": {"anyOf": [TEXT, obj({"percent": NUMBER, "note": TEXT}, required=["percent"]), {"type": "null"}]},
     "TopSupplierPct": {"anyOf": [TEXT, obj({"percent": NUMBER, "note": TEXT}, required=["percent"]), {"type": "null"}]},
     "AltmanZ": obj({"score": NUMBER, "classification": TEXT}),
-    "BeneishM": obj({"score": NUMBER, "classification": TEXT, "feasible": BOOL}, required=["score", "classification"]),
+    "BeneishM": obj(
+        {
+            "indices": nullable(
+                obj(
+                    {
+                        **{key: NUMBER for key in ("dsri", "gmi", "aqi", "sgi", "depi", "sgai", "lvgi", "tata")},
+                        "fact_ids": nullable({"type": "object"}),
+                    },
+                    required=["dsri", "gmi", "aqi", "sgi", "depi", "sgai", "lvgi", "tata"],
+                )
+            ),
+            "score": NUMBER,
+            "classification": TEXT,
+            "feasible": BOOL,
+            "unavailable_reason": nullable(TEXT),
+        },
+        required=["score", "classification"],
+    ),
     "OCF_vs_NI_Flag": {"type": "string", "enum": ["Aligned", "Divergent", "Negative"]},
     "PEG_TTM": NUMBER, "PEG_Fwd": NUMBER,
     "HypeFlag": nullable({"type": "string", "enum": ["Reality", "Balanced", "Hype Risk"]}),

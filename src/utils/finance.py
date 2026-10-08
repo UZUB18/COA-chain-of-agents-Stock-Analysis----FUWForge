@@ -12,6 +12,17 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional, Tuple
 
+from src.utils.beneish import (
+    CALCULATOR_ID as BENEISH_CALCULATOR_ID,
+)
+from src.utils.beneish import (
+    CALCULATOR_VERSION as BENEISH_CALCULATOR_VERSION,
+)
+from src.utils.beneish import (
+    beneish_result,
+    unavailable_beneish,
+)
+
 DEFAULT_SCORECARD_WEIGHTS: Dict[str, float] = {
     "Financials": 0.25,
     "Moat": 0.20,
@@ -181,47 +192,42 @@ def altman_z_score(
 
 
 def beneish_m_score(
-    dsri: float = 1.0,
-    gmi: float = 1.0,
-    aqi: float = 1.0,
-    sgi: float = 1.0,
-    depi: float = 1.0,
-    sgai: float = 1.0,
-    lvgi: float = 1.0,
-    tata: float = 0.0,
+    *,
+    dsri: float,
+    gmi: float,
+    aqi: float,
+    sgi: float,
+    depi: float,
+    sgai: float,
+    lvgi: float,
+    tata: float,
 ) -> Dict[str, Any]:
     """
-    8-variable Beneish M-Score for earnings manipulation detection.
-    M > -1.78 suggests high probability of earnings manipulation.
-    """
-    m_score = (
-        -4.84
-        + 0.920 * dsri
-        + 0.528 * gmi
-        + 0.404 * aqi
-        + 0.892 * sgi
-        + 0.115 * depi
-        - 0.172 * sgai
-        + 4.037 * tata
-        + 0.0327 * lvgi
-    )
-    rounded = round(m_score, 2)
-    classification = (
-        "High Manipulation Risk" if rounded > -1.78 else "Unlikely Manipulator"
-    )
+    8-variable Beneish M-Score (earnings-manipulation *screening*).
 
-    return {
-        "score": rounded,
-        "classification": classification,
-        "feasible": True,
-        "flags": {
-            "DSRI_high": dsri > 1.3,
-            "GMI_deteriorating": gmi > 1.2,
-            "AQI_high": aqi > 1.25,
-            "SGI_high": sgi > 1.3,
-            "TATA_high": tata > 0.05,
-        },
-    }
+    Thin outward wrapper over :func:`src.utils.beneish.beneish_result`, which
+    owns the published coefficients. This preserves the historical report shape
+    while classifying the *unrounded* score and stamping the calculator version
+    and threshold policy onto every result.
+
+    All eight indices are required. The former neutral defaults (``1.0``) meant
+    an unknown input silently produced a plausible-looking score; a missing
+    input is now an explicit unavailable result via
+    :func:`src.utils.beneish.unavailable_beneish`.
+
+    A score above the -1.78 screening threshold is a signal to investigate, not
+    a determination that manipulation occurred.
+    """
+    return beneish_result(
+        dsri=dsri,
+        gmi=gmi,
+        aqi=aqi,
+        sgi=sgi,
+        depi=depi,
+        sgai=sgai,
+        lvgi=lvgi,
+        tata=tata,
+    )
 
 
 def return_driver_stack(
