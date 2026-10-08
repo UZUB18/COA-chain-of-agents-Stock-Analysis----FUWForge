@@ -158,11 +158,23 @@ def test_interrupted_run_resumes_and_reuses_receipts(tmp_path):
         ledger = run_dir / "execution_ledger.db"
         assert ledger.is_file()
 
-        # Resume is a no-op on a complete run and must still verify.
+        # Resume reuses the recorded work and must still verify.
         result = _cli("run", str(run_dir), *RUN_ARGS, "--resume")
         assert result.returncode == 0, result.stdout + result.stderr
-        resumed_report = (run_dir / "SMK_2026-02-01_report.md").read_bytes()
-        assert resumed_report == original_report
+        resumed = (run_dir / "SMK_2026-02-01_report.md").read_text(encoding="utf-8")
+        original = original_report.decode("utf-8")
+        # A resume is a new attempt, so it legitimately gets a fresh run_id and
+        # generation timestamp. The invariant that matters is that the analysis
+        # itself was reused rather than regenerated or diverged.
+        def _analysis_body(text: str) -> str:
+            skip = ("run_id:", "generated_at:")
+            return "\n".join(
+                line for line in text.splitlines()
+                if not line.startswith(skip)
+            )
+
+        assert _analysis_body(resumed) == _analysis_body(original)
+        assert "run_id:" in resumed, "the new attempt must still record its own run_id"
         _cli("verify-run", str(run_dir), "--strict")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

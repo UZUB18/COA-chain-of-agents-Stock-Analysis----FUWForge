@@ -322,11 +322,13 @@ The eight research-compiler upgrades add capabilities whose limits matter as muc
 | `envelope_integrity` | Content checksums match the sealed bytes. |
 | `source_reconstruction` | Source bytes are present and match recorded digests. |
 | `graph_and_contracts` | Lineage is consistent and every envelope satisfies its contract. |
-| `calculation_replay` | Recorded arithmetic (e.g. Beneish) recomputes exactly. |
+| `calculation_replay` | Recorded arithmetic recomputes exactly **and every sourced input binds to a real fact's value**. |
 | `final_artifacts` | The report/artifact bundle bytes match the run manifest. |
 | `completeness` | Every expected role is present. |
 
 Matching bytes are established by hashing. That does **not** prove a source is authentic, that its contents are true, or that a number was correct. Source authenticity, factual support, and arithmetic are reported at their own levels. A missing role means the run is incomplete; a clean completed-subgraph check does not imply a complete report.
+
+**A citation is not a verification.** A calculation input that cites a fact is accepted only when the supplied number **equals that fact's recorded value**, with matching company, unit, period, accounting basis, filing identity, and point-in-time availability. Numeric comparison is exact by default — no blanket tolerance, because any tolerance wide enough to excuse a rounding difference also excuses inventing a number. Inputs that cite no fact are disclosed as *unavailable* rather than treated as verified. See [`docs/audit-levels.md`](docs/audit-levels.md) for what each level does and does not prove, [`docs/fact-binding-policy.md`](docs/fact-binding-policy.md) for the binding and numeric-comparison rules, and [`docs/sec-availability-policy.md`](docs/sec-availability-policy.md) for when an SEC-sourced fact is treated as public.
 
 ### Explicit missingness
 
