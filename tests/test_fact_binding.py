@@ -559,21 +559,35 @@ def test_derived_ratio_requires_an_inspectable_derivation():
     A ratio input may legitimately be computed from other facts, but only when
     the derivation is stated and its operands exist.
     """
-    operand = _fact(id="fact_revenue", value=400.0, unit="USD", concept="Revenues")
-    ledger = {operand.id: operand}
+    op_curr = _fact(
+        id="fact_rec_t1",
+        value=400.0,
+        unit="USD",
+        concept="AccountsReceivable",
+        instant="2024-12-31",
+    )
+    op_prev = _fact(
+        id="fact_rec_t0",
+        value=200.0,
+        unit="USD",
+        concept="AccountsReceivable",
+        instant="2023-12-31",
+    )
+    ledger = {op_curr.id: op_curr, op_prev.id: op_prev}
     witness = {
         "formula_id": "x",
         "formula_version": "1",
         "calculator_id": "x",
         "result": 1.0,
         "inputs": {"dsri": 2.0},
-        "input_fact_ids": {"dsri": "fact_revenue"},
+        "input_fact_ids": {"dsri": op_curr.id},
         "units": {"dsri": "ratio"},
         "provenance": "deterministic",
         "derivations": {
             "dsri": {
                 "expression": "receivables_t1 / receivables_t0",
-                "operand_fact_ids": ["fact_revenue"],
+                "operand_fact_ids": [op_curr.id, op_prev.id],
+                "operand_names": ["receivables_t1", "receivables_t0"],
                 "result_value": 2.0,
             }
         },
@@ -613,22 +627,35 @@ def test_derived_ratio_with_missing_operand_is_rejected():
 
 
 def test_derived_ratio_with_wrong_declared_result_is_rejected():
-    operand = _fact(id="fact_revenue", value=400.0, unit="USD", concept="Revenues")
-    ledger = {operand.id: operand}
+    op_curr = _fact(
+        id="fact_rec_t1",
+        value=400.0,
+        unit="USD",
+        concept="AccountsReceivable",
+        instant="2024-12-31",
+    )
+    op_prev = _fact(
+        id="fact_rec_t0",
+        value=200.0,
+        unit="USD",
+        concept="AccountsReceivable",
+        instant="2023-12-31",
+    )
+    ledger = {op_curr.id: op_curr, op_prev.id: op_prev}
     witness = {
         "formula_id": "x",
         "formula_version": "1",
         "calculator_id": "x",
         "result": 1.0,
         "inputs": {"dsri": 2.0},
-        "input_fact_ids": {"dsri": "fact_revenue"},
+        "input_fact_ids": {"dsri": op_curr.id},
         "units": {"dsri": "ratio"},
         "provenance": "deterministic",
         "derivations": {
             "dsri": {
                 "expression": "a / b",
-                "operand_fact_ids": ["fact_revenue"],
-                # Declared derivation result disagrees with the claimed input.
+                "operand_fact_ids": [op_curr.id, op_prev.id],
+                # Declared derivation result disagrees with the claimed input and recomputed result.
                 "result_value": 99.0,
             }
         },
@@ -636,7 +663,7 @@ def test_derived_ratio_with_wrong_declared_result_is_rejected():
     errors = validate_witness(
         witness, fact_ledger=ledger, cutoff="2025-06-01", expected_company="ACME"
     )
-    assert any("derived value" in e for e in errors), errors
+    assert any("declared derivation result" in e or "derived value" in e for e in errors), errors
 
 
 def test_derived_marked_without_a_derivation_spec_is_rejected():

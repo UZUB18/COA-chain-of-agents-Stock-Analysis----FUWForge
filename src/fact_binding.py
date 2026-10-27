@@ -95,6 +95,7 @@ explicitly marked as derived from an inspectable derivation.
 
 from __future__ import annotations
 
+import ast
 import math
 import re
 from dataclasses import dataclass, field
@@ -338,7 +339,7 @@ def compare_numbers(
     try:
         c = float(claimed)
         a = float(actual)
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, OverflowError) as exc:
         return False, f"non-numeric value (claimed={claimed!r}, actual={actual!r}): {exc}"
     if not math.isfinite(c) or not math.isfinite(a):
         return False, (
@@ -481,35 +482,108 @@ def _period_fields(fact: Any) -> Tuple[Optional[str], Optional[str], Optional[st
     )
 
 
+def _is_period_spec(spec: Any) -> bool:
+    """True when a mapping is itself a single period declaration."""
+    if not isinstance(spec, Mapping):
+        return False
+    return any(key in spec for key in ("period_start", "period_end", "instant"))
+
+
+def anchor_period_spec(spec: Any) -> Optional[Mapping[str, Any]]:
+    """Reduce a witness period declaration to its single anchor period.
+
+    A witness input may legitimately span two periods — a change index compares a
+    current and a prior period — so ``input_periods`` can carry a mapping of
+    period specs. The binder checks one *anchor* period per input: the most recent
+    one declared. That keeps the check meaningful (the current period must be
+    among the operands, and nothing may reach past it) without pretending a
+    two-period index has a single period.
+    """
+    if _is_period_spec(spec):
+        return spec
+    if not isinstance(spec, Mapping):
+        return None
+    nested = [value for value in spec.values() if _is_period_spec(value)]
+    if not nested:
+        return None
+
+    def _end(value: Mapping[str, Any]) -> str:
+        return str(value.get("instant") or value.get("period_end") or value.get("period_start") or "")
+
+    return max(nested, key=_end)
+
+
 def expected_period_key(spec: Mapping[str, Any]) -> Optional[str]:
     """
     Build a canonical period key from a witness's declared expectation.
 
-    Accepts ``{"period_start", "period_end"}`` or ``{"instant"}``. Returns None
+    Accepts ``{"period_start", "period_end"}``, ``{"instant"}``, or a mapping of
+    such specs (in which case the most recent period is the anchor). Returns None
     when the witness declares nothing, in which case period checking is skipped
     (an undeclared period is not a *wrong* period, it is an *unverified* one —
     and the caller is told so separately).
     """
-    start = spec.get("period_start")
-    end = spec.get("period_end")
-    instant = spec.get("instant")
-    if start and end:
-        return f"duration:{start}/{end}"
+    anchor = anchor_period_spec(spec)
+    if anchor is None:
+        return None
+    return _canonical_period_key(anchor.get("period_start"), anchor.get("period_end"), anchor.get("instant"))
+
+
+def _canonical_period_key(start: Any, end: Any, instant: Any) -> Optional[str]:
+    def valid_day(value: Any) -> bool:
+        if not isinstance(value, str) or len(value) != 10:
+            return False
+        try:
+            return date.fromisoformat(value).isoformat() == value
+        except ValueError:
+            return False
+
     if instant:
-        return f"instant:{instant}"
+        return f"instant:{instant}" if not start and not end and valid_day(instant) else None
+    if valid_day(start) and valid_day(end) and start <= end:
+        return f"duration:{start}/{end}"
     return None
 
 
 def fact_period_key(fact: Any) -> Optional[str]:
-    start, end, instant = _period_fields(fact)
-    if instant:
-        return f"instant:{instant}"
-    if start and end:
-        return f"duration:{start}/{end}"
-    return None
+    return _canonical_period_key(*_period_fields(fact))
 
 
 # -------------------------------------------------------------- derivations
+
+#: Maximum character length for derivation expression string.
+_AST_MAX_CHARS: int = 1000
+
+#: Maximum AST nodes allowed in an expression (prevents complex/DoS trees).
+_AST_MAX_NODES: int = 50
+
+#: Maximum AST recursion/nesting depth.
+_AST_MAX_DEPTH: int = 10
+
+
+class DerivationError(Exception):
+    """Base exception for derivation expression errors."""
+
+
+class DerivationSyntaxError(DerivationError):
+    """Raised when an expression contains invalid syntax, arbitrary constants, or unresolvable operands."""
+
+
+class DerivationEvaluationError(DerivationError):
+    """Raised when arithmetic evaluation fails (e.g. division by zero, non-finite values, overflow)."""
+
+
+class DerivationUnitError(DerivationError):
+    """Raised when derivation operand units, currencies, or scales are incoherent."""
+
+
+@dataclass(frozen=True)
+class InferredUnit:
+    """Inferred physical dimension, currency, and scale of a formula AST node."""
+
+    dimension: str
+    currency: Optional[str] = None
+    scale: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -518,15 +592,58 @@ class Derivation:
     An inspectable derivation of one derived input (e.g. a Beneish index).
 
     ``operand_fact_ids`` names the facts the operands came from; each operand
-    names a field on the fact (``value`` by default) and optionally a unit.
-    ``expression`` is the arithmetic in textual form, recorded verbatim so a
-    reviewer can read the formula without running code.
+    names a field on the fact (``value`` by default).
+    ``expression`` is the arithmetic in textual form, evaluated through safe AST replay.
+    ``operand_names`` optional variable names used in ``expression`` corresponding
+    to ``operand_fact_ids``.
+    ``result_value`` optional declared result of the formula.
+
+    Expected Expression Syntax:
+    ---------------------------
+    Derivation expressions must be safe, bounded arithmetic expressions over
+    fact-bound variables.
+      - Binary arithmetic operators: `+`, `-`, `*`, `/`
+      - Unary arithmetic operators: `+`, `-`
+      - Parenthesized sub-expressions: `(...)`
+      - Fact-bound variable names: e.g. `receivables_t1`, `receivables_t0`, `a`, `b`
+
+    Invariants:
+    -----------
+    1. No arbitrary constants / literals:
+       Every numeric value in a source-backed computation must resolve to a
+       fact value in the ledger. Expressions composed of constants (e.g. '100 / 2')
+       or containing arbitrary numeric literals are rejected. A formula that
+       genuinely needs a baseline or scale declares it as a **named constant**
+       (``constants={'one': 1.0}``), which is recorded in the witness and
+       reviewable; it is never an anonymous digit inside the expression string.
+    2. Complete operand binding:
+       Every variable in the expression must resolve to a declared operand fact.
+       Every declared operand fact must be used in the expression (no unused operands).
+    3. Safe evaluation:
+       No `eval()` or `exec()`. Traversed purely via explicit AST nodes.
+       Zero division, non-finite values, booleans, and overflow (>1e100) are rejected.
+    4. Unit coherence:
+       Addition/subtraction requires matching dimensions, currencies, and scales.
+       Division of like dimensions produces a dimensionless `ratio`.
+       Scale mismatches (e.g. USD / USD thousand) are rejected.
     """
 
     expression: str
     operand_fact_ids: Tuple[str, ...]
     operand_fields: Tuple[str, ...] = ()
     result_value: Optional[float] = None
+    operand_names: Tuple[str, ...] = ()
+    #: Named numeric constants used by the expression.
+    #:
+    #: Most indices are pure ratios of fact values. A few are not: an index
+    #: that measures a *change* against a baseline needs an explicit ``1``
+    #: (``(margin_t0 / margin_t1) - 1``), and an index expressed as a share of
+    #: total assets needs that scale. Writing those as literals inside the
+    #: expression would break the rule that every number in a source-backed
+    #: derivation resolves to a fact. Declaring them here keeps the rule: the
+    #: constant is named, recorded in the witness, and reviewable, instead of
+    #: being an anonymous digit buried in a formula string.
+    constants: Mapping[str, float] = field(default_factory=dict)
 
     @staticmethod
     def from_spec(spec: Any) -> Optional["Derivation"]:
@@ -535,33 +652,419 @@ class Derivation:
             return None
         expression = str(spec.get("expression") or "").strip()
         operands = spec.get("operand_fact_ids")
-        if not isinstance(operands, (list, tuple)) or not operands:
-            return None
-        operand_ids = tuple(str(x) for x in operands)
-        fields_spec = spec.get("operand_fields") or ()
-        if isinstance(fields_spec, (list, tuple)) and fields_spec:
-            operand_fields = tuple(str(x) for x in fields_spec)
+        if not isinstance(operands, (list, tuple)):
+            # Support {"operands": {"rec_t1": "fact_id_1", "rec_t0": "fact_id_2"}}
+            operands_dict = spec.get("operands")
+            if isinstance(operands_dict, Mapping) and operands_dict:
+                operand_names = tuple(str(k) for k in operands_dict.keys())
+                operand_ids = tuple(str(v) for v in operands_dict.values())
+            else:
+                return None
+        else:
+            if not operands:
+                return None
+            operand_ids = tuple(str(x) for x in operands)
+            names_spec = spec.get("operand_names") or ()
+            if isinstance(names_spec, (list, tuple)) and names_spec:
+                operand_names = tuple(str(x) for x in names_spec)
+            else:
+                operand_names = ()
+
+        fields_spec = spec.get("operand_fields")
+        if fields_spec is not None:
+            if not isinstance(fields_spec, (list, tuple)) or len(fields_spec) != len(operand_ids):
+                return None
+            # A typed financial fact has exactly one economic numeric value.
+            # Metadata/confidence/schema fields cannot masquerade as money.
+            if any(field != "value" for field in fields_spec):
+                return None
+            operand_fields = tuple(fields_spec)
         else:
             operand_fields = tuple("value" for _ in operand_ids)
-        if len(operand_fields) != len(operand_ids):
-            # A mismatched operand-field list is unusable as stated.
-            operand_fields = operand_fields[: len(operand_ids)]
-            operand_fields += tuple(
-                "value" for _ in range(len(operand_ids) - len(operand_fields))
-            )
         result_value = spec.get("result_value")
-        try:
-            result_value = float(result_value) if result_value is not None else None
-        except (TypeError, ValueError):
-            result_value = None
+        if result_value is not None:
+            if isinstance(result_value, bool) or not isinstance(result_value, (int, float)):
+                return None
+            try:
+                result_value = float(result_value)
+            except (ValueError, OverflowError):
+                return None
+            if not math.isfinite(result_value):
+                return None
         if not expression:
             return None
+        constants_spec = spec.get("constants")
+        constants: Dict[str, float] = {}
+        if constants_spec is not None:
+            if not isinstance(constants_spec, Mapping):
+                return None
+            for name, raw in constants_spec.items():
+                if not isinstance(name, str) or not name.isidentifier():
+                    return None
+                if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+                    return None
+                try:
+                    value = float(raw)
+                except (ValueError, OverflowError):
+                    return None
+                if not math.isfinite(value):
+                    return None
+                constants[name] = value
         return Derivation(
             expression=expression,
             operand_fact_ids=operand_ids,
             operand_fields=operand_fields,
             result_value=result_value,
+            operand_names=operand_names,
+            constants=constants,
         )
+
+
+def _parse_and_validate_ast(expression: str) -> ast.Expression:
+    """Parse expression and validate bounded complexity and allowed AST node types.
+
+    Allowed AST nodes:
+      - ast.Expression (root in mode='eval')
+      - ast.BinOp with op in (Add, Sub, Mult, Div)
+      - ast.UnaryOp with op in (UAdd, USub)
+      - ast.Name (variable identifier)
+
+    Disallowed:
+      - ast.Constant (arbitrary constants/literals are forbidden)
+      - ast.Call, ast.Attribute, ast.Subscript, ast.List, etc.
+    """
+    if len(expression) > _AST_MAX_CHARS:
+        raise DerivationSyntaxError(
+            f"expression length ({len(expression)}) exceeds maximum limit of {_AST_MAX_CHARS} characters"
+        )
+    try:
+        tree = ast.parse(expression, mode="eval")
+    except SyntaxError as exc:
+        raise DerivationSyntaxError(f"invalid expression syntax: {exc}") from exc
+
+    node_count = 0
+
+    def _walk_and_check(node: ast.AST, depth: int) -> None:
+        nonlocal node_count
+        node_count += 1
+        if node_count > _AST_MAX_NODES:
+            raise DerivationSyntaxError(
+                f"expression exceeds complexity limit of {_AST_MAX_NODES} AST nodes"
+            )
+        if depth > _AST_MAX_DEPTH:
+            raise DerivationSyntaxError(
+                f"expression exceeds maximum nesting depth of {_AST_MAX_DEPTH}"
+            )
+
+        if isinstance(node, ast.Expression):
+            _walk_and_check(node.body, depth + 1)
+        elif isinstance(node, ast.BinOp):
+            if not isinstance(node.op, (ast.Add, ast.Sub, ast.Mult, ast.Div)):
+                raise DerivationSyntaxError(
+                    f"unsupported binary operator '{type(node.op).__name__}'; only +, -, *, / are allowed"
+                )
+            _walk_and_check(node.left, depth + 1)
+            _walk_and_check(node.right, depth + 1)
+        elif isinstance(node, ast.UnaryOp):
+            if not isinstance(node.op, (ast.UAdd, ast.USub)):
+                raise DerivationSyntaxError(
+                    f"unsupported unary operator '{type(node.op).__name__}'; only unary + and - are allowed"
+                )
+            _walk_and_check(node.operand, depth + 1)
+        elif isinstance(node, ast.Name):
+            if not node.id or node.id.startswith("__"):
+                raise DerivationSyntaxError(f"invalid variable identifier {node.id!r}")
+        elif isinstance(node, ast.Constant):
+            raise DerivationSyntaxError(
+                f"arbitrary numeric constants ({node.value!r}) are not permitted in source-backed derivations; "
+                "all operands must be fact-bound variables"
+            )
+        else:
+            raise DerivationSyntaxError(
+                f"unsupported syntax node '{type(node).__name__}'; derivations only permit explicit "
+                "arithmetic operations over fact-bound variables"
+            )
+
+    _walk_and_check(tree, 0)
+    return tree
+
+
+def _resolve_derivation_variables(
+    tree: ast.Expression,
+    derivation: Derivation,
+) -> Dict[str, str]:
+    """Map variable names in the AST to operand fact IDs in derivation.operand_fact_ids.
+
+    Enforces that:
+    1. The expression references at least one variable.
+    2. Every referenced variable resolves to a declared operand fact ID.
+    3. Every declared operand fact ID is used in the expression (no unused operands).
+    """
+    names_used = [node.id for node in ast.walk(tree) if isinstance(node, ast.Name)]
+    if not names_used:
+        raise DerivationSyntaxError(
+            "derivation expression contains no variable references; at least one operand is required"
+        )
+    # Declared constants are named numbers, not operands: they resolve to a
+    # recorded value rather than to a fact, so they are removed before operand
+    # matching and re-attached by the caller.
+    constants = getattr(derivation, "constants", None) or {}
+    unique_names = sorted({name for name in names_used if name not in constants})
+    if not unique_names:
+        raise DerivationSyntaxError(
+            "derivation expression references only declared constants; at least one "
+            "fact-bound operand is required"
+        )
+    num_operands = len(derivation.operand_fact_ids)
+
+    # 1. Explicit operand_names supplied
+    if derivation.operand_names:
+        if len(derivation.operand_names) != num_operands:
+            raise DerivationSyntaxError(
+                f"operand_names count ({len(derivation.operand_names)}) does not match "
+                f"operand_fact_ids count ({num_operands})"
+            )
+        name_to_id = dict(zip(derivation.operand_names, derivation.operand_fact_ids))
+        for name in unique_names:
+            if name not in name_to_id:
+                raise DerivationSyntaxError(
+                    f"expression references unknown variable {name!r}; "
+                    f"declared operand names are {list(derivation.operand_names)}"
+                )
+        unused = [name for name in derivation.operand_names if name not in unique_names]
+        if unused:
+            unused_ids = [name_to_id[name] for name in unused]
+            raise DerivationSyntaxError(
+                f"derivation declares unused operand(s): {unused_ids} (named {unused})"
+            )
+        return name_to_id
+
+    # 2. Direct match against fact IDs
+    if all(name in derivation.operand_fact_ids for name in unique_names):
+        unused_ids = [oid for oid in derivation.operand_fact_ids if oid not in unique_names]
+        if unused_ids:
+            raise DerivationSyntaxError(
+                f"derivation declares unused operand fact ID(s): {unused_ids}"
+            )
+        return {name: name for name in unique_names}
+
+    # 3. Positional aliases
+    # 3a. Alphabetical letters: a, b, c, ...
+    if num_operands <= 26:
+        letters = [chr(ord("a") + i) for i in range(num_operands)]
+        if all(name in letters for name in unique_names):
+            name_to_id = dict(zip(letters, derivation.operand_fact_ids))
+            unused_letters = [letters[i] for i in range(num_operands) if letters[i] not in unique_names]
+            if unused_letters:
+                unused_ids = [derivation.operand_fact_ids[i] for i in range(num_operands) if letters[i] not in unique_names]
+                raise DerivationSyntaxError(
+                    f"derivation declares unused operand(s): {unused_ids} (positional {unused_letters})"
+                )
+            return name_to_id
+
+    # 3b. op0, op1, ... (0-indexed) or op1, op2, ... (1-indexed)
+    op0_names = [f"op{i}" for i in range(num_operands)]
+    if all(name in op0_names for name in unique_names):
+        name_to_id = dict(zip(op0_names, derivation.operand_fact_ids))
+        unused = [op0_names[i] for i in range(num_operands) if op0_names[i] not in unique_names]
+        if unused:
+            unused_ids = [derivation.operand_fact_ids[i] for i in range(num_operands) if op0_names[i] not in unique_names]
+            raise DerivationSyntaxError(
+                f"derivation declares unused operand(s): {unused_ids} (positional {unused})"
+            )
+        return name_to_id
+
+    op1_names = [f"op{i + 1}" for i in range(num_operands)]
+    if all(name in op1_names for name in unique_names):
+        name_to_id = dict(zip(op1_names, derivation.operand_fact_ids))
+        unused = [op1_names[i] for i in range(num_operands) if op1_names[i] not in unique_names]
+        if unused:
+            unused_ids = [derivation.operand_fact_ids[i] for i in range(num_operands) if op1_names[i] not in unique_names]
+            raise DerivationSyntaxError(
+                f"derivation declares unused operand(s): {unused_ids} (positional {unused})"
+            )
+        return name_to_id
+
+    # 3c. x, y, z for up to 3 operands, or x0, x1, ...
+    if num_operands <= 3:
+        xyz_names = ["x", "y", "z"][:num_operands]
+        if all(name in xyz_names for name in unique_names):
+            name_to_id = dict(zip(xyz_names, derivation.operand_fact_ids))
+            unused = [xyz_names[i] for i in range(num_operands) if xyz_names[i] not in unique_names]
+            if unused:
+                unused_ids = [derivation.operand_fact_ids[i] for i in range(num_operands) if xyz_names[i] not in unique_names]
+                raise DerivationSyntaxError(
+                    f"derivation declares unused operand(s): {unused_ids} (positional {unused})"
+                )
+            return name_to_id
+
+    x0_names = [f"x{i}" for i in range(num_operands)]
+    if all(name in x0_names for name in unique_names):
+        name_to_id = dict(zip(x0_names, derivation.operand_fact_ids))
+        unused = [x0_names[i] for i in range(num_operands) if x0_names[i] not in unique_names]
+        if unused:
+            unused_ids = [derivation.operand_fact_ids[i] for i in range(num_operands) if x0_names[i] not in unique_names]
+            raise DerivationSyntaxError(
+                f"derivation declares unused operand(s): {unused_ids} (positional {unused})"
+            )
+        return name_to_id
+
+    raise DerivationSyntaxError(
+        f"cannot resolve expression variable(s) {unique_names} to declared operands "
+        f"{list(derivation.operand_fact_ids)}; declare matching fact IDs, explicit operand_names, "
+        "or positional aliases (a, b, ... / op0, op1, ...)"
+    )
+
+
+def _evaluate_ast_node(node: ast.AST, env_values: Mapping[str, float]) -> float:
+    """Recursively evaluate an AST expression with bound variable values."""
+    if isinstance(node, ast.Expression):
+        return _evaluate_ast_node(node.body, env_values)
+    elif isinstance(node, ast.Name):
+        if node.id not in env_values:
+            raise DerivationEvaluationError(f"variable {node.id!r} has no bound numeric value")
+        val = env_values[node.id]
+        if isinstance(val, bool) or not isinstance(val, (int, float)) or not math.isfinite(val):
+            raise DerivationEvaluationError(
+                f"variable {node.id!r} has non-numeric or non-finite value: {val!r}"
+            )
+        return float(val)
+    elif isinstance(node, ast.UnaryOp):
+        operand_val = _evaluate_ast_node(node.operand, env_values)
+        if isinstance(node.op, ast.UAdd):
+            res = +operand_val
+        elif isinstance(node.op, ast.USub):
+            res = -operand_val
+        else:
+            raise DerivationSyntaxError(f"unsupported unary operator: {type(node.op).__name__}")
+        if not math.isfinite(res):
+            raise DerivationEvaluationError("unary operation produced non-finite value")
+        return res
+    elif isinstance(node, ast.BinOp):
+        left_val = _evaluate_ast_node(node.left, env_values)
+        right_val = _evaluate_ast_node(node.right, env_values)
+        if isinstance(node.op, ast.Add):
+            res = left_val + right_val
+        elif isinstance(node.op, ast.Sub):
+            res = left_val - right_val
+        elif isinstance(node.op, ast.Mult):
+            res = left_val * right_val
+        elif isinstance(node.op, ast.Div):
+            if right_val == 0.0 or abs(right_val) < 1e-300:
+                raise DerivationEvaluationError("division by zero in derivation expression")
+            res = left_val / right_val
+        else:
+            raise DerivationSyntaxError(f"unsupported binary operator: {type(node.op).__name__}")
+        if not math.isfinite(res):
+            raise DerivationEvaluationError("arithmetic operation produced non-finite or overflow value")
+        if abs(res) > 1e100:
+            raise DerivationEvaluationError(
+                f"arithmetic operation produced overlarge value ({res:g} > 1e100)"
+            )
+        return res
+    else:
+        raise DerivationSyntaxError(f"unsupported AST node: {type(node).__name__}")
+
+
+def _infer_unit_ast_node(node: ast.AST, env_units: Mapping[str, InferredUnit]) -> InferredUnit:
+    """Infer derived physical dimension, currency, and scale from AST expression."""
+    if isinstance(node, ast.Expression):
+        return _infer_unit_ast_node(node.body, env_units)
+    elif isinstance(node, ast.Name):
+        return env_units[node.id]
+    elif isinstance(node, ast.UnaryOp):
+        return _infer_unit_ast_node(node.operand, env_units)
+    elif isinstance(node, ast.BinOp):
+        left = _infer_unit_ast_node(node.left, env_units)
+        right = _infer_unit_ast_node(node.right, env_units)
+
+        if isinstance(node.op, (ast.Add, ast.Sub)):
+            if left.dimension != right.dimension:
+                raise DerivationUnitError(
+                    f"cannot add or subtract operands of different dimensions: "
+                    f"'{left.dimension}' vs '{right.dimension}'"
+                )
+            if left.dimension in (DIM_CURRENCY, DIM_PER_SHARE):
+                if left.currency != right.currency:
+                    raise DerivationUnitError(
+                        f"currency mismatch in addition/subtraction: {left.currency!r} vs {right.currency!r}"
+                    )
+            if abs(left.scale - right.scale) > 1e-9:
+                ratio = right.scale / left.scale if left.scale else 1.0
+                raise DerivationUnitError(
+                    f"scale mismatch in addition/subtraction: operands differ by factor of {ratio:g}"
+                )
+            return left
+
+        elif isinstance(node.op, ast.Mult):
+            if left.dimension == DIM_RATIO and right.dimension == DIM_RATIO:
+                return InferredUnit(DIM_RATIO, None, left.scale * right.scale)
+            elif left.dimension == DIM_RATIO:
+                return InferredUnit(right.dimension, right.currency, left.scale * right.scale)
+            elif right.dimension == DIM_RATIO:
+                return InferredUnit(left.dimension, left.currency, left.scale * right.scale)
+            else:
+                raise DerivationUnitError(
+                    f"cannot multiply operands of dimension '{left.dimension}' and '{right.dimension}'; "
+                    "at least one operand must be a dimensionless ratio"
+                )
+
+        elif isinstance(node.op, ast.Div):
+            if left.dimension == right.dimension:
+                if left.dimension in (DIM_CURRENCY, DIM_PER_SHARE):
+                    if left.currency != right.currency:
+                        raise DerivationUnitError(
+                            f"currency mismatch in ratio division: {left.currency!r} vs {right.currency!r}"
+                        )
+                if abs(left.scale - right.scale) > 1e-9:
+                    ratio = left.scale / right.scale if right.scale else 1.0
+                    raise DerivationUnitError(
+                        f"scale mismatch between numerator ({left.scale:g}) and denominator ({right.scale:g}): "
+                        f"factor of {ratio:g}"
+                    )
+                return InferredUnit(DIM_RATIO, None, 1.0)
+            elif left.dimension == DIM_CURRENCY and right.dimension == DIM_COUNT:
+                return InferredUnit(DIM_PER_SHARE, left.currency, left.scale / right.scale)
+            elif left.dimension == DIM_RATIO and right.dimension == DIM_RATIO:
+                return InferredUnit(DIM_RATIO, None, left.scale / right.scale)
+            else:
+                raise DerivationUnitError(
+                    f"incoherent division: numerator dimension '{left.dimension}' divided by "
+                    f"denominator dimension '{right.dimension}' does not produce a valid dimension"
+                )
+        else:
+            raise DerivationSyntaxError(f"unsupported binary operator: {type(node.op).__name__}")
+    else:
+        raise DerivationSyntaxError(f"unsupported AST node: {type(node).__name__}")
+
+
+def check_derived_unit_coherence(
+    expected_unit: Optional[str],
+    inferred: InferredUnit,
+) -> Tuple[bool, str]:
+    """Check that the inferred expression unit matches the expected unit of the derived input."""
+    if not expected_unit:
+        return True, f"inferred dimension '{inferred.dimension}'"
+    exp_dim = unit_dimension(expected_unit)
+    if exp_dim != inferred.dimension:
+        return False, (
+            f"dimension mismatch: witness expects '{exp_dim}' ({expected_unit!r}) "
+            f"but derivation yields dimension '{inferred.dimension}'"
+        )
+    if inferred.dimension in (DIM_CURRENCY, DIM_PER_SHARE):
+        exp_cur = unit_currency(expected_unit)
+        if exp_cur and inferred.currency and exp_cur != inferred.currency:
+            return False, (
+                f"currency mismatch: witness expects currency {exp_cur!r} "
+                f"but derivation yields {inferred.currency!r}"
+            )
+    exp_scale = unit_scale(expected_unit) or 1.0
+    if abs(exp_scale - inferred.scale) > 1e-9:
+        return False, (
+            f"scale mismatch: witness expects scale {exp_scale:g} "
+            f"but derivation yields scale {inferred.scale:g}"
+        )
+    return True, f"unit bound: dimension '{inferred.dimension}' compatible with expected {expected_unit!r}"
 
 
 # ------------------------------------------------------------------ binding
@@ -595,6 +1098,7 @@ class InputBinding:
                     "operand_fact_ids": list(self.derivation.operand_fact_ids),
                     "operand_fields": list(self.derivation.operand_fields),
                     "result_value": self.derivation.result_value,
+                    "operand_names": list(self.derivation.operand_names),
                 }
                 if self.derivation
                 else None
@@ -624,22 +1128,315 @@ def verify_input_binding(
     check passed. Problems are collected rather than raised so a reviewer sees
     the full picture for one input instead of only the first failure.
 
-    The checks, in order:
+    For direct inputs (``derivation_spec is None``):
+      - fact exists and is non-``None``
+      - company matches expected_company
+      - value equality against recorded fact value
+      - unit dimension, currency, and scale compatibility
+      - period and period type match
+      - accounting basis compatible
+      - filing identity and source reference well-formed
+      - point-in-time availability at or before cutoff
 
-    - fact exists and is non-``None``
-    - company matches the run's company (case-insensitive)
-    - value equality against the recorded fact value, **or** — when the input is
-      explicitly marked ``derived`` — equality against the derivation's declared
-      result, with every operand fact present in the ledger
-    - unit dimension/currency/scale compatibility (skipped against an operand
-      when a derivation is declared, since the operand's unit is the operand's,
-      not the derived ratio's)
-    - period and period type match
-    - accounting basis compatible
-    - filing identity and source reference well-formed
-    - availability at or before the cutoff
+    For derived inputs (``derivation_spec is not None``):
+      - an inspectable Derivation is present
+      - every operand fact exists in the ledger
+      - every operand fact is verified for company ownership, non-null finite value,
+        filing identity, source reference, point-in-time cutoff, accounting basis,
+        and valid economic period
+      - multi-period formula periods are anchored to expected_period and prohibit
+        look-ahead/future periods
+      - safe bounded AST evaluation (no eval/exec, only +, -, *, / over fact variables,
+        no arbitrary constants, bounds on length/nodes/depth)
+      - every variable in the expression resolves to an operand; every declared operand
+        is used (no unused/missing/counterfeit operands)
+      - unit coherence: addition/subtraction like dimensions, ratio division like dimensions,
+        matching currency and scales, agreement with expected_unit
+      - deterministic recomputation: zero division and overflow rejected
+      - claimed_value and optional declared result_value must match recomputed value
+        under numeric comparison policy
     """
     result = InputBinding(input_key=input_key, fact_id=fact_id)
+    if expected_period is not None and (
+        not isinstance(expected_period, Mapping) or expected_period_key(expected_period) is None
+    ):
+        result.status = "failed"
+        result.problems.append(f"witness input '{input_key}' declares an invalid economic period {expected_period!r}")
+        return result
+
+    # =========================================================================
+    # DERIVED BINDINGS: deterministic AST evaluation & full operand validation
+    # =========================================================================
+    if derivation_spec is not None:
+        derivation = Derivation.from_spec(derivation_spec)
+        if derivation is None:
+            result.status = "failed"
+            result.problems.append(
+                f"witness input '{input_key}' is marked derived but supplies no inspectable "
+                "derivation (an expression plus at least one operand fact ID is required)"
+            )
+            return result
+        result.derivation = derivation
+
+        if not derivation.operand_fact_ids:
+            result.status = "failed"
+            result.problems.append(
+                f"witness input '{input_key}' derivation declares no operand fact IDs"
+            )
+            return result
+
+        # If a fact_id was cited directly on the witness input, it must be an operand of the derivation
+        if fact_id is not None and fact_id not in derivation.operand_fact_ids:
+            result.status = "failed"
+            result.problems.append(
+                f"witness input '{input_key}' cites fact '{fact_id}' which is not among "
+                f"the derivation's declared operand facts {list(derivation.operand_fact_ids)}"
+            )
+            return result
+
+        # Every operand fact ID must exist in the fact ledger
+        missing_ops = [oid for oid in derivation.operand_fact_ids if oid not in fact_ledger]
+        if missing_ops:
+            result.status = "failed"
+            result.problems.append(
+                f"witness input '{input_key}' derivation cites operand fact(s) {missing_ops} "
+                "that do not exist in the fact ledger"
+            )
+            return result
+
+        # Full provenance, availability, and accounting validation of EVERY operand
+        from src.facts import usable_as_of
+
+        operand_bases: List[str] = []
+        for idx, op_id in enumerate(derivation.operand_fact_ids):
+            op_fact = fact_ledger[op_id]
+
+            # 1. Company ownership
+            op_company = _fact_get(op_fact, "company")
+            if expected_company is not None:
+                if not op_company or str(op_company).strip().upper() != str(expected_company).strip().upper():
+                    result.status = "failed"
+                    result.problems.append(
+                        f"witness input '{input_key}' derivation operand '{op_id}' belongs to company "
+                        f"{op_company!r}, not the run's company {expected_company!r}"
+                    )
+
+            # 2. Value presence and finite numeric type
+            field_name = (
+                derivation.operand_fields[idx]
+                if idx < len(derivation.operand_fields)
+                else "value"
+            )
+            op_val = _fact_get(op_fact, field_name)
+            if op_val is None:
+                reason = _fact_get(op_fact, "missing_reason") or "no documented reason"
+                result.status = "failed"
+                result.problems.append(
+                    f"witness input '{input_key}' derivation operand '{op_id}' records no value "
+                    f"for field {field_name!r} (missing_reason={reason!r})"
+                )
+            elif isinstance(op_val, bool) or not isinstance(op_val, (int, float)) or not compare_numbers(op_val, op_val)[0]:
+                result.status = "failed"
+                result.problems.append(
+                    f"witness input '{input_key}' derivation operand '{op_id}' carries "
+                    f"invalid numeric value {op_val!r}"
+                )
+
+            # 3. SEC filing identity
+            ok_id, id_detail = fact_filing_identity_valid(op_fact)
+            if not ok_id:
+                result.status = "failed"
+                result.problems.append(
+                    f"witness input '{input_key}' derivation operand '{op_id}' {id_detail}"
+                )
+
+            # 4. Source location reference
+            ok_src, src_detail = fact_source_reference_valid(op_fact)
+            if not ok_src:
+                result.status = "failed"
+                result.problems.append(
+                    f"witness input '{input_key}' derivation operand '{op_id}' {src_detail}"
+                )
+
+            # 5. Research cutoff look-ahead check
+            if cutoff is not None:
+                if not usable_as_of(op_fact, cutoff):
+                    avail = _fact_get(op_fact, "availability_time")
+                    result.status = "failed"
+                    result.problems.append(
+                        f"witness input '{input_key}' derivation operand '{op_id}' availability_time "
+                        f"{avail!r} is after the research cutoff {cutoff!r} (look-ahead violation)"
+                    )
+
+            # 6. Accounting basis
+            op_basis = _fact_get(op_fact, "accounting_basis")
+            if op_basis:
+                operand_bases.append(str(op_basis))
+            if expected_basis is not None:
+                if not accounting_bases_compatible(expected_basis, op_basis):
+                    result.status = "failed"
+                    result.problems.append(
+                        f"witness input '{input_key}' derivation operand '{op_id}' accounting basis "
+                        f"mismatch: witness expects {expected_basis!r}, operand records {op_basis!r}"
+                    )
+
+            # 7. Economic period existence
+            op_pkey = fact_period_key(op_fact)
+            if op_pkey is None:
+                result.status = "failed"
+                result.problems.append(
+                    f"witness input '{input_key}' derivation operand '{op_id}' records no economic period"
+                )
+
+        # Cross-operand basis consistency
+        if operand_bases and len(set(normalize_accounting_basis(b) for b in operand_bases)) > 1:
+            result.status = "failed"
+            result.problems.append(
+                f"witness input '{input_key}' derivation operands carry conflicting accounting bases: "
+                f"{operand_bases}"
+            )
+
+        # Multi-period and input-period requirements
+        if expected_period:
+            want_key = expected_period_key(expected_period)
+            if want_key is not None:
+                op_keys = [fact_period_key(fact_ledger[oid]) for oid in derivation.operand_fact_ids]
+                if want_key not in op_keys:
+                    result.status = "failed"
+                    result.problems.append(
+                        f"witness input '{input_key}' period mismatch: witness expects {want_key!r}, "
+                        f"but no derivation operand matches this period"
+                    )
+            # Operands must not belong to future periods past expected_period
+            anchor = anchor_period_spec(expected_period) or {}
+            exp_end = anchor.get("instant") or anchor.get("period_end")
+            if exp_end:
+                for oid in derivation.operand_fact_ids:
+                    op_f = fact_ledger[oid]
+                    op_end = _fact_get(op_f, "instant") or _fact_get(op_f, "period_end")
+                    if op_end and str(op_end) > str(exp_end):
+                        result.status = "failed"
+                        result.problems.append(
+                            f"witness input '{input_key}' derivation operand '{oid}' period {op_end!r} "
+                            f"is after the expected period {exp_end!r} (future operand violation)"
+                        )
+
+        # Do not evaluate operands whose source/value/period checks failed.
+        if result.status == "failed":
+            return result
+
+        # Safe AST parsing (no eval/exec, only explicit arithmetic AST nodes, bounded complexity)
+        try:
+            tree = _parse_and_validate_ast(derivation.expression)
+        except DerivationSyntaxError as exc:
+            result.status = "failed"
+            result.problems.append(
+                f"witness input '{input_key}' invalid derivation expression: {exc}"
+            )
+            return result
+
+        # Fact-bound variable resolution (all operands used, no counterfeit/missing operands)
+        try:
+            name_to_id = _resolve_derivation_variables(tree, derivation)
+        except DerivationSyntaxError as exc:
+            result.status = "failed"
+            result.problems.append(
+                f"witness input '{input_key}' variable binding failure: {exc}"
+            )
+            return result
+
+        # Coherent derived units / currencies / scales
+        try:
+            env_units = {}
+            for name, op_id in name_to_id.items():
+                op_fact = fact_ledger[op_id]
+                u = _fact_get(op_fact, "unit")
+                dim = unit_dimension(u)
+                cur = unit_currency(u)
+                scl = unit_scale(u) or 1.0
+                if dim == DIM_UNKNOWN or (dim in (DIM_CURRENCY, DIM_PER_SHARE) and cur is None):
+                    raise DerivationUnitError(f"operand {op_id!r} has unrecognized or ambiguous unit {u!r}")
+                env_units[name] = InferredUnit(dimension=dim, currency=cur, scale=scl)
+            for name, value in (getattr(derivation, "constants", None) or {}).items():
+                env_units[name] = InferredUnit(dimension=DIM_RATIO, currency=None, scale=1.0)
+            inferred = _infer_unit_ast_node(tree, env_units)
+            ok_u, u_detail = check_derived_unit_coherence(expected_unit, inferred)
+            if not ok_u:
+                result.status = "failed"
+                result.problems.append(f"witness input '{input_key}' {u_detail}")
+            else:
+                result.notes.append(f"derived unit bound: {u_detail}")
+        except (DerivationUnitError, DerivationSyntaxError) as exc:
+            result.status = "failed"
+            result.problems.append(f"witness input '{input_key}' unit error: {exc}")
+
+        # Deterministic arithmetic replay
+        try:
+            env_values = {}
+            for name, op_id in name_to_id.items():
+                op_idx = derivation.operand_fact_ids.index(op_id)
+                field_name = (
+                    derivation.operand_fields[op_idx]
+                    if op_idx < len(derivation.operand_fields)
+                    else "value"
+                )
+                env_values[name] = _fact_get(fact_ledger[op_id], field_name)
+            for name, value in (getattr(derivation, "constants", None) or {}).items():
+                env_values[name] = value
+            recomputed = _evaluate_ast_node(tree, env_values)
+        except (DerivationEvaluationError, DerivationSyntaxError) as exc:
+            result.status = "failed"
+            result.problems.append(
+                f"witness input '{input_key}' derivation evaluation failed: {exc}"
+            )
+            return result
+
+        # Numeric comparison policy: claimed value MUST match recomputed derivation value
+        ok_c, detail_c = compare_numbers(claimed_value, recomputed, rel_tol=rel_tol)
+        if not ok_c:
+            result.status = "failed"
+            result.problems.append(
+                f"witness input '{input_key}' claimed value {claimed_value!r} does not match "
+                f"recomputed derived value {recomputed!r} ({detail_c}; expression={derivation.expression!r}, "
+                f"policy={NUMERIC_COMPARISON_POLICY})"
+            )
+
+        # Optional declared result_value MUST match recomputed derivation value and claimed value
+        if derivation.result_value is not None:
+            ok_r, detail_r = compare_numbers(derivation.result_value, recomputed, rel_tol=rel_tol)
+            if not ok_r:
+                result.status = "failed"
+                result.problems.append(
+                    f"witness input '{input_key}' declared derivation result {derivation.result_value!r} "
+                    f"does not match recomputed derived value {recomputed!r} ({detail_r}; "
+                    f"expression={derivation.expression!r}, policy={NUMERIC_COMPARISON_POLICY})"
+                )
+            ok_cr, detail_cr = compare_numbers(claimed_value, derivation.result_value, rel_tol=rel_tol)
+            if not ok_cr:
+                result.status = "failed"
+                result.problems.append(
+                    f"witness input '{input_key}' claimed value {claimed_value!r} does not match "
+                    f"declared derivation result {derivation.result_value!r} ({detail_cr}; "
+                    f"policy={NUMERIC_COMPARISON_POLICY})"
+                )
+        else:
+            result.notes.append(
+                f"derivation recomputed: {derivation.expression} = {recomputed} "
+                f"(no declared result_value supplied)"
+            )
+
+        if result.status != "failed":
+            result.bound = True
+            result.status = "bound"
+            result.notes.append(
+                f"derived value bound: {derivation.expression} = {recomputed} over "
+                f"{list(derivation.operand_fact_ids)}"
+            )
+        return result
+
+    # =========================================================================
+    # DIRECT BINDINGS: unchanged single-fact verification
+    # =========================================================================
 
     # --- 0. the fact must exist -------------------------------------------
     if fact is None:
@@ -661,49 +1458,6 @@ def verify_input_binding(
             )
             return result
 
-    # --- 1b. derived inputs take the derivation path -----------------------
-    # A derived input's number comes from a stated formula over other facts, so
-    # its cited fact is an *operand*, not the source of the value. Require an
-    # inspectable derivation and bind the value to that derivation's result.
-    derivation = Derivation.from_spec(derivation_spec) if derivation_spec is not None else None
-    is_derived = derivation_spec is not None
-    if is_derived:
-        if derivation is None:
-            result.status = "failed"
-            result.problems.append(
-                f"witness input '{input_key}' is marked derived but supplies no inspectable "
-                "derivation (an expression plus at least one operand fact ID is required)"
-            )
-            return result
-        result.derivation = derivation
-        missing_ops = [oid for oid in derivation.operand_fact_ids if oid not in fact_ledger]
-        if missing_ops:
-            result.status = "failed"
-            result.problems.append(
-                f"witness input '{input_key}' derivation cites operand fact(s) {missing_ops} "
-                "that do not exist in the fact ledger"
-            )
-            return result
-        # Bind the claimed value to the derivation's declared result.
-        if derivation.result_value is not None:
-            ok_d, detail_d = compare_numbers(claimed_value, derivation.result_value, rel_tol=rel_tol)
-            if not ok_d:
-                result.status = "failed"
-                result.problems.append(
-                    f"witness input '{input_key}' derived value {detail_d} "
-                    f"(derivation {derivation.expression!r}, policy={NUMERIC_COMPARISON_POLICY})"
-                )
-            else:
-                result.notes.append(
-                    f"derived value bound: {derivation.expression} over "
-                    f"{list(derivation.operand_fact_ids)}"
-                )
-        else:
-            result.notes.append(
-                f"derivation inspectable but declares no result_value for '{input_key}'; "
-                "the recomputed value cannot be cross-checked from the ledger alone"
-            )
-
     # --- 2. the fact must carry an actual value ----------------------------
     fact_value = _fact_get(fact, "value")
     if fact_value is None:
@@ -718,21 +1472,16 @@ def verify_input_binding(
         return result
 
     # --- 3. the core binding: numeric equality -----------------------------
-    # For a derived input the value is bound to the derivation (above), so we do
-    # NOT additionally require it to equal the operand's raw value.
-    if not is_derived:
-        ok, detail = compare_numbers(claimed_value, fact_value, rel_tol=rel_tol)
-        if not ok:
-            result.status = "failed"
-            result.problems.append(
-                f"witness input '{input_key}' {detail} (fact '{fact_id}', policy={NUMERIC_COMPARISON_POLICY})"
-            )
+    ok, detail = compare_numbers(claimed_value, fact_value, rel_tol=rel_tol)
+    if not ok:
+        result.status = "failed"
+        result.problems.append(
+            f"witness input '{input_key}' {detail} (fact '{fact_id}', policy={NUMERIC_COMPARISON_POLICY})"
+        )
 
     # --- 4. unit compatibility ---------------------------------------------
-    # A derived input's cited fact is an operand, so the operand's own unit is
-    # not the derived ratio's unit; comparing them would be a category error.
     fact_unit = _fact_get(fact, "unit")
-    if expected_unit and not is_derived:
+    if expected_unit:
         if not fact_unit:
             result.problems.append(
                 f"witness input '{input_key}' expects unit {expected_unit!r} but fact "
@@ -762,11 +1511,6 @@ def verify_input_binding(
                     f"unit bound: {expected_unit!r} compatible with fact unit {fact_unit!r} "
                     f"(dimension {exp_dim})"
                 )
-    elif expected_unit and is_derived and derivation is not None:
-        result.notes.append(
-            f"derived input '{input_key}' declares unit {expected_unit!r}; its operand "
-            f"'{fact_id}' carries unit {fact_unit!r}"
-        )
 
     # --- 5. period and period type -----------------------------------------
     if expected_period:
@@ -842,8 +1586,6 @@ def verify_input_binding(
                 f"{_fact_get(fact, 'availability_time')!r}"
             )
 
-    # --- 9. (derived inputs were resolved up front, in step 1b) --------------
-
     if result.status != "failed":
         result.bound = True
         result.status = "bound"
@@ -863,10 +1605,10 @@ def verify_witness_bindings(
     """
     Verify every sourced input of a witness.
 
-    An input with no cited fact is *unavailable*, not failed: a witness may
-    legitimately record a computed index that has no single underlying fact, as
-    long as it says so. What must never happen is a **sourced** input whose
-    number disagrees with the fact it cites.
+    An input with no cited fact and no derivation is *unavailable*, not failed:
+    a witness may legitimately record a computed index that has no single underlying
+    fact, as long as it says so. What must never happen is a **sourced** or
+    **derived** input whose number disagrees with the fact or formula it cites.
     """
     inputs = witness.get("inputs") if isinstance(witness, Mapping) else None
     inputs = inputs if isinstance(inputs, Mapping) else {}
@@ -882,10 +1624,9 @@ def verify_witness_bindings(
     bindings: List[InputBinding] = []
     for input_key, claimed in inputs.items():
         fact_id = input_fact_ids.get(input_key)
-        if not fact_id or not isinstance(fact_id, str):
-            # No cited fact is *unverified*, not *wrong*. It is reported so a
-            # reviewer sees the gap, but it is not a verification failure: a
-            # legitimately computed index may have no single underlying fact.
+        derivation_spec = derivations.get(input_key)
+        if (not fact_id or not isinstance(fact_id, str)) and derivation_spec is None:
+            # No cited fact and no derivation: unverified against any typed fact.
             bindings.append(
                 InputBinding(
                     input_key=input_key,
@@ -897,7 +1638,7 @@ def verify_witness_bindings(
                 )
             )
             continue
-        fact = fact_ledger.get(fact_id)
+        fact = fact_ledger.get(fact_id) if fact_id else None
         bindings.append(
             verify_input_binding(
                 input_key=input_key,
@@ -910,7 +1651,7 @@ def verify_witness_bindings(
                 expected_period=expected_periods.get(input_key),
                 expected_basis=expected_bases.get(input_key),
                 cutoff=cutoff,
-                derivation_spec=derivations.get(input_key),
+                derivation_spec=derivation_spec,
                 rel_tol=rel_tol,
             )
         )

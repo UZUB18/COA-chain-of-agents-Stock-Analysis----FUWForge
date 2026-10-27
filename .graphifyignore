@@ -1,0 +1,3 @@
+# Generated run artifacts: 220 MB of reports, envelopes and logs that would
+# dominate the graph. Source of truth for those lives in the code and docs.
+runs/

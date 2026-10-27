@@ -1,0 +1,134 @@
+{
+  "schema_version": "run_manifest_v1",
+  "run_id": "run_amd_20261011_173318",
+  "status": "completed",
+  "complete": true,
+  "ticker": "AMD",
+  "analysis_date": "2026-10-11",
+  "halt_reason": null,
+  "roles": {
+    "A1": "sha256:7d9db8e3bd0a534adb0b7b0c5540e358fa3a58a39d58d01cb740d75880e1963a",
+    "A2": "sha256:ef3ed502b0e996d692875a9caaf83f3e18ab1a5b827ad513bccd35cf211dc6ed",
+    "A3": "sha256:abc226b6cb1657e6f08072c5d69cb6de5592e1537d2d2245df647527533c261f",
+    "A4": "sha256:f6cc7f1043047eb9f59c1f6a199cf59ddbd13ae4264c9f792c0e90fd24ab6d8e",
+    "A5": "sha256:9215086d4ed3757daa339287b9bc24ea29afdbef41066c826d50a35fffed1608",
+    "A6": "sha256:adc1e1ef78adc57bfbf8ba1d3160b08320bcb88a6db76196ac11c923be6704ed",
+    "A6B": "sha256:763951c3ba52c10bdab59d2d56468964a41e3d177ecd0db4eee119e23820caa8",
+    "A6R": "sha256:1a6362a46e23674c4b44d81cbade811e86ea4f91a90651796dc55bcc8966d9bd",
+    "A7": "sha256:614440ee9854b4f7b688accd579e7a1c81a0f7669a402a77a7097a201be6de4f"
+  },
+  "graph": {
+    "A1": [],
+    "A2": [
+      "A1"
+    ],
+    "A3": [
+      "A1"
+    ],
+    "A4": [
+      "A1"
+    ],
+    "A5": [
+      "A1"
+    ],
+    "A6": [
+      "A1",
+      "A2",
+      "A3",
+      "A4",
+      "A5",
+      "A6B",
+      "A6R"
+    ],
+    "A6B": [
+      "A1",
+      "A2",
+      "A3",
+      "A4",
+      "A5"
+    ],
+    "A6R": [
+      "A1",
+      "A2",
+      "A3",
+      "A4",
+      "A5",
+      "A6B"
+    ],
+    "A7": [
+      "A1",
+      "A2",
+      "A3",
+      "A4",
+      "A5",
+      "A6",
+      "A6B",
+      "A6R"
+    ]
+  },
+  "outputs": {
+    "report": {
+      "path": "AMD_2026-10-11_report.md",
+      "sha256": "sha256:9787892c9cde3ab185a8dad82be97fab95ae88879890c3a6d2b82c08c2c4d3fd",
+      "bytes": 46713
+    },
+    "artifacts": {
+      "path": "AMD_2026-10-11_artifacts.json",
+      "sha256": "sha256:b0a59ac52c09312cf0e14cea6911e585b819ce4607ff55ffe272484ca42550c2",
+      "bytes": 138892
+    },
+    "provenance": {
+      "path": "AMD_2026-10-11_provenance.log",
+      "sha256": "sha256:fcf2e036afa43b4f413d9e698ae3e052cb2b148ec08306a5aca0ca83a59ac705",
+      "bytes": 4617
+    },
+    "summary": {
+      "path": "run_summary.json",
+      "sha256": "sha256:13225b0691bded003a0a7f9029d9892c242c9253d453ec50d7f732319b8ae16f",
+      "bytes": 2649
+    }
+  },
+  "evidence": {
+    "pack_checksum": "sha256:a3778238edbe85ec4171228948ff76190c5580b405451ff13bcffe8bd1d5c7d2",
+    "state": "source_bytes_verified",
+    "bundle_manifest_sha256": null
+  },
+  "calculator_versions": {},
+  "prompt_sha256": {
+    "A1": "bbe60c44902b587e9541a01ec393d3873b0a84ae6a7d304a40a91382116516f4",
+    "A2": "448b59efa026039b5429644a217b1fd0ebabd77fcf2d03c88a131133e09b593e",
+    "A3": "293088ec52cada53ba1ddd6767df65d2cc8a822816dffa108bb106cf1bc6427f",
+    "A4": "2747f23579657d72d0a28bf6c6f99db7b5520b884232161f0538cc555fe37a02",
+    "A5": "8ebffc33754727e6f4efd612a72ea90e651bd38d589f1215a5ca02d96a01eb1c",
+    "A6": "5c0fa777c537a44f818eb2e08b070df06cb141d2848ba2f48dd2a3d5f2fb5b23",
+    "A6B": "e8e9d1a8ba75555e2b429391d892ec0cf8c1a996a1675ec58db226f0bea0c978",
+    "A6R": "4ef7d8cbb6b19cb56c1ed2f87ae1e5fd99ea4899980603bc1951c0b24a2a9a38",
+    "A7": "87db880273ba65db5c590e4ee8f20628a9c34958494712201ba08c9dd0eeebcb"
+  },
+  "execution_keys": {
+    "A1": "6edd73d48a33b75b928e89e23b6171f2d31bb6cbb923d665400e5201eae08596",
+    "A2": "c71c0ebcf4df3fdeffc2785c3613bb3de6786f956b3ef431f2448ddb7aa26215",
+    "A3": "cd11f1edc0d107841d059bd569a5fd979efdf17fed57d8957af2175ed2fc62b5",
+    "A4": "7688b49b3f5db83dbfbd15cff87cbe81c87c8b4c2d605dabc3d951a34d458033",
+    "A5": "7a3678679302d4c9a5e601ad6d899262ecd0cd7cfb35a8559730320cd0928d34",
+    "A6": "d8d913123eec28b158b2a5138b35b7d89222742bd379781a904b62ff5ce5dd61",
+    "A6B": "ccd6b0793ae890b6b53f028c115af1a7f50a728f4c8086ebd4c74046a8555d91",
+    "A6R": "768c3e27b22b26964bfebf24a7a2262a9f12486b0de4d18d57ce75d7dcafef3a",
+    "A7": "ce289c1baa1dd01054937b07aa7bd421d55e87603817530f56debd37475b828d"
+  },
+  "provenance": {
+    "path": "AMD_2026-10-11_provenance.log",
+    "tail": "sha256:0c14bee7a59298fa29b3a0685d9d41eb7f7a68f84f0e9f30a7d9acb1eb166db8"
+  },
+  "configuration": {
+    "provider": "gemini",
+    "model": "gemini-3.8-flash",
+    "depth": "Quick",
+    "strict": true,
+    "frozen_checksum": "sha256:0612e6da421e9f3edaa167cba7e587f636ac9dc0cbd3b27c267c02ce788ea20f",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "generated_at": "2026-10-11T17:39:00Z"
+}

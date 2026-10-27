@@ -1,0 +1,86 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A5",
+    "name": "News-Sentiment-Flows"
+  },
+  "timestamp": "2026-10-10T15:01:44Z",
+  "params": {
+    "company": "Synthetic Corp",
+    "ticker": "SYNTH",
+    "analysis_date": "2025-06-01",
+    "depth": "Standard",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "gates": {
+    "passed": true,
+    "notes": []
+  },
+  "sections_md": {
+    "SECTION_8_NEWS_SENTIMENT": "# Section 8: News Sentiment Analysis\n\nQualitative headline flow over the trailing 90 days remains 64% positive, focused on new enterprise product rollouts and key executive additions.",
+    "SECTION_9_FLOW_LITIGATION": "# Section 9: Insider Flows, Institutional Positioning & Litigation\n\nForm 4 filings reflect moderate net insider purchases. Institutional sponsorship increased +1.6% QoQ. No active material litigation cases pending."
+  },
+  "artifacts": {
+    "SentimentSplit": {
+      "pos": 0.64,
+      "neu": 0.26,
+      "neg": 0.1,
+      "lookback_days": 90
+    },
+    "SocialVsFundDivergence": "Aligned",
+    "MajorLitigation": [],
+    "AuditorChangeYN": "No",
+    "InsiderNet12m": {
+      "shares": 42000,
+      "value": 6300000.0,
+      "direction": "NetBuy"
+    },
+    "InstitutionalOwnershipTrend": {
+      "direction": "Up",
+      "delta_pct": 1.6
+    },
+    "RegulatoryWatchlist": [],
+    "_execution_lineage": {
+      "consumed_upstream": [
+        "A1"
+      ],
+      "execution_key": "ec01ed4e5199768435e4645b9a16731b4113bf3634ce859024f3d939f387ec48",
+      "upstream": [
+        {
+          "agent": "A1",
+          "content_checksum": "sha256:129ed0aed5c6bec8ea607638583c38740fa575c24561009486bff08e71c0ea9a"
+        }
+      ],
+      "prompt_sha256": "293cc274230d2f7f0c504e01510d8d5f8005ed28d318672ed13e09db6dc21217",
+      "request_sha256": "0777a9a83457adc006bca62d9a39f2652b867e5d47915b642271a323dc184723",
+      "evidence_sha256": "ecbbf96e92f18154727271eeaf7572398e111e98aa28044e0255b9ea2f2883dd",
+      "provider": "mock",
+      "model": "make_mock_agent_cls.<locals>.ConfiguredMockAgent"
+    }
+  },
+  "sources": [
+    {
+      "type": "News Wire & SEC Form 4",
+      "url": "https://fuwforge.internal/feeds/sentiment",
+      "doc_date": "2025-01-31",
+      "accessed": "2026-10-10T15:01:44Z"
+    }
+  ],
+  "warnings": [],
+  "metrics": {
+    "data_checksum": "sha256:dc97a0b2d1334ea3bf64858941c95d3f1d3eed7c69f9438883034ded4eacc4aa",
+    "latency_ms": 110,
+    "tokens": 430,
+    "retries": 0
+  },
+  "confidence": 0.93,
+  "content_checksum": "sha256:da436c62e4aa4f937e09050ccb4f4feb18b23ea2412353536b795c3001d635ff",
+  "upstream": [
+    {
+      "agent": "A1",
+      "content_checksum": "sha256:129ed0aed5c6bec8ea607638583c38740fa575c24561009486bff08e71c0ea9a"
+    }
+  ]
+}

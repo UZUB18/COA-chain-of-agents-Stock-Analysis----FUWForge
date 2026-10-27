@@ -198,7 +198,7 @@ def default_registry(
     **kwargs: Any,
 ) -> AgentRegistry:
     """
-    Resolve agent registry according to provider ('mock', 'agy', 'openrouter', 'openai', 'gemini', 'stub').
+    Resolve agent registry according to provider ('mock', 'agy', 'opencode', 'openai', 'gemini', 'stub').
     Defaults to 'mock' for instant, offline verification.
     """
     selected_provider = (
@@ -229,14 +229,6 @@ def default_registry(
         )
         return model_registry(backend, **model_kwargs)
 
-    if selected_provider in ("openrouter",):
-        from src.agents.model import OpenRouterBackend
-
-        backend = OpenRouterBackend(
-            model=selected_model or "google/gemini-2.0-flash-001", **kwargs
-        )
-        return model_registry(backend, **model_kwargs)
-
     if selected_provider in ("opencode", "opencode-go", "opencode_go"):
         from src.agents.model import OpenCodeGoBackend
 
@@ -260,5 +252,5 @@ def default_registry(
         return model_registry(backend, **model_kwargs)
 
     raise ValueError(
-        f"Unknown agent provider '{selected_provider}'. Supported: mock, agy, opencode, openrouter, openai, gemini, stub."
+        f"Unknown agent provider '{selected_provider}'. Supported: mock, agy, opencode, openai, gemini, stub."
     )

@@ -16,6 +16,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import pytest
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -288,6 +290,111 @@ def test_controller_cli_defaults():
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+def test_mock_run_report_names_its_provider_and_is_marked_synthetic():
+    """
+    A report is the artifact a reader forwards; it may never hide its backend.
+
+    Regression: the mock provider produced a polished "Buy / 7.88 of 10" report
+    whose header named only the ticker, date, depth and checksum. Nothing in the
+    report said the numbers were built-in fixtures, so a smoke-test run was
+    indistinguishable from live research. The front matter must record the
+    provider and model, and a mock run must carry an explicit synthetic banner
+    before any section text.
+    """
+    temp_dir = Path(tempfile.mkdtemp(prefix="fuwforge_mock_marker_"))
+    try:
+        orchestrator = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock")
+        params = OrchestratorParams(
+            company="Acme Cloud Systems",
+            ticker="ACME",
+            analysis_date="2025-01-31",
+            depth="Quick",
+            focus=[],
+            weights="default",
+        )
+        summary = orchestrator.run(
+            run_id="run_mock_marker", params=params, mode="automated", output_root=temp_dir
+        )
+        report = Path(summary["outputs"]["report"]).read_text(encoding="utf-8")
+
+        assert "\nprovider: mock\n" in report
+        assert "\nmodel: not-applicable\n" in report
+
+        banner_at = report.find("**MOCK PROVIDER")
+        assert banner_at != -1, "mock run must carry a synthetic-output banner"
+        first_section = report.find("# Section 0:")
+        assert first_section != -1
+        assert banner_at < first_section, "the synthetic banner must precede the analysis"
+        assert "built-in fixtures" in report[banner_at:first_section]
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_live_provider_report_does_not_claim_mock():
+    """Falsification partner: the marker is provider-driven, not unconditional."""
+    temp_dir = Path(tempfile.mkdtemp(prefix="fuwforge_live_marker_"))
+    try:
+        registry = mock_registry()
+        # A non-mock backend identity without any network call.
+        registry.provider = "gemini"
+        registry.model = "gemini-test-model"
+        orchestrator = FUWForgeOrchestrator(PROJECT_ROOT, registry=registry)
+        params = OrchestratorParams(
+            company="Acme Cloud Systems",
+            ticker="ACME",
+            analysis_date="2025-01-31",
+            depth="Quick",
+            focus=[],
+            weights="default",
+        )
+        summary = orchestrator.run(
+            run_id="run_live_marker", params=params, mode="automated", output_root=temp_dir
+        )
+        report = Path(summary["outputs"]["report"]).read_text(encoding="utf-8")
+        assert "\nprovider: gemini\n" in report
+        assert "\nmodel: gemini-test-model\n" in report
+        assert "**MOCK PROVIDER" not in report
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_run_id_cannot_escape_the_runs_tree(tmp_path):
+    """
+    Regression: ``--run-id`` was joined to the runs directory with ``/``.
+
+    Because :class:`pathlib.Path` discards the left side for an absolute
+    right-hand side, ``--run-id /tmp/somewhere`` created a complete run outside
+    ``runs/`` (and ``..`` escaped it one level). The identifier must be a plain
+    name; an explicit location belongs in the positional ``run_dir``.
+    """
+    params = OrchestratorParams(
+        company="Acme Cloud Systems",
+        ticker="ACME",
+        analysis_date="2025-01-31",
+        depth="Quick",
+        focus=[],
+        weights="default",
+    )
+    for bad in ("../escaped", str(tmp_path / "absolute"), ".", ""):
+        orchestrator = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock")
+        with pytest.raises(ValueError):
+            orchestrator.run(run_id=bad, params=params, mode="automated")
+    assert not (tmp_path / "absolute").exists()
+    assert not (PROJECT_ROOT / "escaped").exists()
+
+    # The legitimate path is unaffected: a simple id still runs.
+    temp_dir = Path(tempfile.mkdtemp(prefix="fuwforge_runid_ok_"))
+    try:
+        orchestrator = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock")
+        summary = orchestrator.run(
+            run_id="plain_identifier", params=params, mode="automated",
+            output_root=temp_dir,
+        )
+        assert summary["status"] == "completed"
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
 if __name__ == "__main__":
     print("Running FUWForge automated multi-agent pipeline tests...")
     test_automated_pipeline_standard()
@@ -296,4 +403,6 @@ if __name__ == "__main__":
     test_gate_failure_halts_run()
     test_controller_cli_run_command()
     test_controller_cli_defaults()
+    test_mock_run_report_names_its_provider_and_is_marked_synthetic()
+    test_live_provider_report_does_not_claim_mock()
     print("ALL AUTOMATED PIPELINE TESTS PASSED!")

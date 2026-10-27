@@ -1,0 +1,10 @@
+{
+  "mock": true,
+  "agent": "A6B",
+  "generated_at": "2026-10-10T15:01:44Z",
+  "provider": "mock",
+  "model": "make_mock_agent_cls.<locals>.ConfiguredMockAgent",
+  "prompt_sha256": "c44f5466b9e2e0a16354633f7b06f6b41bbae2c63d2856461e6cf1c565c920cf",
+  "request_sha256": "8c067cd79e1d6858c2e4c2369c806bfdebd8b8d81faa7fa59ddb2fc9e1b8d7c1",
+  "evidence_sha256": "ecbbf96e92f18154727271eeaf7572398e111e98aa28044e0255b9ea2f2883dd"
+}

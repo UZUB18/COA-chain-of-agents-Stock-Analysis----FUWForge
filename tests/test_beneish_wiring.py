@@ -25,7 +25,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.agents.base import AgentContext
-from src.agents.model import ModelAgent, _normalize_beneish
+from src.agents.model import ModelAgent, ModelBackend, _normalize_beneish
 from src.contracts import validate_contract
 from src.envelope import AgentInfo, Envelope
 from src.utils.beneish import beneish_score
@@ -231,3 +231,188 @@ def test_contract_rejects_invalid_witness_values(field, value):
 def test_contract_rejects_number_disguised_as_unavailable():
     result = {"score": -2.8, "feasible": False, "unavailable_reason": "unknown"}
     assert not validate_contract(_a3_envelope(result)).valid
+
+
+# --------------------------------------------------- the strict normalization seam
+#
+# Every test above calls ``_normalize_beneish`` directly and hands the *result*
+# to the contract. They prove both halves work and never cross the seam between
+# them. A live AMD run exposed that gap: strict mode validated the model's raw
+# payload and aborted the whole paid run on a fully compliant response, because
+# the normalization only ran on the lenient path.
+
+
+class _NeverCalledBackend(ModelBackend):
+    """The seam under test is local normalization; no provider call is allowed."""
+
+    def __init__(self) -> None:
+        self.model = "recording"
+
+    def generate(self, prompt: str) -> str:  # pragma: no cover - must not run
+        raise AssertionError("strict normalization must not call the provider")
+
+
+def _strict_a3_agent() -> ModelAgent:
+    from src.agents.registry import model_registry
+
+    backend = _NeverCalledBackend()
+    return model_registry(backend, provider="recording", strict=True).resolve("A3")
+
+
+def _strict_context(tmp_path) -> AgentContext:
+    return AgentContext(
+        run_id="strict_beneish",
+        params={
+            "ticker": "AMD",
+            "company": "Advanced Micro Devices, Inc.",
+            "analysis_date": "2026-10-11",
+            "weights": "default",
+        },
+        depth_config={},
+        focus_overrides={},
+        frozen_checksum="sha256:frozen",
+        workdir=tmp_path,
+        provenance_path=tmp_path / "prov.log",
+        source_documents=[
+            {
+                "type": "SEC 10-K",
+                "url": "https://www.sec.gov/Archives/edgar/data/0000002488/amd-10k.htm",
+                "doc_date": "2026-02-04",
+                "accessed": "2026-10-11T00:00:00Z",
+                "verification": "verified",
+            }
+        ],
+        source_text="",
+        evidence_checksum="sha256:pack",
+        envelopes={},
+    )
+
+
+def _raw_a3_payload(beneish):
+    """The shape the A3 prompt asks a live model for, before runner normalization."""
+    return {
+        "schema_version": "2.1",
+        "agent": {"id": "A3", "name": "Quant-Valuation-Technicals"},
+        "gates": {"passed": True, "notes": []},
+        "sections_md": {
+            "SECTION_4_FINANCIAL_FORENSICS": "# Forensics",
+            "SECTION_5_VALUATION": "# Valuation",
+            "SECTION_12_TECHNICALS": "# Technicals",
+        },
+        "artifacts": {
+            "AltmanZ": {"score": 43.77, "classification": "Safe"},
+            "BeneishM": beneish,
+            "OCF_vs_NI_Flag": "Aligned",
+            "PEG_TTM": 1.2,
+            "PEG_Fwd": 1.1,
+            "HypeFlag": "Reality",
+            "PeerTable": [],
+            "TechnicalSet": {"SMA_50": 100.0, "SMA_200": 95.0, "RSI_14": 55.0},
+        },
+        "sources": [],
+        "warnings": [],
+        "metrics": {"data_checksum": "sha256:abc"},
+        "confidence": 0.9,
+    }
+
+
+def test_strict_path_recomputes_model_supplied_indices(tmp_path):
+    """
+    Live regression (AMD, 2026-10-11): the model supplied all eight index ratios
+    and no provenance label — exactly what the A3 prompt asks for — and strict
+    mode aborted the run with "BeneishM carries an unlabelled legacy score". The
+    prompt promises the runner recomputes the score, so strict normalization must
+    resolve that artifact before the contract sees it.
+    """
+    payload = _raw_a3_payload(
+        {
+            "indices": {**ALL_ONE, "tata": -0.0202},
+            "score": -1.89,
+            "classification": "Unlikely Manipulator",
+            "feasible": True,
+            "unavailable_reason": None,
+        }
+    )
+
+    out = _strict_a3_agent()._normalize_envelope(payload, _strict_context(tmp_path))
+
+    beneish = out["artifacts"]["BeneishM"]
+    assert beneish["provenance"] == "deterministic"
+    assert set(beneish["calculation_witness"]["inputs"]) == {*ALL_ONE, "tata"}
+    # The runner's number wins; the model's own -1.89 is never adopted.
+    assert beneish["score"] == round(beneish["raw_score"], 2)
+    assert beneish["score"] != -1.89
+
+
+def test_a3_forensics_renders_the_calculated_score(tmp_path):
+    payload = _raw_a3_payload({"indices": {**ALL_ONE, "tata": -0.0202}})
+    out = _strict_a3_agent()._normalize_envelope(payload, _strict_context(tmp_path))
+    text = out["sections_md"]["SECTION_4_FINANCIAL_FORENSICS"]
+    assert f"Beneish M-Score: **{out['artifacts']['BeneishM']['score']}**" in text
+    assert "# Forensics" in text
+
+
+def test_a3_forensics_rejects_model_written_beneish_equation(tmp_path):
+    payload = _raw_a3_payload({"indices": {**ALL_ONE, "tata": -0.0202}})
+    payload["sections_md"]["SECTION_4_FINANCIAL_FORENSICS"] = (
+        "# Forensics\nBeneish M-score = ... + 4.037(TATA) + 0.0327(LVGI) = -1.96"
+    )
+    with pytest.raises(ValueError, match="runner.*Beneish"):
+        _strict_a3_agent()._normalize_envelope(payload, _strict_context(tmp_path))
+
+
+def test_a3_forensics_does_not_reject_a_company_named_tata(tmp_path):
+    payload = _raw_a3_payload({"indices": {**ALL_ONE, "tata": -0.0202}})
+    payload["sections_md"]["SECTION_4_FINANCIAL_FORENSICS"] = "# Forensics\nTata reported higher cash flow."
+    out = _strict_a3_agent()._normalize_envelope(payload, _strict_context(tmp_path))
+    assert "Tata reported higher cash flow" in out["sections_md"]["SECTION_4_FINANCIAL_FORENSICS"]
+
+
+def test_a3_forensics_rejects_beneish_in_an_alternate_section_4_key(tmp_path):
+    payload = _raw_a3_payload({"indices": {**ALL_ONE, "tata": -0.0202}})
+    payload["sections_md"]["section_4_extra"] = "Beneish M-Score: -1.96"
+    with pytest.raises(ValueError, match="runner.*Beneish"):
+        _strict_a3_agent()._normalize_envelope(payload, _strict_context(tmp_path))
+
+
+def test_audit_rejects_resealed_report_with_wrong_runner_score(tmp_path):
+    from src.run_semantic_audit import AuditReport, _audit_final_artifacts
+    from src.utils.checksum import checksum_file
+
+    payload = _raw_a3_payload({"indices": {**ALL_ONE, "tata": -0.0202}})
+    envelope = Envelope.from_dict(_strict_a3_agent()._normalize_envelope(payload, _strict_context(tmp_path)))
+    section = envelope.sections_md["SECTION_4_FINANCIAL_FORENSICS"]
+    path = tmp_path / "report.md"
+    path.write_text(section.replace("-2.57", "-1.96"), encoding="utf-8")
+    (tmp_path / "run_manifest.json").write_text(json.dumps({"outputs": {
+        "report": {"path": path.name, "sha256": checksum_file(path)}
+    }}), encoding="utf-8")
+    errors = _audit_final_artifacts(tmp_path, {"A3": envelope}, AuditReport())
+    assert any("Beneish" in error for error in errors)
+
+
+def test_strict_path_rejects_a_missing_beneish_artifact(tmp_path):
+    """
+    The seam adopts a recomputation, never a placeholder. An A3 that produced no
+    Beneish artifact at all must still fail closed rather than being handed the
+    runner's own "unavailable" text.
+    """
+    payload = _raw_a3_payload(None)
+    payload["artifacts"].pop("BeneishM")
+
+    with pytest.raises(ValueError) as excinfo:
+        _strict_a3_agent()._normalize_envelope(payload, _strict_context(tmp_path))
+
+    assert "BeneishM" in str(excinfo.value)
+
+
+def test_strict_path_rejects_an_unlabelled_bare_score(tmp_path):
+    """A bare score with no ratios is still an error, with the message unchanged."""
+    payload = _raw_a3_payload(
+        {"score": -2.5, "classification": "Unlikely Manipulator", "feasible": True}
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        _strict_a3_agent()._normalize_envelope(payload, _strict_context(tmp_path))
+
+    assert "unlabelled legacy score" in str(excinfo.value)

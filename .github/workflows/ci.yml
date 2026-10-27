@@ -16,7 +16,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install
-        run: pip install -e ".[test]"
+        run: pip install -e ".[test,build]"
       - name: Test (live tests excluded by default addopts)
         run: pytest -q
       - name: Deterministic eval scorer smoke
@@ -30,3 +30,74 @@ jobs:
             tests/fixtures/eval/sample_predictions_clean.jsonl \
             --markdown \
             --fail-on-errors
+      - name: Build distributions (wheel and sdist)
+        run: |
+          python -m build --outdir dist/
+          ls -la dist/
+      - name: Smoke test clean wheel install (isolated environment & cwd)
+        run: |
+          # Create completely isolated venv without repository sys.path
+          python -m venv /tmp/wheel_venv
+          /tmp/wheel_venv/bin/pip install dist/*.whl
+
+          # Execute in isolated temporary directory outside repository checkout
+          mkdir -p /tmp/smoke_wheel_cwd
+          cd /tmp/smoke_wheel_cwd
+
+          # 1. Run automated pipeline with mock provider (explicit directory)
+          /tmp/wheel_venv/bin/fuwforge run ./smoke_run \
+            --provider mock \
+            --ticker TEST \
+            --company "Test Corp" \
+            --analysis-date 2025-01-31
+
+          # 2. Strict verify run integrity and contracts
+          /tmp/wheel_venv/bin/fuwforge verify-run ./smoke_run --strict
+
+          # 3. Export and validate versioned research packet
+          /tmp/wheel_venv/bin/fuwforge export-packet ./smoke_run --output ./packet.json
+          grep '"schema_version": "research_packet_v1"' ./packet.json
+
+          # 4. Test default runs directory resolution (implicit path, defaults to cwd / runs / <run_id>)
+          /tmp/wheel_venv/bin/fuwforge run \
+            --provider mock \
+            --ticker IMPLICIT \
+            --company "Implicit Corp" \
+            --analysis-date 2025-01-31 \
+            --run-id run_wheel_implicit
+          test -f ./runs/run_wheel_implicit/run_summary.json
+          /tmp/wheel_venv/bin/fuwforge verify-run ./runs/run_wheel_implicit --strict
+
+      - name: Smoke test clean sdist install (isolated environment & cwd)
+        run: |
+          # Create completely isolated venv without repository sys.path
+          python -m venv /tmp/sdist_venv
+          /tmp/sdist_venv/bin/pip install dist/*.tar.gz
+
+          # Execute in isolated temporary directory outside repository checkout
+          mkdir -p /tmp/smoke_sdist_cwd
+          cd /tmp/smoke_sdist_cwd
+
+          # 1. Run automated pipeline with mock provider (explicit directory)
+          /tmp/sdist_venv/bin/fuwforge run ./sdist_run \
+            --provider mock \
+            --ticker SDIST \
+            --company "Sdist Corp" \
+            --analysis-date 2025-01-31
+
+          # 2. Strict verify run integrity and contracts
+          /tmp/sdist_venv/bin/fuwforge verify-run ./sdist_run --strict
+
+          # 3. Export and validate versioned research packet
+          /tmp/sdist_venv/bin/fuwforge export-packet ./sdist_run --output ./packet.json
+          grep '"schema_version": "research_packet_v1"' ./packet.json
+
+          # 4. Test default runs directory resolution (implicit path, defaults to cwd / runs / <run_id>)
+          /tmp/sdist_venv/bin/fuwforge run \
+            --provider mock \
+            --ticker SDIST_IMP \
+            --company "Sdist Implicit Corp" \
+            --analysis-date 2025-01-31 \
+            --run-id run_sdist_implicit
+          test -f ./runs/run_sdist_implicit/run_summary.json
+          /tmp/sdist_venv/bin/fuwforge verify-run ./runs/run_sdist_implicit --strict

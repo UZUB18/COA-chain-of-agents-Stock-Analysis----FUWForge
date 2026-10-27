@@ -1,0 +1,71 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A1",
+    "name": "Harvester-&-Validator"
+  },
+  "timestamp": "2026-10-10T14:54:50Z",
+  "params": {
+    "company": "Mock Standard Inc",
+    "ticker": "MOCKS",
+    "analysis_date": "2025-06-01",
+    "depth": "Standard",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "gates": {
+    "passed": true,
+    "notes": [
+      "Primary filings reconciled and frozen context checksum generated."
+    ]
+  },
+  "sections_md": {
+    "RAW_DATA_PACK": "### Raw Data Intake: Mock Standard Inc (MOCKS)\n\n**Price Timestamp (EET)**: 2025-06-01T16:00:00Z\n**Share Count (Basic)**: 1,200,000,000\n**Share Count (Diluted)**: 1,224,000,000\n**Closing Share Price**: $150.00\n**Implied Market Capitalization**: $180,000,000,000.00\n\n| Metric | FY-3 | FY-2 | FY-1 | TTM |\n|---|---|---|---|---|\n| Revenue ($M) | 28,400 | 33,100 | 39,800 | 44,200 |\n| Gross Margin | 62.5% | 63.8% | 65.1% | 66.2% |\n| Operating Cash Flow ($M) | 6,800 | 8,200 | 10,400 | 12,100 |\n| Free Cash Flow ($M) | 5,400 | 6,700 | 8,900 | 10,500 |\n"
+  },
+  "artifacts": {
+    "price_timestamp_eet": "2025-06-01T16:00:00Z",
+    "shares_basic": "1200000000",
+    "shares_diluted": "1224000000",
+    "market_cap_check": {
+      "price": 150.0,
+      "shares": 1200000000,
+      "cap": 180000000000.0,
+      "delta_pct": 0.0
+    },
+    "_execution_lineage": {
+      "consumed_upstream": [],
+      "execution_key": "73544a626d8958400447731b20625568f3672beeca231ec618065c3e3473d3b4",
+      "upstream": [],
+      "prompt_sha256": "2d828e3f87f71e883911834a743f6d21204a15c9163160b8189b59b314d697e1",
+      "request_sha256": "9bd7fd4713e9da43d682f445c0a15c1dfed2d9d2bfd0bcb3ed96ef7fd7b09854",
+      "evidence_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "provider": "mock",
+      "model": "make_mock_agent_cls.<locals>.ConfiguredMockAgent"
+    }
+  },
+  "sources": [
+    {
+      "type": "10-K",
+      "url": "https://www.sec.gov/edgar/data/10k",
+      "doc_date": "2024-12-31",
+      "accessed": "2026-10-10T14:54:50Z"
+    },
+    {
+      "type": "Exchange Feed",
+      "url": "https://nasdaq.com/feed",
+      "doc_date": "2025-06-01",
+      "accessed": "2026-10-10T14:54:50Z"
+    }
+  ],
+  "warnings": [],
+  "metrics": {
+    "data_checksum": "sha256:99e7ee529412a9d1bafa1e0f1403ee741b897eb8202a901cab791768e1d96f27",
+    "latency_ms": 115,
+    "tokens": 420,
+    "retries": 0
+  },
+  "confidence": 0.98,
+  "content_checksum": "sha256:22e0f692f5cd5e10bc05f0ae283481af1c9b47e91cda46a68e0c32d23d801005",
+  "upstream": []
+}

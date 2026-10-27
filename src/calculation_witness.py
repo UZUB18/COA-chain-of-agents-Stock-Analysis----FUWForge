@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import asdict, dataclass, field
+from datetime import date, datetime
 from typing import Any, Dict, List, Mapping, Optional, Union
 
 from src.fact_binding import binding_failures, verify_witness_bindings
@@ -47,9 +48,19 @@ class CalculationWitness:
     units: Mapping[str, str] = field(default_factory=dict)
     provenance: str = COMPUTED_BY_DETERMINISTIC
     notes: Optional[str] = None
+    derivations: Optional[Mapping[str, Any]] = None
+    input_periods: Optional[Mapping[str, Any]] = None
+    input_bases: Optional[Mapping[str, str]] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        data = asdict(self)
+        if self.derivations is None:
+            data.pop("derivations", None)
+        if self.input_periods is None:
+            data.pop("input_periods", None)
+        if self.input_bases is None:
+            data.pop("input_bases", None)
+        return data
 
 
 def _finite(value: Any) -> Optional[float]:
@@ -68,6 +79,9 @@ def beneish_witness(
     parameters: Optional[Mapping[str, Any]] = None,
     result: Optional[float] = None,
     formula_source: str = "",
+    derivations: Optional[Mapping[str, Any]] = None,
+    input_periods: Optional[Mapping[str, Any]] = None,
+    input_bases: Optional[Mapping[str, str]] = None,
 ) -> CalculationWitness:
     """
     Build a witness for a Beneish result.
@@ -108,6 +122,9 @@ def beneish_witness(
         },
         provenance=COMPUTED_BY_DETERMINISTIC,
         notes="Unrounded score; display rounding is a separate presentation step.",
+        derivations=dict(derivations) if derivations is not None else None,
+        input_periods=dict(input_periods) if input_periods is not None else None,
+        input_bases=dict(input_bases) if input_bases is not None else None,
     )
 
 
@@ -150,7 +167,7 @@ def validate_witness(
     witness: Union[CalculationWitness, Dict[str, Any]],
     *,
     fact_ledger: Optional[Mapping[str, Any]] = None,
-    cutoff: Optional[str] = None,
+    cutoff: Optional[Union[str, date, datetime]] = None,
     expected_company: Optional[str] = None,
 ) -> List[str]:
     """
@@ -181,18 +198,28 @@ def validate_witness(
 
     if not formula_id or not isinstance(formula_id, str):
         errors.append("witness missing or non-string 'formula_id'")
-    if not formula_version or not isinstance(formula_version, str):
-        errors.append("witness missing or non-string 'formula_version'")
-    if not calculator_id or not isinstance(calculator_id, str):
-        errors.append("witness missing or non-string 'calculator_id'")
     if not provenance or not isinstance(provenance, str):
         errors.append("witness missing or non-string 'provenance'")
 
     if provenance == PROVENANCE_MODEL_REPORTED:
+        # No calculator was run: legacy disclosures must not invent an identity
+        # or version to satisfy deterministic-witness metadata requirements.
+        for key in ("formula_version", "calculator_id"):
+            if key in data and (not isinstance(data[key], str) or not data[key]):
+                errors.append(f"witness non-string or empty '{key}'")
+        reported_result = data.get("result")
+        if reported_result is not None:
+            if _finite(reported_result) is None:
+                errors.append("model-reported witness result must be finite numeric or unavailable")
         errors.append(
             f"witness claims provenance '{PROVENANCE_MODEL_REPORTED}'; arithmetic is not independently verified"
         )
         return errors
+
+    if not formula_version or not isinstance(formula_version, str):
+        errors.append("witness missing or non-string 'formula_version'")
+    if not calculator_id or not isinstance(calculator_id, str):
+        errors.append("witness missing or non-string 'calculator_id'")
 
     if provenance == "unavailable":
         if data.get("result") is not None:
@@ -209,7 +236,7 @@ def validate_witness(
 
     # For deterministic calculations:
     result = data.get("result")
-    if result is None or isinstance(result, bool) or not isinstance(result, (int, float)) or not math.isfinite(result):
+    if _finite(result) is None:
         errors.append("deterministic witness requires a finite numeric result")
 
     inputs = data.get("inputs")
@@ -218,32 +245,67 @@ def validate_witness(
         inputs = {}
 
     for k, v in inputs.items():
-        if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
+        if _finite(v) is None:
             errors.append(f"witness input '{k}' must be a finite number, got {v!r}")
 
     input_fact_ids = data.get("input_fact_ids")
+    derivations = data.get("derivations")
+
+    has_derivations = isinstance(derivations, Mapping) and len(derivations) > 0
+    has_input_fact_map = isinstance(input_fact_ids, Mapping)
+
+    if input_fact_ids is not None and not isinstance(input_fact_ids, Mapping):
+        errors.append("witness 'input_fact_ids' must be a mapping")
+
+    if derivations is not None and not isinstance(derivations, Mapping):
+        errors.append("witness 'derivations' must be a mapping")
+
+    if isinstance(derivations, Mapping):
+        for d_key in derivations:
+            if d_key not in inputs:
+                errors.append(f"witness derivation '{d_key}' does not match any witness input")
 
     # Source binding. Every input that cites a fact must match that fact's
     # actual recorded value, unit, period, basis, filing identity and
     # availability. This is delegated to the shared policy in
     # ``src.fact_binding`` so the witness validator and the independent run
     # audit can never drift apart.
-    if isinstance(input_fact_ids, dict):
-        bindings = verify_witness_bindings(
-            data,
-            fact_ledger=fact_ledger or {},
-            expected_company=expected_company,
-            cutoff=cutoff,
-            expected_periods=data.get("input_periods"),
-            expected_bases=data.get("input_bases"),
+    binding_input_facts = input_fact_ids if isinstance(input_fact_ids, Mapping) else {}
+    bindings = verify_witness_bindings(
+        {**data, "input_fact_ids": binding_input_facts},
+        fact_ledger=fact_ledger or {},
+        expected_company=expected_company,
+        cutoff=cutoff,
+        expected_periods=data.get("input_periods"),
+        expected_bases=data.get("input_bases"),
+    )
+    # Only genuine binding failures are errors. An input that cites no fact
+    # is disclosed as unverified, not treated as a false claim.
+    b_failures = binding_failures(bindings)
+    errors.extend(b_failures)
+
+    # Eliminate silent derivations-without-input-map bypass:
+    # A nonempty derivations mapping with absent or nonmapping input_fact_ids
+    # must fail clearly unless an explicit complete binding was resolved safely
+    # through the shared binder.
+    if has_derivations and not has_input_fact_map:
+        bound_derived_keys = {
+            b.input_key for b in bindings if b.bound and b.status == "bound" and b.input_key in derivations
+        }
+        all_derivations_bound = (
+            bound_derived_keys == set(derivations.keys()) and not b_failures
         )
-        # Only genuine binding failures are errors. An input that cites no fact
-        # is disclosed as unverified, not treated as a false claim.
-        errors.extend(binding_failures(bindings))
+        if not all_derivations_bound:
+            if input_fact_ids is None:
+                errors.append(
+                    "witness contains derivations with absent input_fact_ids and could not resolve complete bindings"
+                )
 
     # Formula-specific replay if known
     if formula_id == "beneish_m_score":
+        from src.forensic_inputs import validate_forensic_witness
         from src.utils.beneish import BENEISH_INPUT_KEYS, beneish_score
+        errors.extend(validate_forensic_witness(data, fact_ledger or {}))
         missing = [k for k in BENEISH_INPUT_KEYS if k not in inputs]
         if missing:
             errors.append("Beneish witness missing index inputs: " + ", ".join(missing))

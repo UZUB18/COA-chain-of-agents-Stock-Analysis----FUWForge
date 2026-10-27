@@ -1,0 +1,74 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A4",
+    "name": "Leadership-Governance-ESG"
+  },
+  "timestamp": "2026-10-10T14:54:58Z",
+  "params": {
+    "company": "Mock Deep Inc",
+    "ticker": "MOCKD",
+    "analysis_date": "2025-06-01",
+    "depth": "Deep",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "gates": {
+    "passed": true,
+    "notes": []
+  },
+  "sections_md": {
+    "SECTION_6_LEADERSHIP_GOVERNANCE": "# Section 6: Leadership & Corporate Governance\n\nIndependent board representation stands at 82%. Audit and compensation committees are comprised entirely of non-executive directors. Auditor tenure is stable at 12 years.",
+    "SECTION_7_CULTURE_ESG": "# Section 7: Corporate Culture & ESG Profile\n\nEmployee sentiment reflects high leadership confidence with Glassdoor rating of 4.2/5.0. ESG momentum is categorized as Improving due to carbon reduction initiatives."
+  },
+  "artifacts": {
+    "CEO_Pay_Ratio": 118.5,
+    "Auditor": "PricewaterhouseCoopers LLP",
+    "AuditorTenure": "12 years",
+    "GlassdoorScore": 4.2,
+    "AttritionNote": "Normal voluntary attrition (7.1% annualized)",
+    "ESG_Momentum": "Improving",
+    "LowSampleSizeCultureData": false,
+    "_execution_lineage": {
+      "consumed_upstream": [
+        "A1"
+      ],
+      "execution_key": "75cc1ac7e02b969b86e8300e8f62b5bcc9dea1809447ed2c9192f25c5c4661d0",
+      "upstream": [
+        {
+          "agent": "A1",
+          "content_checksum": "sha256:741bd6d173f8987b4683ea5121757a56c31476856cd41b8fe3f8de117b30b2f8"
+        }
+      ],
+      "prompt_sha256": "cb0d4f548e436fa9ac1a3d2454e0196c8602aa88991a80060d9d727cec11b1b5",
+      "request_sha256": "b82b97355d611afa16db6effaa54b410a170aaa3e2a83c72c5b9b86d9209d60a",
+      "evidence_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "provider": "mock",
+      "model": "make_mock_agent_cls.<locals>.ConfiguredMockAgent"
+    }
+  },
+  "sources": [
+    {
+      "type": "DEF 14A Proxy",
+      "url": "https://sec.gov/Archives/edgar/data/def14a",
+      "doc_date": "2024-04-15",
+      "accessed": "2026-10-10T14:54:58Z"
+    }
+  ],
+  "warnings": [],
+  "metrics": {
+    "data_checksum": "sha256:653d0437967116efc83f3d36c15156dd4ed31265f25ecbe2874ae4d3bfbc1de3",
+    "latency_ms": 95,
+    "tokens": 390,
+    "retries": 0
+  },
+  "confidence": 0.94,
+  "content_checksum": "sha256:f00fe5c6a6b86ed8c8fe18ecd9b18e99bf35f3c02755d276711a1a14f1322f25",
+  "upstream": [
+    {
+      "agent": "A1",
+      "content_checksum": "sha256:741bd6d173f8987b4683ea5121757a56c31476856cd41b8fe3f8de117b30b2f8"
+    }
+  ]
+}

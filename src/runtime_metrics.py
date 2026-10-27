@@ -11,7 +11,7 @@ from typing import Dict, List
 @dataclass
 class AgentMetric:
     latency_ms: int = 0
-    tokens: int = 0
+    tokens: int | None = None
     retries: int = 0
     confidence: float | None = None
     status: str = "pending"
@@ -28,11 +28,16 @@ class RuntimeMetricsCollector:
         self,
         agent_id: str,
         latency_ms: int,
-        tokens: int,
+        tokens: int | None,
         retries: int,
         confidence: float | None,
         status: str,
     ) -> None:
+        previous = self.records.get(agent_id)
+        if previous and previous.status == "passed":
+            latency_ms += previous.latency_ms
+            retries += previous.retries
+            tokens = previous.tokens + tokens if previous.tokens is not None and tokens is not None else None
         self.records[agent_id] = AgentMetric(
             latency_ms=latency_ms,
             tokens=tokens,

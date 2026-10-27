@@ -66,12 +66,17 @@ always tell how a date was derived.
 
 ### Unparseable dates
 
-An empty, missing, or unparseable `filed` value yields
-`1970-01-01T23:59:59Z`.
+An empty, missing, or unparseable `filed` value has **no availability timestamp**.
+The parser excludes that observation and logs a warning, both with and without
+an `as_of` cutoff. It cannot enter the numeric ledger or supersede a dated fact.
+A historical epoch is not an unavailable marker: it would pass modern
+`availability <= cutoff` checks, so the parser never uses one for an unknown
+filing date.
 
-This makes the fact effectively unusable for any realistic cutoff, which is the
-correct outcome: an observation whose filing date cannot be established has no
-defensible point-in-time availability, and must not borrow one.
+A valid date prefix followed by malformed text is also rejected. When an
+upstream fixture supplies a full timestamp, its calendar day is first
+normalised to UTC, then bounded to the end of that UTC day. Naive timestamp
+fixtures use UTC. The original supplied filing date remains in provenance.
 
 ---
 

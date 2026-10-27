@@ -1,0 +1,162 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A3",
+    "name": "Quant-Valuation-Technicals"
+  },
+  "timestamp": "2026-10-10T15:01:44Z",
+  "params": {
+    "company": "Synthetic Corp",
+    "ticker": "SYNTH",
+    "analysis_date": "2025-06-01",
+    "depth": "Standard",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "gates": {
+    "passed": true,
+    "notes": []
+  },
+  "sections_md": {
+    "SECTION_4_FINANCIAL_FORENSICS": "# Section 4: Financial Forensics & Health\n\n**Altman Z-Score**: 3.85 (Safe Zone, low bankruptcy risk).\n**Beneish M-Score**: -2.48 (Unlikely Manipulator (calculator beneish_m_score v2.0.0, computed from explicit synthetic indices; screening signal only)).\n**Operating Cash Flow vs Net Income**: Aligned, indicating sound earnings quality.",
+    "SECTION_5_VALUATION": "# Section 5: Valuation & Multiple Diagnostics\n\n**PEG (TTM)**: 1.25x\n**PEG (Forward)**: 1.1x\nMultiples are balanced against historical 5-year averages and sector peer medians.",
+    "SECTION_12_TECHNICALS": "# Section 12: Technical Diagnostics for SYNTH\n\nMoving averages demonstrate an intact medium-term bullish consolidation. RSI-14 stands at 54.2 with neutral-to-positive momentum."
+  },
+  "artifacts": {
+    "AltmanZ": {
+      "provenance": "synthetic",
+      "score": 3.85,
+      "classification": "Safe Zone",
+      "inputs": {
+        "X1": 0.24,
+        "X2": 0.36,
+        "X3": 0.29,
+        "X4": 1.9,
+        "X5": 1.12
+      }
+    },
+    "BeneishM": {
+      "score": -2.48,
+      "raw_score": -2.4799999999999995,
+      "classification": "Unlikely Manipulator",
+      "feasible": true,
+      "calculator_version": "2.0.0",
+      "provenance": "deterministic",
+      "calculation_witness": {
+        "formula_id": "beneish_m_score",
+        "formula_version": "2.0.0",
+        "calculator_id": "beneish_m_score",
+        "result": -2.4799999999999995,
+        "inputs": {
+          "dsri": 1.0,
+          "gmi": 1.0,
+          "aqi": 1.0,
+          "sgi": 1.0,
+          "depi": 1.0,
+          "sgai": 1.0,
+          "lvgi": 1.0,
+          "tata": 0.0
+        },
+        "parameters": {
+          "threshold_policy": "ecb-385-eq2-conventional",
+          "screening_threshold": -1.78,
+          "formula_source": "ECB Occasional Paper 385, Equation 2, p.10 (eight-variable Beneish M-Score)"
+        },
+        "input_fact_ids": {
+          "dsri": "fact_synth_dsri",
+          "gmi": "fact_synth_gmi",
+          "aqi": "fact_synth_aqi",
+          "sgi": "fact_synth_sgi",
+          "depi": "fact_synth_depi",
+          "sgai": "fact_synth_sgai",
+          "lvgi": "fact_synth_lvgi",
+          "tata": "fact_synth_tata"
+        },
+        "units": {
+          "dsri": "ratio",
+          "gmi": "ratio",
+          "aqi": "ratio",
+          "sgi": "ratio",
+          "depi": "ratio",
+          "sgai": "ratio",
+          "lvgi": "ratio",
+          "tata": "ratio"
+        },
+        "provenance": "deterministic",
+        "notes": "Unrounded score; display rounding is a separate presentation step."
+      }
+    },
+    "OCF_vs_NI_Flag": "Aligned",
+    "PEG_TTM": 1.25,
+    "PEG_Fwd": 1.1,
+    "HypeFlag": "Reality",
+    "PeerTable": [
+      {
+        "ticker": "SYNTH_PEER1",
+        "metric": "P/E",
+        "company": 27.5,
+        "peer_median": 25.8
+      },
+      {
+        "ticker": "SYNTH_PEER2",
+        "metric": "EV/Sales",
+        "company": 6.8,
+        "peer_median": 6.2
+      }
+    ],
+    "TechnicalSet": {
+      "SMA_50": 148.5,
+      "SMA_200": 141.2,
+      "RSI_14": 54.2,
+      "MACD": {
+        "line": 1.15,
+        "signal": 0.85
+      },
+      "Bollinger": {
+        "upper": 156.0,
+        "lower": 142.0
+      }
+    },
+    "_execution_lineage": {
+      "consumed_upstream": [
+        "A1"
+      ],
+      "execution_key": "7cf72207c585412dba6120d83279ea8b80b870f15dbdb5a4b5b80578f119503d",
+      "upstream": [
+        {
+          "agent": "A1",
+          "content_checksum": "sha256:129ed0aed5c6bec8ea607638583c38740fa575c24561009486bff08e71c0ea9a"
+        }
+      ],
+      "prompt_sha256": "401254796752ea3a25b9087726f1757e145f8c631d34a7fe2333ab8df4e78a20",
+      "request_sha256": "b862286d8cd34bca80ec7533510fab176e3ce04f56437334c4aafc086db2420a",
+      "evidence_sha256": "ecbbf96e92f18154727271eeaf7572398e111e98aa28044e0255b9ea2f2883dd",
+      "provider": "mock",
+      "model": "SyntheticBoundA3"
+    }
+  },
+  "sources": [
+    {
+      "type": "Financial Model",
+      "url": "https://fuwforge.internal/quant/a3",
+      "doc_date": "2025-01-31",
+      "accessed": "2026-10-10T15:01:44Z"
+    }
+  ],
+  "warnings": [],
+  "metrics": {
+    "data_checksum": "sha256:dc97a0b2d1334ea3bf64858941c95d3f1d3eed7c69f9438883034ded4eacc4aa",
+    "latency_ms": 145,
+    "tokens": 510,
+    "retries": 0
+  },
+  "confidence": 0.96,
+  "content_checksum": "sha256:964110fcb19447c6e7e20930eb9001987f5e83b9f705db23f9cd4fa71014b551",
+  "upstream": [
+    {
+      "agent": "A1",
+      "content_checksum": "sha256:129ed0aed5c6bec8ea607638583c38740fa575c24561009486bff08e71c0ea9a"
+    }
+  ]
+}

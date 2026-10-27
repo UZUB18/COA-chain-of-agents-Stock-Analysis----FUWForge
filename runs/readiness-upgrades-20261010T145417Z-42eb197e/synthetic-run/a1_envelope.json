@@ -1,0 +1,71 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A1",
+    "name": "Harvester-&-Validator"
+  },
+  "timestamp": "2026-10-10T15:01:44Z",
+  "params": {
+    "company": "Synthetic Corp",
+    "ticker": "SYNTH",
+    "analysis_date": "2025-06-01",
+    "depth": "Standard",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "gates": {
+    "passed": true,
+    "notes": [
+      "Primary filings reconciled and frozen context checksum generated."
+    ]
+  },
+  "sections_md": {
+    "RAW_DATA_PACK": "### Raw Data Intake: Synthetic Corp (SYNTH)\n\n**Price Timestamp (EET)**: 2025-06-01T16:00:00Z\n**Share Count (Basic)**: 1,200,000,000\n**Share Count (Diluted)**: 1,224,000,000\n**Closing Share Price**: $150.00\n**Implied Market Capitalization**: $180,000,000,000.00\n\n| Metric | FY-3 | FY-2 | FY-1 | TTM |\n|---|---|---|---|---|\n| Revenue ($M) | 28,400 | 33,100 | 39,800 | 44,200 |\n| Gross Margin | 62.5% | 63.8% | 65.1% | 66.2% |\n| Operating Cash Flow ($M) | 6,800 | 8,200 | 10,400 | 12,100 |\n| Free Cash Flow ($M) | 5,400 | 6,700 | 8,900 | 10,500 |\n"
+  },
+  "artifacts": {
+    "price_timestamp_eet": "2025-06-01T16:00:00Z",
+    "shares_basic": "1200000000",
+    "shares_diluted": "1224000000",
+    "market_cap_check": {
+      "price": 150.0,
+      "shares": 1200000000,
+      "cap": 180000000000.0,
+      "delta_pct": 0.0
+    },
+    "_execution_lineage": {
+      "consumed_upstream": [],
+      "execution_key": "acbfb88b0a859724521aa2b87eea1f8001a243399382648bb5457fc6abb47615",
+      "upstream": [],
+      "prompt_sha256": "1ca9ecfd864538b2576a01ebd1f14094217a7b50d9664e925d1496229b84f5d4",
+      "request_sha256": "576b619ec1a5f94c682872093ed9ad21058fef82bf67d7aeb944b7a5a10932d0",
+      "evidence_sha256": "ecbbf96e92f18154727271eeaf7572398e111e98aa28044e0255b9ea2f2883dd",
+      "provider": "mock",
+      "model": "make_mock_agent_cls.<locals>.ConfiguredMockAgent"
+    }
+  },
+  "sources": [
+    {
+      "type": "10-K",
+      "url": "https://www.sec.gov/edgar/data/10k",
+      "doc_date": "2024-12-31",
+      "accessed": "2026-10-10T15:01:44Z"
+    },
+    {
+      "type": "Exchange Feed",
+      "url": "https://nasdaq.com/feed",
+      "doc_date": "2025-06-01",
+      "accessed": "2026-10-10T15:01:44Z"
+    }
+  ],
+  "warnings": [],
+  "metrics": {
+    "data_checksum": "sha256:dc97a0b2d1334ea3bf64858941c95d3f1d3eed7c69f9438883034ded4eacc4aa",
+    "latency_ms": 115,
+    "tokens": 420,
+    "retries": 0
+  },
+  "confidence": 0.98,
+  "content_checksum": "sha256:129ed0aed5c6bec8ea607638583c38740fa575c24561009486bff08e71c0ea9a",
+  "upstream": []
+}

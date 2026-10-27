@@ -9,7 +9,7 @@ from src.agents.base import AgentContext
 from src.agents.model import ModelAgent, ModelBackend, extract_json_payload
 from src.agents.mock import A4Mock, A6Mock, A7Mock
 from src.agents.output_schema import envelope_schema
-from src.contracts import validate_contract
+from src.contracts import validate_contract, validate_sections
 from src.orchestrator import FUWForgeOrchestrator, OrchestratorParams
 from src.utils.finance import generate_comparison_fields
 
@@ -55,6 +55,49 @@ def test_trailing_comma_repair_does_not_change_strings():
     assert extract_json_payload('{"note":"keep ,} and ,] literally", "n":[1,2,],}') == {
         "note": "keep ,} and ,] literally", "n": [1, 2],
     }
+
+
+@pytest.mark.parametrize("strict", [False, True])
+def test_double_escaped_multiline_markdown_is_rendered(context, strict):
+    raw = A6Mock().run(context).envelope.to_dict()
+    raw["sources"] = []
+    raw["sections_md"]["SECTION_14_SYNTHESIS"] = r"### Summary\nFirst paragraph.\n\n- First point\n- Second point"
+    result = ModelAgent("A6", "CIO", SequenceBackend([json.dumps(raw)]), strict=strict, max_retries=0).run(context).envelope
+    assert result.sections_md["SECTION_14_SYNTHESIS"] == "### Summary\nFirst paragraph.\n\n- First point\n- Second point"
+
+
+@pytest.mark.parametrize("text", [
+    r"### Example\n- Literal `\n` in code\n- Keep it",
+    "### Example\nExisting newline and literal \\n remain.",
+    r"The two literals \n and \n are intentional.",
+])
+def test_section_normalization_preserves_ambiguous_literal_escapes(context, text):
+    raw = A6Mock().run(context).envelope.to_dict()
+    raw["sources"] = []
+    raw["sections_md"]["SECTION_14_SYNTHESIS"] = text
+    result = ModelAgent("A6", "CIO", SequenceBackend([json.dumps(raw)]), strict=True, max_retries=0).run(context).envelope
+    assert result.sections_md["SECTION_14_SYNTHESIS"] == text
+
+
+@pytest.mark.parametrize("claim", [
+    "Beneish M-Score and Altman Z-Score verify balance sheet integrity [Fact].",
+    "The Beneish score proves the absence of accounting manipulation.",
+])
+def test_forensic_scores_cannot_be_presented_as_proof(context, claim):
+    env = A7Mock().run(context).envelope
+    env.sections_md["SECTION_15_SWOT"] = claim
+    assert not validate_sections(env).valid
+
+
+@pytest.mark.parametrize("statement", [
+    "The Beneish score does not prove the absence of manipulation.",
+    "The Beneish score doesn't prove the absence of manipulation.",
+    "The Altman score can never verify balance sheet integrity.",
+])
+def test_forensic_screening_disclaimer_is_not_treated_as_an_overclaim(context, statement):
+    env = A7Mock().run(context).envelope
+    env.sections_md["SECTION_15_SWOT"] = statement
+    assert validate_sections(env).valid
 
 
 def test_a6_malformed_output_gets_repair_not_defaults(context):
@@ -143,6 +186,49 @@ def test_html_escaped_cached_query_url_is_not_a_new_citation(context):
 def test_uncached_citations_are_not_accepted_in_strict_mode(context):
     raw = A6Mock().run(context).envelope.to_dict()
     raw["sources"] = [{"url": "https://sec.gov", "accessed": "2025-01-31"}]
+    with pytest.raises(RuntimeError, match="cite only runner-retrieved"):
+        ModelAgent("A6", "CIO", SequenceBackend([json.dumps(raw)]), strict=True, max_retries=0).run(context)
+
+
+def test_www_prefix_variant_of_a_cached_url_is_not_a_new_citation(context):
+    """
+    Regression: a live Gemini run halted because a model wrote the cached host
+    without its ``www.`` prefix.
+
+    The model cited ``https://tradingview.com/news/…`` while the pack held
+    ``https://www.tradingview.com/news/…``. Exact string comparison treated the
+    same document as an outside source and strict mode aborted the run after A2.
+    Citation identity is scheme + host (``www.``-insensitive) + path, not
+    spelling.
+    """
+    context.source_documents[0]["url"] = "https://www.tradingview.com/news/x"
+    raw = A6Mock().run(context).envelope.to_dict()
+    raw["sources"] = [{"url": "https://tradingview.com/news/x"}]
+    result = ModelAgent("A6", "CIO", SequenceBackend([json.dumps(raw)]), strict=True).run(context).envelope
+    assert not result.metrics.get("unverified_source_urls")
+
+
+def test_host_case_variant_of_a_cached_url_is_not_a_new_citation(context):
+    context.source_documents[0]["url"] = "https://www.sec.gov/Archives/edgar/data/x.htm"
+    raw = A6Mock().run(context).envelope.to_dict()
+    raw["sources"] = [{"url": "https://WWW.SEC.GOV/Archives/edgar/data/x.htm"}]
+    result = ModelAgent("A6", "CIO", SequenceBackend([json.dumps(raw)]), strict=True).run(context).envelope
+    assert not result.metrics.get("unverified_source_urls")
+
+
+def test_citation_with_a_different_path_is_still_rejected(context):
+    """Falsification partner: canonicalisation must not accept another document."""
+    context.source_documents[0]["url"] = "https://www.tradingview.com/news/x"
+    raw = A6Mock().run(context).envelope.to_dict()
+    raw["sources"] = [{"url": "https://tradingview.com/news/y"}]
+    with pytest.raises(RuntimeError, match="cite only runner-retrieved"):
+        ModelAgent("A6", "CIO", SequenceBackend([json.dumps(raw)]), strict=True, max_retries=0).run(context)
+
+
+def test_citation_with_a_different_scheme_is_still_rejected(context):
+    context.source_documents[0]["url"] = "https://www.tradingview.com/news/x"
+    raw = A6Mock().run(context).envelope.to_dict()
+    raw["sources"] = [{"url": "http://www.tradingview.com/news/x"}]
     with pytest.raises(RuntimeError, match="cite only runner-retrieved"):
         ModelAgent("A6", "CIO", SequenceBackend([json.dumps(raw)]), strict=True, max_retries=0).run(context)
 

@@ -15,6 +15,7 @@ import math
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Set, Tuple, Union
 
+from src.resources import get_schema_path
 from src.validators import ValidationResult
 
 try:
@@ -23,7 +24,7 @@ except ImportError:  # pragma: no cover
     Draft7Validator = None  # type: ignore
 
 
-SCHEMA_PATH = Path(__file__).resolve().parent.parent / "schemas" / "financial_fact_v1.json"
+SCHEMA_PATH = get_schema_path("financial_fact_v1.json")
 
 
 class FactKind(str, Enum):
@@ -272,7 +273,10 @@ def validate_fact(
     errors: List[str] = []
 
     # 1. JSON Schema validation
-    active_schema_path = schema_path or SCHEMA_PATH
+    active_schema_path = schema_path or (
+        SCHEMA_PATH if (isinstance(SCHEMA_PATH, Path) and SCHEMA_PATH.is_file())
+        else get_schema_path("financial_fact_v1.json")
+    )
     if Draft7Validator is not None and active_schema_path.exists():
         try:
             schema = json.loads(active_schema_path.read_text(encoding="utf-8"))

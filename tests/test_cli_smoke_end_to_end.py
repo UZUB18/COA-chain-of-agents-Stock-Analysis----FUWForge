@@ -391,6 +391,60 @@ def test_sealing_is_idempotent(tmp_path):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_seal_refuses_to_launder_an_edited_report(tmp_path):
+    """
+    Regression: plain ``seal`` used to re-pin an edited final report.
+
+    Re-sealing rewrites ``run_manifest.json`` from whatever is on disk. Editing
+    the report ("Buy" -> "SELL") and running the documented repair command with
+    no ``--force`` therefore replaced the recorded digest with the edited one,
+    and ``verify-run --strict`` then reported the tampered report as verified
+    and source-backed. A seal is a repair for *envelopes*; it must not silently
+    certify edited output.
+    """
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_p6_sealreport_"))
+    try:
+        run_dir = tmp / "run"
+        _run(tmp)
+        report = next(run_dir.glob("*_report.md"))
+        original = report.read_bytes()
+        report.write_bytes(original.replace(b"Buy", b"SELL", 1))
+
+        plain = _cli("seal", str(run_dir), expect_ok=False)
+        assert plain.returncode != 0, "seal must refuse to re-pin edited output"
+        combined = (plain.stdout + plain.stderr).lower()
+        assert "refusing to re-seal" in combined
+        assert report.name in (plain.stdout + plain.stderr)
+
+        # The refusal must leave the recorded digests untouched, so the edit is
+        # still detectable.
+        audit = _cli("verify-run", str(run_dir), expect_ok=False)
+        assert audit.returncode != 0
+
+        # --force is the explicit operator decision, and it is recorded.
+        forced = _cli("seal", str(run_dir), "--force")
+        manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
+        assert manifest["resealed"]["changed_outputs"]
+        assert report.name in " ".join(manifest["resealed"]["changed_outputs"])
+        assert "not the original execution" in manifest["resealed"]["means"]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_seal_still_accepts_an_untouched_run(tmp_path):
+    """Falsification partner: the guard must not block ordinary re-sealing."""
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_p6_sealclean_"))
+    try:
+        run_dir = tmp / "run"
+        _run(tmp)
+        result = _cli("seal", str(run_dir))
+        assert result.returncode == 0, result.stdout + result.stderr
+        manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
+        assert "resealed" not in manifest
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 # ============================================ 6. research-packet export
 
 

@@ -1,0 +1,8 @@
+{
+  "provider": "mock",
+  "model": "make_mock_agent_cls.<locals>.ConfiguredMockAgent",
+  "prompt_sha256": "dafed016439932f8e0c76d4833d54db0385833262ef513ef91e28be30e34d51a",
+  "request_sha256": "2ae78201c1cb589c0e988157b93b15d007650e94a59e84d826afcbbdec399579",
+  "evidence_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+  "reused": true
+}

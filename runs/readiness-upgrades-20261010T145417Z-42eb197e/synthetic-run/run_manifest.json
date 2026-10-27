@@ -1,0 +1,136 @@
+{
+  "schema_version": "run_manifest_v1",
+  "run_id": "synthetic_run",
+  "status": "completed",
+  "complete": true,
+  "ticker": "SYNTH",
+  "analysis_date": "2025-06-01",
+  "halt_reason": null,
+  "roles": {
+    "A1": "sha256:129ed0aed5c6bec8ea607638583c38740fa575c24561009486bff08e71c0ea9a",
+    "A2": "sha256:cff064295dac37465b70e88832f7ac8a10b5d08884e5e7942674e9cafabfbab8",
+    "A3": "sha256:964110fcb19447c6e7e20930eb9001987f5e83b9f705db23f9cd4fa71014b551",
+    "A4": "sha256:3d21ee2d06c971a0efc6a0c7a73cfd154e46439167d6850806cc471468927aba",
+    "A5": "sha256:da436c62e4aa4f937e09050ccb4f4feb18b23ea2412353536b795c3001d635ff",
+    "A6": "sha256:500cdf3d771abc808e9e7d395f0e1e0b88b73f67600c45eafdfbd47f30590324",
+    "A6B": "sha256:4f35a4d6308a99e3bf0dab444f5778e700748796dc5ba0527643def4dcf1f1a1",
+    "A6R": "sha256:d4fd276d8df4b48207d3044c1ce158a45f8fa9c0ee8030d1fd4433b909b37ae6",
+    "A7": "sha256:a9e7cc3cf9bb05dc7416df87de9415060720679b0d95fb1ee4a931495d64ef9d"
+  },
+  "graph": {
+    "A1": [],
+    "A2": [
+      "A1"
+    ],
+    "A3": [
+      "A1"
+    ],
+    "A4": [
+      "A1"
+    ],
+    "A5": [
+      "A1"
+    ],
+    "A6": [
+      "A1",
+      "A2",
+      "A3",
+      "A4",
+      "A5",
+      "A6B",
+      "A6R"
+    ],
+    "A6B": [
+      "A1",
+      "A2",
+      "A3",
+      "A4",
+      "A5"
+    ],
+    "A6R": [
+      "A1",
+      "A2",
+      "A3",
+      "A4",
+      "A5",
+      "A6B"
+    ],
+    "A7": [
+      "A1",
+      "A2",
+      "A3",
+      "A4",
+      "A5",
+      "A6",
+      "A6B",
+      "A6R"
+    ]
+  },
+  "outputs": {
+    "report": {
+      "path": "SYNTH_2025-06-01_report.md",
+      "sha256": "sha256:ec8a6a47ecfc914adb3edaa16f5588003bcf3f1161d24ee417664f7bfe2298e2",
+      "bytes": 6542
+    },
+    "artifacts": {
+      "path": "SYNTH_2025-06-01_artifacts.json",
+      "sha256": "sha256:a39a4ee5f251fa98522da1582a8d68f522e33e4f178f5c974252b5dfe1ec9d24",
+      "bytes": 41650
+    },
+    "provenance": {
+      "path": "SYNTH_2025-06-01_provenance.log",
+      "sha256": "sha256:fd046555e9876058783cf31d156384da588e004bd59be18c846fd4af84e95df9",
+      "bytes": 3131
+    },
+    "summary": {
+      "path": "run_summary.json",
+      "sha256": "sha256:96dcd58a95168734ae7831bedfb27d018984c51a62cd336d2a67351bcec54581",
+      "bytes": 2792
+    }
+  },
+  "evidence": {
+    "pack_checksum": "sha256:71a9f4a17389961c1c8720d3a4d0e4ed380ae83177a8e012bc3749a464f522a4",
+    "state": "source_bytes_verified",
+    "bundle_manifest_sha256": null
+  },
+  "calculator_versions": {
+    "beneish_m_score": "2.0.0"
+  },
+  "prompt_sha256": {
+    "A1": "1ca9ecfd864538b2576a01ebd1f14094217a7b50d9664e925d1496229b84f5d4",
+    "A2": "a138ce63166409302bb518ef04419ab400e934317e2a180563a211d66274b951",
+    "A3": "401254796752ea3a25b9087726f1757e145f8c631d34a7fe2333ab8df4e78a20",
+    "A4": "615559d9118dca63c6d3d2c83211c9ef9aed7374e19126f1727d07a541cfc3c3",
+    "A5": "293cc274230d2f7f0c504e01510d8d5f8005ed28d318672ed13e09db6dc21217",
+    "A6": "a9dd290ff0bafa3242c7271d8a475a1d7375a297d5709ddef241b5bda075984c",
+    "A6B": "c44f5466b9e2e0a16354633f7b06f6b41bbae2c63d2856461e6cf1c565c920cf",
+    "A6R": "8da9399ef8cbb236ff63ad44e639c305207ad3aa95a08c1e5e4c6502a54c0800",
+    "A7": "0d052966dc9530155c5c507ca1c6a386aca1394f7228b3431ed29849459b6b4f"
+  },
+  "execution_keys": {
+    "A1": "acbfb88b0a859724521aa2b87eea1f8001a243399382648bb5457fc6abb47615",
+    "A2": "23dedfe027dd18108fd7275946a70c76323ca943d5e227c9cc084846e5a9e33c",
+    "A3": "7cf72207c585412dba6120d83279ea8b80b870f15dbdb5a4b5b80578f119503d",
+    "A4": "e31bf85540843ceebe11517454503f4926f094d723475399dbc85685a647b707",
+    "A5": "ec01ed4e5199768435e4645b9a16731b4113bf3634ce859024f3d939f387ec48",
+    "A6": "9560b42eac203668171f604200903ba832e4f513dc65bdf2c48c9004849aa340",
+    "A6B": "a1303a71794d949f248f83d0c988f75a38eb3c1157116b50240a9be214697d76",
+    "A6R": "29e9db8827b7efeb6f8a2f4f1d98f96e01a37ca55ab391626327be5b33136baf",
+    "A7": "573134a6aafd46725679f343e51e07f0375f75fd140e7a077b766fcef858d1e8"
+  },
+  "provenance": {
+    "path": "SYNTH_2025-06-01_provenance.log",
+    "tail": "sha256:b88806f2db32b04f99242a75fa14864bdbf028bfe79ec4416c8b4f4fe60fb120"
+  },
+  "configuration": {
+    "provider": "mock",
+    "model": "not-applicable",
+    "depth": "Standard",
+    "strict": true,
+    "frozen_checksum": "sha256:dc97a0b2d1334ea3bf64858941c95d3f1d3eed7c69f9438883034ded4eacc4aa",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "generated_at": "2026-10-10T15:01:45Z"
+}

@@ -1,0 +1,139 @@
+{
+  "schema_version": "1",
+  "ticker": "AMD",
+  "documents": [
+    {
+      "id": "D001",
+      "type": "SECFiling",
+      "title": "AMD 10-K/A filed 2026-02-04",
+      "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000021/amd-20251227.htm",
+      "doc_date": "2026-02-04",
+      "date_basis": "SEC_filing_date",
+      "accessed": "2026-10-11T17:20:04Z",
+      "content_type": "text/html",
+      "content_sha256": "sha256:bc47ee3fb24b0462679262fb05135f9d7eb022c2d48923869f7adc84e93942a9",
+      "text_sha256": "sha256:1af41baf582a29376774e3ad0d91f6f52f032499865d673e77248894325932cc",
+      "raw_file": "D001.bytes",
+      "text_file": "D001.txt",
+      "verification": "retrieved"
+    },
+    {
+      "id": "D002",
+      "type": "SECFiling",
+      "title": "AMD 10-K filed 2026-02-04",
+      "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000018/amd-20251227.htm",
+      "doc_date": "2026-02-04",
+      "date_basis": "SEC_filing_date",
+      "accessed": "2026-10-11T17:20:05Z",
+      "content_type": "text/html",
+      "content_sha256": "sha256:34ebef6e1b4d3e6060b60838eae2478c2b9ec98874683b7ae339cae2d85f8478",
+      "text_sha256": "sha256:68aa614f350df2b3861faaf9575db11e83eb34126781b46610b4d1a73cf55b92",
+      "raw_file": "D002.bytes",
+      "text_file": "D002.txt",
+      "verification": "retrieved"
+    },
+    {
+      "id": "D003",
+      "type": "SECFiling",
+      "title": "AMD 10-K filed 2025-02-05",
+      "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248825000012/amd-20241228.htm",
+      "doc_date": "2025-02-05",
+      "date_basis": "SEC_filing_date",
+      "accessed": "2026-10-11T17:20:05Z",
+      "content_type": "text/html",
+      "content_sha256": "sha256:20964e50c465a2d15e2af94d90739a6dcca63788387b0990438fea48c28e1a78",
+      "text_sha256": "sha256:09310cedf8257fb9a51780b2fa490a66e948c16ca69450a50b97d0295e964731",
+      "raw_file": "D003.bytes",
+      "text_file": "D003.txt",
+      "verification": "retrieved"
+    },
+    {
+      "id": "D004",
+      "type": "SECFiling",
+      "title": "AMD 10-Q filed 2026-08-05",
+      "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000123/amd-20260627.htm",
+      "doc_date": "2026-08-05",
+      "date_basis": "SEC_filing_date",
+      "accessed": "2026-10-11T17:20:05Z",
+      "content_type": "text/html",
+      "content_sha256": "sha256:ced44c03cf2db5fc7245b4d01e7adb4d59e9bd6c1ee8999547841a770a7f1fb6",
+      "text_sha256": "sha256:3870d07ead59dbf73ab68a45fc922c732d350faed095b2ef35a86bd3c317e92b",
+      "raw_file": "D004.bytes",
+      "text_file": "D004.txt",
+      "verification": "retrieved"
+    },
+    {
+      "id": "D005",
+      "type": "SECFiling",
+      "title": "AMD DEFA14A filed 2026-03-27",
+      "url": "https://www.sec.gov/Archives/edgar/data/2488/000119312526129084/d81910ddefa14a.htm",
+      "doc_date": "2026-03-27",
+      "date_basis": "SEC_filing_date",
+      "accessed": "2026-10-11T17:20:06Z",
+      "content_type": "text/html",
+      "content_sha256": "sha256:4cbccad56b8c13d98c855f16b754ebd83203f450978afcdc137cb3add1e4c45a",
+      "text_sha256": "sha256:b9242a66aca3eb2aaed40aeb8f9e60559cd2e845af0e10374863440701d72f29",
+      "raw_file": "D005.bytes",
+      "text_file": "D005.txt",
+      "verification": "retrieved"
+    },
+    {
+      "id": "D006",
+      "type": "SECMaterialEvent",
+      "title": "AMD 8-K filed 2026-09-28",
+      "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000182/amd-20260926.htm",
+      "doc_date": "2026-09-28",
+      "date_basis": "SEC_filing_date",
+      "accessed": "2026-10-11T17:20:06Z",
+      "content_type": "text/html",
+      "content_sha256": "sha256:f5b36d6f88e6bbee556180a69eab5118f30cdc082f3347b9a9191e07f5dc0f2d",
+      "text_sha256": "sha256:2edd76c7c329aa1f05123256de8a42223a55b5e61d37b6d7551671a6b2bd399a",
+      "raw_file": "D006.bytes",
+      "text_file": "D006.txt",
+      "verification": "retrieved"
+    },
+    {
+      "id": "D007",
+      "type": "SECMaterialEvent",
+      "title": "AMD 8-K filed 2026-08-19",
+      "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000163/amd-20260817.htm",
+      "doc_date": "2026-08-19",
+      "date_basis": "SEC_filing_date",
+      "accessed": "2026-10-11T17:20:06Z",
+      "content_type": "text/html",
+      "content_sha256": "sha256:c8738bbece75f90d2af81507d8d003e1cc889f0e11680ace02fdf7e9dfe5d1de",
+      "text_sha256": "sha256:a00fca3189e7d65a933c9527e8da9e5ef26a210c1c442b50b97b0203b2df08ff",
+      "raw_file": "D007.bytes",
+      "text_file": "D007.txt",
+      "verification": "retrieved"
+    },
+    {
+      "id": "D008",
+      "type": "MarketHistory",
+      "title": "AMD daily price history through 2026-10-11",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/AMD?period1=1744156800&period2=1791763200&interval=1d",
+      "doc_date": "2026-10-11",
+      "date_basis": "requested_market_history_cutoff",
+      "accessed": "2026-10-11T17:20:06Z",
+      "content_type": "application/json;charset=utf-8",
+      "content_sha256": "sha256:984dacd4c67a060a4d7b7091ceba6c542e65862838bc9dc5ccb5f7b7696bf43d",
+      "text_sha256": "sha256:11ad508d9474fa491a90b1cc94071d63e11650b555d9cf48419e87c848298234",
+      "raw_file": "D008.bytes",
+      "text_file": "D008.txt",
+      "verification": "retrieved",
+      "transform": {
+        "kind": "yahoo_daily",
+        "ticker": "AMD",
+        "symbol": "AMD",
+        "analysis_date": "2026-10-11"
+      }
+    }
+  ],
+  "attachments": [
+    {
+      "file": "sec_companyfacts.json",
+      "sha256": "sha256:21a29c75076d90fced568785d855fc427a15c7458bc0bb153a9dedd88ad3349e",
+      "kind": "sec_companyfacts"
+    }
+  ]
+}

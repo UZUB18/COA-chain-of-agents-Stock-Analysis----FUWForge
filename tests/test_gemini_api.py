@@ -1,8 +1,10 @@
 """Offline coverage for direct Google AI Studio / Gemini API integration."""
 
+import email.utils
 import io
 import json
 import re
+import time
 import urllib.error
 from pathlib import Path
 from types import SimpleNamespace
@@ -15,6 +17,7 @@ from src.agents.registry import default_registry
 from src.controller import build_parser
 from src.orchestrator import FUWForgeOrchestrator, OrchestratorParams
 from src.run_audit import verify_run
+from src import sentry as sentry_module
 from src.sentry import evaluate_document
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -24,6 +27,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 def isolated_environment(monkeypatch, tmp_path):
     # Never read the real project credential in offline tests.
     monkeypatch.setattr(model_module, "_GEMINI_ENV_PATH", tmp_path / ".env")
+    monkeypatch.setattr(sentry_module, "_ENV_PATH", tmp_path / ".env")
     for name in (
         "GEMINI_API_KEY", "GOOGLE_API_KEY", "GEMINI_MODEL", "FUWFORGE_MODEL",
         "FUWFORGE_PROVIDER", "FUWFORGE_STRICT", "TYPESAFE_API_KEY",
@@ -46,6 +50,7 @@ def response(text='{"ok":true}', reason="STOP"):
 
 def mock_transport(monkeypatch, transport, data, status=200, body="", calls=None):
     calls = [] if calls is None else calls
+    monkeypatch.setattr(model_module.time, "sleep", lambda s: None)
 
     if transport == "requests":
         def post(url, *, headers, json, timeout):
@@ -280,7 +285,10 @@ def test_monitor_gemini_env_default_and_no_silent_mock(monkeypatch, tmp_path):
     assert build_parser().parse_args(["run", "--ticker", "ACME"]).provider == "mock"
 
 
-def test_gemini_pipeline_replays_offline_envelopes(monkeypatch, tmp_path):
+@pytest.mark.parametrize("repair", [False, True])
+@pytest.mark.parametrize("independent_bear", [False, True])
+@pytest.mark.parametrize("with_usage", [False, True, "partial"])
+def test_gemini_pipeline_replays_offline_envelopes(monkeypatch, tmp_path, repair, independent_bear, with_usage):
     """Exercise all nine model agents, parallel calls and integrity validation."""
     params = OrchestratorParams(
         company="Acme Cloud", ticker="ACME", analysis_date="2026-09-15",
@@ -295,6 +303,11 @@ def test_gemini_pipeline_replays_offline_envelopes(monkeypatch, tmp_path):
         envelope = json.loads(path.read_text())
         envelope.pop("content_checksum", None)
         envelope.pop("upstream_checksums", None)
+        if envelope["agent"]["id"] == "A3":
+            key = "SECTION_4_FINANCIAL_FORENSICS"
+            envelope["sections_md"][key] = "\n".join(
+                line for line in envelope["sections_md"][key].splitlines() if "Beneish" not in line
+            )
         envelopes[envelope["agent"]["id"]] = envelope
 
     calls = []
@@ -305,16 +318,201 @@ def test_gemini_pipeline_replays_offline_envelopes(monkeypatch, tmp_path):
         agent_id = re.search(r"You are Agent (A\d[A-Z]?)", prompt).group(1)
         calls.append(agent_id)
         assert "dummy" not in req.full_url
-        return io.BytesIO(json.dumps(response(json.dumps(envelopes[agent_id]))).encode())
+        if repair and agent_id == "A2" and calls.count("A2") == 1:
+            data = response("invalid envelope")
+        else:
+            data = response(json.dumps(envelopes[agent_id]))
+        if with_usage and not (with_usage == "partial" and agent_id == "A2" and calls.count("A2") == 1):
+            data["usageMetadata"] = {"promptTokenCount": 10, "candidatesTokenCount": 3,
+                                     "thoughtsTokenCount": 2, "totalTokenCount": 15}
+        return io.BytesIO(json.dumps(data).encode())
 
     monkeypatch.setattr(model_module, "requests", None)
+    monkeypatch.setattr(model_module.time, "sleep", lambda _: None)
     monkeypatch.setattr(model_module.urllib.request, "urlopen", urlopen)
     output_dir = tmp_path / "gemini"
-    summary = FUWForgeOrchestrator(PROJECT_ROOT, provider="gemini").run(
+    summary = FUWForgeOrchestrator(PROJECT_ROOT, provider="gemini", independent_bear=independent_bear).run(
         run_id="gemini", params=params, mode="automated", output_root=output_dir,
     )
-    assert sorted(calls) == sorted(envelopes)
+    assert sorted(calls) == sorted([*envelopes, *(["A2"] if repair else []), *(["A6R"] if independent_bear else [])])
     assert all(metric["status"] == "passed" for metric in summary["metrics"].values())
+    for agent_id, metric in summary["metrics"].items():
+        expected_calls = 2 if (agent_id == "A2" and repair) or (agent_id == "A6R" and independent_bear) else 1
+        known = bool(with_usage) and not (with_usage == "partial" and agent_id == "A2")
+        assert metric["tokens"] == (15 * expected_calls if known else None)
+    from src.execution_store import ExecutionStore
+    with ExecutionStore(output_dir / "execution_ledger.db") as store:
+        receipts = store.get_by_agent("A2")
+        accepted = next(receipt for receipt in receipts if receipt.state == "validated")
+        assert accepted.usage["total_tokens"] == summary["metrics"]["A2"]["tokens"]
+        assert len(accepted.usage["attempts"]) == (2 if repair else 1)
+        if repair:
+            rejected = next(receipt for receipt in receipts if receipt.state == "failed")
+            assert (rejected.usage or {}).get("totalTokenCount") == (15 if with_usage is True else None)
     assert Path(summary["outputs"]["report"]).is_file()
     audit = verify_run(output_dir, strict=True)
     assert audit.valid, audit.errors
+    checksums = {path.name: json.loads(path.read_text())["content_checksum"] for path in output_dir.glob("a*_envelope.json")}
+    count = len(calls)
+    resumed = FUWForgeOrchestrator(PROJECT_ROOT, provider="gemini", independent_bear=independent_bear).run(
+        run_id="gemini", params=params, mode="automated", output_root=output_dir, resume=True,
+    )
+    assert len(calls) == count
+    assert {key: val["tokens"] for key, val in resumed["metrics"].items()} == {
+        key: val["tokens"] for key, val in summary["metrics"].items()
+    }
+    assert checksums == {path.name: json.loads(path.read_text())["content_checksum"] for path in output_dir.glob("a*_envelope.json")}
+    audit = verify_run(output_dir, strict=True)
+    assert audit.valid, audit.errors
+
+
+def mock_sequence_transport(monkeypatch, transport, sequence, calls=None):
+    calls = [] if calls is None else calls
+    idx = 0
+
+    if transport == "requests":
+        def post(url, *, headers, json, timeout):
+            nonlocal idx
+            item = sequence[min(idx, len(sequence) - 1)]
+            idx += 1
+            calls.append((url, headers, json, timeout))
+            status = item.get("status", 200)
+            body = item.get("body", "")
+            data = item.get("data", {})
+            resp_headers = item.get("headers", {})
+            return SimpleNamespace(status_code=status, text=body, json=lambda: data, headers=resp_headers)
+        monkeypatch.setattr(model_module, "requests", SimpleNamespace(post=post))
+    else:
+        monkeypatch.setattr(model_module, "requests", None)
+
+        def urlopen(req, *, timeout):
+            nonlocal idx
+            item = sequence[min(idx, len(sequence) - 1)]
+            idx += 1
+            calls.append((req.full_url, dict(req.header_items()), json.loads(req.data), timeout))
+            status = item.get("status", 200)
+            body = item.get("body", "")
+            data = item.get("data", {})
+            resp_headers = item.get("headers", {})
+            if status != 200:
+                raise urllib.error.HTTPError(
+                    req.full_url, status, "API error", resp_headers, io.BytesIO(body.encode())
+                )
+            return io.BytesIO(json.dumps(data).encode())
+        monkeypatch.setattr(model_module.urllib.request, "urlopen", urlopen)
+    return calls
+
+
+@pytest.mark.parametrize("transport", ["requests", "urllib"])
+@pytest.mark.parametrize("status", [429, 503])
+def test_transient_retry_and_backoff(monkeypatch, transport, status):
+    sleeps = []
+    monkeypatch.setattr(model_module.time, "sleep", lambda s: sleeps.append(s))
+    sequence = [
+        {"status": status, "body": "transient error"},
+        {"status": 200, "data": response('{"recovered":true}')},
+    ]
+    calls = mock_sequence_transport(monkeypatch, transport, sequence)
+    backend = GeminiApiBackend(api_key="key", retry_delays=(0.01, 0.02))
+    result = backend.generate("hello")
+    assert result == '{"recovered":true}'
+    assert len(calls) == 2
+    assert sleeps == [0.01]
+
+
+@pytest.mark.parametrize("transport", ["requests", "urllib"])
+def test_usage_total_is_unknown_if_an_http_retry_has_no_usage(monkeypatch, transport):
+    monkeypatch.setattr(model_module.time, "sleep", lambda _: None)
+    final = response('{"ok":true}')
+    final["usageMetadata"] = {"totalTokenCount": 15}
+    mock_sequence_transport(monkeypatch, transport, [
+        {"status": 503, "body": "unavailable"}, {"status": 200, "data": final},
+    ])
+    result = GeminiApiBackend(api_key="key").generate("hello")
+    usage = model_module.summarize_provider_usage([result.usage])
+    assert usage["total_tokens"] is None
+    assert usage["attempts"][0]["totalTokenCount"] == 15
+
+
+@pytest.mark.parametrize("transport", ["requests", "urllib"])
+def test_transient_retry_respects_retry_after(monkeypatch, transport):
+    sleeps = []
+    monkeypatch.setattr(model_module.time, "sleep", lambda s: sleeps.append(s))
+    sequence = [
+        {"status": 429, "body": "quota exceeded", "headers": {"Retry-After": "0.05"}},
+        {"status": 200, "data": response('{"ok":true}')},
+    ]
+    calls = mock_sequence_transport(monkeypatch, transport, sequence)
+    backend = GeminiApiBackend(api_key="key", retry_delays=(2.0, 4.0))
+    result = backend.generate("hello")
+    assert result == '{"ok":true}'
+    assert len(calls) == 2
+    assert sleeps == [0.05]
+
+
+@pytest.mark.parametrize("transport", ["requests", "urllib"])
+def test_transient_retry_exhausted_raises(monkeypatch, transport):
+    sleeps = []
+    monkeypatch.setattr(model_module.time, "sleep", lambda s: sleeps.append(s))
+    sequence = [
+        {"status": 429, "body": "rate limit persists"},
+    ]
+    calls = mock_sequence_transport(monkeypatch, transport, sequence)
+    backend = GeminiApiBackend(api_key="test-key", max_retries=2, retry_delays=(0.01, 0.02))
+    with pytest.raises(RuntimeError, match="429.*quota"):
+        backend.generate("hello")
+    assert len(calls) == 3
+    assert sleeps == [0.01, 0.02]
+
+
+@pytest.mark.parametrize("transport", ["requests", "urllib"])
+def test_non_transient_status_fails_immediately_without_retry(monkeypatch, transport):
+    sleeps = []
+    monkeypatch.setattr(model_module.time, "sleep", lambda s: sleeps.append(s))
+    sequence = [
+        {"status": 400, "body": "bad request"},
+    ]
+    calls = mock_sequence_transport(monkeypatch, transport, sequence)
+    backend = GeminiApiBackend(api_key="key", max_retries=2, retry_delays=(0.01, 0.02))
+    with pytest.raises(RuntimeError, match="400.*configuration"):
+        backend.generate("hello")
+    assert len(calls) == 1
+    assert sleeps == []
+
+
+def test_parse_retry_after_edge_cases():
+    parse = model_module._parse_retry_after
+    assert parse(None) is None
+    assert parse("") is None
+    assert parse("NaN") is None
+    assert parse("nan") is None
+    assert parse("inf") is None
+    assert parse("-inf") is None
+    assert parse("0") is None
+    assert parse("-5") is None
+    assert parse("invalid-string") is None
+    assert parse("3.5") == 3.5
+    # Expired past date
+    assert parse("Wed, 21 Oct 2020 07:28:00 GMT") is None
+    # Future RFC date
+    future_date = email.utils.formatdate(time.time() + 15, usegmt=True)
+    res = parse(future_date)
+    assert res is not None and 14.0 <= res <= 16.0
+
+
+@pytest.mark.parametrize("transport", ["requests", "urllib"])
+@pytest.mark.parametrize("invalid_header", ["NaN", "0", "-1", "Wed, 21 Oct 2020 07:28:00 GMT"])
+def test_transient_retry_invalid_or_expired_retry_after_falls_back_to_delays(monkeypatch, transport, invalid_header):
+    sleeps = []
+    monkeypatch.setattr(model_module.time, "sleep", lambda s: sleeps.append(s))
+    sequence = [
+        {"status": 429, "body": "rate limited", "headers": {"Retry-After": invalid_header}},
+        {"status": 200, "data": response('{"ok":true}')},
+    ]
+    calls = mock_sequence_transport(monkeypatch, transport, sequence)
+    backend = GeminiApiBackend(api_key="key", max_retries=2, retry_delays=(0.02, 0.04))
+    result = backend.generate("hello")
+    assert result == '{"ok":true}'
+    assert len(calls) == 2
+    # Must sleep the default backoff (0.02), never NaN or 0.0
+    assert sleeps == [0.02]

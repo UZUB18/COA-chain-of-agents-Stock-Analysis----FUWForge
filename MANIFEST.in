@@ -1,0 +1,14 @@
+include README.md
+include pyproject.toml
+include setup.py
+recursive-include config *.yaml *.yml *.json
+recursive-include schemas *.json
+recursive-include docs/contracts *.md
+recursive-include templates *.md *.yaml *.yml *.json
+prune .pytest_cache
+prune runs
+prune scratch
+prune cache
+prune dist
+prune build
+global-exclude *.py[cod] __pycache__/* *.so *.dylib .DS_Store *~ *.bak *.tmp *.swp #*# *.orig

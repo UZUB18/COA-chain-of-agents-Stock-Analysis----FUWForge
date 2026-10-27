@@ -9,7 +9,37 @@ being fact-backed. A fact-backed calculation can rest on an incorrect economic
 assumption. Collapsing these into "verified / not verified" hides exactly the
 distinctions an auditor needs.
 
-Run: `python -m src.controller verify-run <run_dir> [--strict] [--json]`
+Run: `python -m src.controller verify-run <run_dir> [--strict] [--require-source-backed] [--json]`
+
+`--strict` preserves honest unavailable-source disclosures. For complete source-backed
+core-forensics acceptance, add `--require-source-backed`; its policy is described below.
+
+---
+
+## Assurance level vs overall state
+
+`Overall state: verified` answers one question: **did the audit pass?** It is not an
+assurance level. A run whose forensic inputs rest on disclosed gaps passes the ordinary
+audit, and reading "verified" as "the financial analysis was validated" is exactly the
+misreading this section exists to prevent.
+
+Every result therefore also carries an explicit **assurance** label, computed from the
+same conditions the source-backed gate enforces:
+
+| Assurance label | What it means |
+|---|---|
+| `source_backed` | Sealed bytes match, the core forensic witness replayed, all eight core inputs bound to typed facts, and no calculation gap is disclosed. |
+| `internally_consistent_with_disclosed_gaps` | Sealed bytes match and the structure is internally consistent, but the run is **not** source-backed end to end. The unmet conditions are listed with the result. |
+| `incomplete` | Only a completed subgraph was audited. Not a complete report. |
+| `failed` | The audit found defects. No assurance level applies until they are resolved. |
+
+**No assurance label means:** that the issuer's disclosures are accurate, that the
+economic inputs were the right ones, or that the investment conclusion follows from the
+evidence. Those are outside what provenance and arithmetic can decide.
+
+A completed run is a claim about **execution**: every stage ran and produced output. A
+source-backed run is a claim about **inputs**: the numbers trace to typed facts and
+replay. The first never implies the second, and the label says which one you have.
 
 ---
 
@@ -115,9 +145,43 @@ is **not** escalated by `--strict` — a legitimate facts-free run must not be
 made to fail. `verify-run` prints these under *"Not established by this audit
 (disclosed gaps)"*.
 
-So `calculation_replay: passed` means **the arithmetic replayed and every
-sourced input bound**. It does not mean every input was source-backed — the
-`unavailable` list is what says how many were not.
+`calculation_replay: passed` means that supported arithmetic replayed and cited
+inputs passed binding. It does not mean every input was source-backed. Inspect
+the `unavailable` list and coverage fields, not only the level label.
+
+When the runner has all eight fact-derived Beneish indices, it uses their full
+precision and bindings. Model-provided ratios must agree within the rounding
+used in the prompt; a material disagreement stops the run. If runner inputs
+are unavailable, model ratios can still be replayed, but source binding is
+established only when the recorded supporting facts and derivations verify.
+
+With zero replayed witnesses, the level is `not_applicable` when none were
+attempted, or `not_replayable` when witnesses were attempted but could not replay.
+Verified derived inputs do not give replay credit to an unsupported output formula.
+
+### Opt-in source-backed gate
+
+`--require-source-backed` fails unless all of the following hold:
+
+- `source_reconstruction` is `source_bytes_verified`, not envelope-only facts;
+- A3 BeneishM actually replays (`core_witnesses_replayed == 1`);
+- all eight Beneish inputs are verified (`core_inputs_verified == 8`) and none
+  remain unverified (`core_inputs_unverified == 0`);
+- aggregate replay/binding coverage is nonzero and no calculation gap is disclosed.
+
+Aggregate fields are `witnesses_attempted`, `witnesses_replayed`, `inputs_verified`
+(also exposed as `inputs_bound`), and `inputs_unverified`. The separate `core_*`
+fields prevent an unrelated identity metric from replacing missing A3 forensics.
+The gate also checks embedded witnesses; an unsupported formula or an honest
+unavailable metric still prevents complete source-backed acceptance.
+
+This gate proves source-byte consistency and binding, not accurate extraction,
+authentic issuer economics, or an economically appropriate choice of inputs.
+
+A run that reports `one witness attempted, zero replayed, zero verified inputs` has
+attempted forensics and established none. That is a weaker result than a run with
+replayed witnesses, and weaker still than one whose eight core inputs all bound; the
+counters distinguish them, and the assurance label above states which one applies.
 
 ---
 
@@ -128,6 +192,11 @@ envelopes the manifest binds — byte for byte, by hash.
 
 **Does not prove:** that the report is correct, complete, or unbiased. It proves
 the published file *is* the audited file.
+
+For new model-produced A3 sections, the runner writes a Beneish result block
+from the artifact and the audit compares that block in the report and envelope
+with the artifact. The check does not verify other prose or historical runs
+without this block; in particular, another section can still misstate a score.
 
 **After `seal --force`:** a forced seal re-seals envelopes whose upstream bytes
 changed and recomputes parent digests. The CLI states plainly that *"this run

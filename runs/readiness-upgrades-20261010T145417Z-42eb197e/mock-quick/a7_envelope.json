@@ -1,0 +1,232 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A7",
+    "name": "Final-Assembly"
+  },
+  "timestamp": "2026-10-10T14:54:28Z",
+  "params": {
+    "company": "Mock Quick Inc",
+    "ticker": "MOCKQ",
+    "analysis_date": "2025-06-01",
+    "depth": "Quick",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "gates": {
+    "passed": true,
+    "notes": []
+  },
+  "sections_md": {
+    "SECTION_0_EXEC_SUMMARY": "# Section 0: Executive Summary \u2014 Mock Quick Inc (MOCKQ)\n\n**Investment Recommendation**: Buy (Overall Institutional Score: 7.88/10)\n\nMock Quick Inc represents a resilient, high-quality franchise with durable competitive advantages. The business demonstrates expanding free cash flow conversion, investment-grade balance sheet liquidity, and attractive secular growth opportunities.",
+    "SECTION_13_IPO_HISTORY": "# Section 13: Capital History & Share Count Evolution\n\nMock Quick Inc completed its initial public offering in 2018. Over the past 5 years, the company has consistently retired shares via open-market repurchases, keeping net dilution under 0.8% annually.",
+    "SECTION_15_SWOT": "# Section 15: Institutional SWOT Matrix\n\n| Category | Points |\n|---|---|\n| **Strengths** | High recurring software revenue, negative net debt, pricing power |\n| **Weaknesses** | Premium multiple provides modest margin of safety |\n| **Opportunities** | Enterprise cloud penetration, international expansion |\n| **Threats** | Hyperscaler platform consolidation, macro elongation |\n",
+    "SECTION_16_SCORECARD": "# Section 16: Institutional Scorecard (FUW Quality Matrix)\n\n**Overall Score**: 7.88 / 10.0 (Buy)\n\n| Category | Weight | Raw Score | Weighted Score |\n|---|---|---|---|\n| Financials | 25.0% | 8.5 | 2.125 |\n| Moat | 20.0% | 8.0 | 1.600 |\n| Growth | 15.0% | 7.5 | 1.125 |\n| Valuation | 15.0% | 6.8 | 1.020 |\n| MgmtGov | 10.0% | 8.4 | 0.840 |\n| RiskInverse | 10.0% | 8.0 | 0.800 |\n| ESG | 2.5% | 7.2 | 0.180 |\n| Market | 2.5% | 7.6 | 0.190 |\n| **Total** | 100.0% | \u2014 | **7.88** |\n",
+    "SECTION_17_GLOSSARY": "# Section 17: Financial & Analytical Glossary\n\n- **Altman Z-Score**: Predictive metric measuring probability of corporate bankruptcy.\n- **Beneish M-Score**: Mathematical model evaluating likelihood of earnings manipulation.\n- **Free Cash Flow (FCF)**: Cash generated after supporting operations and maintaining capital assets.",
+    "SECTION_18_LAY_SUMMARY": "# Section 18: Lay Summary for Everyday Investors\n\nIn simple terms, Mock Quick Inc makes essential software tools that large companies depend on every day. Because customers rarely cancel, the company brings in reliable cash year after year and uses that cash to improve products and buy back shares."
+  },
+  "artifacts": {
+    "Scorecard": {
+      "Financials": {
+        "weight": 0.25,
+        "score": 8.5,
+        "weighted": 2.125
+      },
+      "Moat": {
+        "weight": 0.2,
+        "score": 8.0,
+        "weighted": 1.6
+      },
+      "Growth": {
+        "weight": 0.15,
+        "score": 7.5,
+        "weighted": 1.125
+      },
+      "Valuation": {
+        "weight": 0.15,
+        "score": 6.8,
+        "weighted": 1.02
+      },
+      "MgmtGov": {
+        "weight": 0.1,
+        "score": 8.4,
+        "weighted": 0.84
+      },
+      "RiskInverse": {
+        "weight": 0.1,
+        "score": 8.0,
+        "weighted": 0.8
+      },
+      "ESG": {
+        "weight": 0.025,
+        "score": 7.2,
+        "weighted": 0.18
+      },
+      "Market": {
+        "weight": 0.025,
+        "score": 7.6,
+        "weighted": 0.19
+      },
+      "Overall": {
+        "score": 7.88,
+        "rating_band": "Buy"
+      }
+    },
+    "SWOT": {
+      "Strengths": [
+        "Durable recurring subscription revenues",
+        "Investment-grade balance sheet liquidity",
+        "Proven enterprise pricing power"
+      ],
+      "Weaknesses": [
+        "Premium multiple requires consistent operational execution",
+        "Concentration in North American enterprise market"
+      ],
+      "Opportunities": [
+        "Expansion of automated workflow modules",
+        "Platform cross-selling to existing installed base"
+      ],
+      "Threats": [
+        "Budget consolidation onto single platform suites",
+        "Regulatory scrutiny regarding M&A integrations"
+      ],
+      "Watchlist": [
+        "Gross margin trajectory next quarter",
+        "Enterprise renewal rate velocity"
+      ]
+    },
+    "Glossary": [
+      {
+        "term": "Altman Z-Score",
+        "definition": "Predictive metric measuring probability of corporate bankruptcy."
+      },
+      {
+        "term": "Beneish M-Score",
+        "definition": "Quantitative model assessing likelihood of financial statement manipulation."
+      },
+      {
+        "term": "Free Cash Flow (FCF)",
+        "definition": "Cash generated after supporting operations and maintaining capital assets."
+      }
+    ],
+    "comparison_fields": {
+      "quality_score_10": 7.9,
+      "valuation_score_10": 6.8,
+      "expected_5y_irr_base_pct": 12.5,
+      "downside_case_5y_irr_pct": -3.5,
+      "fcf_yield_ttm_pct": 3.6,
+      "roic_ttm_pct": 28.4,
+      "net_debt_to_ebitda": -0.45,
+      "moat_score_10": 8.0,
+      "reinvestment_runway_score_10": 7.5,
+      "balance_sheet_score_10": 8.5,
+      "fragility_score_10": 2.0,
+      "evidence_quality_score_10": 9.0,
+      "data_completeness_score_10": 9.0
+    },
+    "_execution_lineage": {
+      "consumed_upstream": [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5",
+        "A6",
+        "A6B",
+        "A6R"
+      ],
+      "execution_key": "1926a157fe7054b37f42626494db2670c8e3f9939e697190a2ba0540d4b4c1ea",
+      "upstream": [
+        {
+          "agent": "A1",
+          "content_checksum": "sha256:89377abcdf604eee790ac7bc67a1fa10b9f5d115830c124f273b59237ca32aa3"
+        },
+        {
+          "agent": "A2",
+          "content_checksum": "sha256:83781824f4fa598ba140967744a4d945bc2478cd23a4a8eb695b4e9765457baa"
+        },
+        {
+          "agent": "A3",
+          "content_checksum": "sha256:f26d3d2874043d38fd71594004aaa089861f0aa3cd49822ddc77211224498c11"
+        },
+        {
+          "agent": "A4",
+          "content_checksum": "sha256:1ca23145b28d789abb9c3ad18c8aff246fbe8c9ee2396a132ae812698489ceeb"
+        },
+        {
+          "agent": "A5",
+          "content_checksum": "sha256:4aa6993a1d18d0780185b447edf7cfcd9b347bd746cf2c86b2e5e4c349e5821d"
+        },
+        {
+          "agent": "A6",
+          "content_checksum": "sha256:27224a9d1b1539c823658c5035da210c4611198e917cf67f973fe629bf5aa48f"
+        },
+        {
+          "agent": "A6B",
+          "content_checksum": "sha256:c84af6da3313d538b2ee63df73c3fd12417ad42cdfd6a18b40dc02b7f2960c50"
+        },
+        {
+          "agent": "A6R",
+          "content_checksum": "sha256:a1703ad6f7af4c7e7d33e88837a6cdced1783979e242e83ccbf24881516721bf"
+        }
+      ],
+      "prompt_sha256": "294694b8d2454d53858d0ba1e5c506e84e4d8a3875f4e8f2f1c12838f851d012",
+      "request_sha256": "79b1722137eec7dff33ce7e66ee1e5400df4caacd913b6f1e0e876c8f3461bb7",
+      "evidence_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "provider": "mock",
+      "model": "make_mock_agent_cls.<locals>.ConfiguredMockAgent"
+    }
+  },
+  "sources": [
+    {
+      "type": "Assembly",
+      "url": "internal:a7",
+      "doc_date": "2025-01-31",
+      "accessed": "2026-10-10T14:54:28Z"
+    }
+  ],
+  "warnings": [],
+  "metrics": {
+    "data_checksum": "sha256:bbf6ae930c81a8dbaa3874c2363ee5ca6a64a0d51a3b88875dec07938831c479",
+    "latency_ms": 160,
+    "tokens": 620,
+    "retries": 0
+  },
+  "confidence": 0.97,
+  "content_checksum": "sha256:dcb22b5dd1bc1f7e0e7ad5b2b30e7909d793b621717ba750c2f1250f8f0472f2",
+  "upstream": [
+    {
+      "agent": "A1",
+      "content_checksum": "sha256:89377abcdf604eee790ac7bc67a1fa10b9f5d115830c124f273b59237ca32aa3"
+    },
+    {
+      "agent": "A2",
+      "content_checksum": "sha256:83781824f4fa598ba140967744a4d945bc2478cd23a4a8eb695b4e9765457baa"
+    },
+    {
+      "agent": "A3",
+      "content_checksum": "sha256:f26d3d2874043d38fd71594004aaa089861f0aa3cd49822ddc77211224498c11"
+    },
+    {
+      "agent": "A4",
+      "content_checksum": "sha256:1ca23145b28d789abb9c3ad18c8aff246fbe8c9ee2396a132ae812698489ceeb"
+    },
+    {
+      "agent": "A5",
+      "content_checksum": "sha256:4aa6993a1d18d0780185b447edf7cfcd9b347bd746cf2c86b2e5e4c349e5821d"
+    },
+    {
+      "agent": "A6",
+      "content_checksum": "sha256:27224a9d1b1539c823658c5035da210c4611198e917cf67f973fe629bf5aa48f"
+    },
+    {
+      "agent": "A6B",
+      "content_checksum": "sha256:c84af6da3313d538b2ee63df73c3fd12417ad42cdfd6a18b40dc02b7f2960c50"
+    },
+    {
+      "agent": "A6R",
+      "content_checksum": "sha256:a1703ad6f7af4c7e7d33e88837a6cdced1783979e242e83ccbf24881516721bf"
+    }
+  ]
+}

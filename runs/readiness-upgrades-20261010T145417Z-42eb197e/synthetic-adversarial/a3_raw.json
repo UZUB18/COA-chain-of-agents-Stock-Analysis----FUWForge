@@ -1,0 +1,10 @@
+{
+  "mock": true,
+  "agent": "A3",
+  "generated_at": "2026-10-10T15:01:44Z",
+  "provider": "mock",
+  "model": "SyntheticBoundA3",
+  "prompt_sha256": "401254796752ea3a25b9087726f1757e145f8c631d34a7fe2333ab8df4e78a20",
+  "request_sha256": "b862286d8cd34bca80ec7533510fab176e3ce04f56437334c4aafc086db2420a",
+  "evidence_sha256": "ecbbf96e92f18154727271eeaf7572398e111e98aa28044e0255b9ea2f2883dd"
+}

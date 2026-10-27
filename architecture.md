@@ -123,7 +123,7 @@ Every agent communicates exclusively through a standardized JSON envelope contai
 | [`src/provenance.py`](src/provenance.py) | Thread-safe cryptographic hash-chained provenance logger (`ProvenanceLog`) and verifier (`verify_chain`). |
 | [`src/run_audit.py`](src/run_audit.py) | Full run verification suite (`verify_run`). Validates envelope schemas, content checksums, upstream lineage references, report outputs, and provenance logs. |
 | [`src/runtime_metrics.py`](src/runtime_metrics.py) | Telemetry collector tracking latency, token usage, retry counts, confidence, and status per agent. |
-| [`src/sentry.py`](src/sentry.py) | **Real-time Thesis Sentry**. Evaluates incoming documents/news against frozen thesis claims using Jev (TypeSafe), OpenCode Go, OpenRouter, or mock evaluators. Flags contradictions and triggers pipeline re-runs. |
+| [`src/sentry.py`](src/sentry.py) | **Real-time Thesis Sentry**. Evaluates incoming documents/news against frozen thesis claims using Jev (TypeSafe), Gemini, OpenCode Go, or mock evaluators. Flags contradictions and triggers pipeline re-runs. |
 | [`src/validators.py`](src/validators.py) | Low-level JSON schema validator (via `jsonschema.Draft7Validator` with graceful fallback), gate checkers, and artifact presence verifiers. |
 
 ### Agents Subpackage (`src/agents/`)
@@ -133,7 +133,7 @@ Every agent communicates exclusively through a standardized JSON envelope contai
 | [`src/agents/__init__.py`](src/agents/__init__.py) | Package initialization for agent modules. |
 | [`src/agents/base.py`](src/agents/base.py) | Abstract base classes: `BaseAgent`, `AgentContext` (carries upstream envelopes, checksums, params), and `AgentOutput`. |
 | [`src/agents/mock.py`](src/agents/mock.py) | Synthetic/mock implementations for all agents (`A1Mock` through `A7Mock`). Generates fully contract-compliant data for fast local offline testing and unit tests. |
-| [`src/agents/model.py`](src/agents/model.py) | **Live LLM Agent Runner**. Connects prompts to model backends (`AgyCliBackend`, `OpenCodeGoBackend`, `OpenRouterBackend`, `OpenAICompatibleBackend`, `GeminiApiBackend`). Handles robust JSON extraction, epistemic prompt injection, envelope normalization, and retry loops. |
+| [`src/agents/model.py`](src/agents/model.py) | **Live LLM Agent Runner**. Connects prompts to model backends (`AgyCliBackend`, `OpenCodeGoBackend`, `OpenAICompatibleBackend`, `GeminiApiBackend`). Handles robust JSON extraction, epistemic prompt injection, envelope normalization, and retry loops. |
 | [`src/agents/registry.py`](src/agents/registry.py) | Agent registry system (`AgentRegistry`, `default_registry`, `model_registry`, `mock_registry`). Dynamically resolves agent implementations by provider name. |
 
 ### Utilities Subpackage (`src/utils/`)
@@ -208,9 +208,9 @@ All operations are exposed via `src.controller` (or the `fuwforge` command):
 # 1. Run an automated pipeline with mock provider (instant verification)
 python -m src.controller run runs/run_nvda --ticker NVDA --provider mock
 
-# 2. Run with live LLM backends (OpenCode Go, OpenRouter, AGY CLI, or OpenAI)
+# 2. Run with live LLM backends (OpenCode Go, Gemini, AGY CLI, or OpenAI)
 python -m src.controller run runs/run_nvda --ticker NVDA --provider opencode
-python -m src.controller run runs/run_nvda --ticker NVDA --provider openrouter --model google/gemini-2.0-flash-001
+python -m src.controller run runs/run_nvda --ticker NVDA --provider gemini --model gemini-3.8-flash
 python -m src.controller run runs/run_nvda --ticker NVDA --provider agy --model gemini-3.8-flash-low
 
 # 3. Assemble and validate manual "Destroyer Mode" envelopes

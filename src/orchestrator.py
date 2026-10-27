@@ -33,7 +33,13 @@ from src.execution_store import (
     ExecutionStore,
     RecoveryChoice,
 )
+from src.forensic_inputs import forensic_inputs_for
 from src.provenance import ProvenanceLog
+from src.resources import (
+    get_config_dir,
+    get_default_runs_dir,
+    get_schema_path,
+)
 from src.runtime_metrics import RuntimeMetricsCollector
 from src.utils.checksum import envelope_content_checksum
 from src.validators import (
@@ -101,7 +107,7 @@ class FUWForgeOrchestrator:
 
     def __init__(
         self,
-        project_root: Path,
+        project_root: Optional[Path] = None,
         registry: Optional[AgentRegistry] = None,
         provider: Optional[str] = None,
         model: Optional[str] = None,
@@ -113,15 +119,15 @@ class FUWForgeOrchestrator:
         independent_bear: bool = False,
         execution_store_path: Optional[Path] = None,
     ) -> None:
-        self.project_root = project_root
+        self.project_root = Path(project_root) if project_root is not None else None
         self.evidence_pack_path = evidence_pack
         self.evidence_pack = None
         self.resume = bool(resume)
         self.recovery_choice = recovery_choice
         self.independent_bear = bool(independent_bear)
         self.execution_store_path = execution_store_path
-        self.config_dir = project_root / "config"
-        self.schema_path = project_root / "schemas" / "envelope_v2_1.json"
+        self.config_dir = get_config_dir(self.project_root)
+        self.schema_path = get_schema_path("envelope_v2_1.json", self.project_root)
         self.depth_modes = load_depth_modes(self.config_dir)
         self.focus_routing = load_focus_routing(self.config_dir)
         self.flow_config = load_orchestrator_config(self.config_dir)
@@ -164,7 +170,25 @@ class FUWForgeOrchestrator:
         """
         is_resume = self.resume if resume is None else bool(resume)
         rec_choice = self.recovery_choice if recovery_choice is None else recovery_choice
-        target_root = (output_root or (self.project_root / "runs" / run_id)).resolve()
+        if output_root:
+            target_root = Path(output_root).resolve()
+        else:
+            # ``run_id`` is an identifier, not a path. An absolute or parent-
+            # relative value would silently place a run outside the runs tree
+            # (or onto an unrelated directory), so refuse it and require the
+            # positional run_dir for an explicit location.
+            identifier = Path(str(run_id))
+            if (
+                not identifier.name
+                or identifier.is_absolute()
+                or any(part in ("..", "") for part in identifier.parts)
+            ):
+                raise ValueError(
+                    f"run_id {run_id!r} is not a plain identifier; pass the target "
+                    "directory as run_dir instead."
+                )
+            runs_dir = get_default_runs_dir(self.project_root)
+            target_root = (runs_dir / run_id).resolve()
 
         # Preserve archived runs: default existing output must not silently overwrite; explicit resume allowed.
         if mode == "automated" and not is_resume and target_root.is_dir():
@@ -664,6 +688,9 @@ class FUWForgeOrchestrator:
 
         snapshot = copy.deepcopy(envelopes or {})
         refs = capture_upstream({key: env.to_dict() for key, env in snapshot.items()}) if mode != "controller" else ()
+        ledger = copy.deepcopy({
+            fact.id: fact for fact in self.evidence_pack.get_facts(as_of=params.analysis_date)
+        }) if self.evidence_pack else {}
         context = AgentContext(
             run_id=run_id, params=copy.deepcopy(params.__dict__),
             depth_config=copy.deepcopy(depth_config), focus_overrides=copy.deepcopy(focus_overrides),
@@ -672,6 +699,8 @@ class FUWForgeOrchestrator:
             source_documents=self.evidence_pack.sources() if self.evidence_pack else [],
             source_text=self.evidence_pack.prompt_text() if self.evidence_pack else "",
             evidence_checksum=self.evidence_pack.checksum if self.evidence_pack else "",
+            fact_ledger=ledger,
+            forensic_inputs=forensic_inputs_for(ledger, as_of=params.analysis_date),
             challenge_initial=copy.deepcopy(challenge_initial),
         )
         started = time.perf_counter()
@@ -709,18 +738,40 @@ class FUWForgeOrchestrator:
                     if not isinstance(payload, dict) or envelope_content_checksum(payload) != receipt.accepted_checksum:
                         raise RuntimeError(f"{agent_id}: reusable receipt checksum mismatch")
                     env = Envelope.from_dict(payload)
-                    return AgentExecution(env, env.to_dict(), {**identity, "reused": True},
+                    return AgentExecution(env, env.to_dict(), {**identity, "reused": True, "usage": receipt.usage},
                         0, 1, refs, key, snapshot, True)
                 if receipt and receipt.recovery_choice == RecoveryChoice.ABANDON.value:
                     raise RuntimeError(f"{agent_id}: execution explicitly abandoned")
+                if receipt and receipt.raw_response is not None:
+                    # The provider already answered and the bytes are on disk. A
+                    # local normalization or validation failure is recoverable
+                    # without paying for the same completion twice: re-run the
+                    # local pipeline over the stored response and accept it if it
+                    # now passes. This is recovery, not a retry — the provider is
+                    # not called.
+                    recovered = self._recover_saved_response(
+                        agent_id, receipt, context, store, key, identity, refs, snapshot
+                    )
+                    if recovered is not None:
+                        return recovered
                 if receipt and receipt.state == ExecutionState.UNKNOWN_COMPLETION.value:
-                    raise RuntimeError(f"{agent_id}: uncertain completion requires --recovery-choice retry or abandon")
+                    if receipt.recovery_choice == RecoveryChoice.RETRY.value:
+                        # An explicit operator decision, recorded on the receipt.
+                        # Dispatch proceeds below and store.begin() clears the
+                        # stale attempt outcome.
+                        receipt = None
+                    else:
+                        raise RuntimeError(
+                            f"{agent_id}: uncertain completion requires --recovery-choice retry or abandon"
+                        )
             if store:
                 store.begin(agent_id=agent_id, provider=provider, model=model,
                     prompt_sha256=request_hash, evidence_sha256=evidence_hash, upstream=refs,
                     execution_key=key, metadata=identity)
                 # ModelAgent invokes this immediately upon provider return, before parsing.
-                context.on_provider_return = lambda raw: store.mark_returned(key, {"raw": raw})
+                context.on_provider_return = lambda raw: store.mark_returned(
+                    key, {"raw": str(raw)}, usage=getattr(raw, "usage", None))
+                context.on_repair_start = lambda error, prompt_hash: store.begin_repair(key, error, prompt_hash)
             print(f"[{_now_iso()}] [ORCH] Starting agent {agent_id} ({agent.name})...", flush=True)
             try:
                 output = agent.run(context)
@@ -734,12 +785,116 @@ class FUWForgeOrchestrator:
                 raise
             if store:
                 store.mark_returned(key, output.raw_response or {"envelope": output.envelope.to_dict()},
+                    usage=output.raw_response.get("usage"),
                     latency_ms=max(1, int((time.perf_counter() - started) * 1000)))
         raw = {**(output.raw_response or {}), **identity}
         data = raw.get("raw_data")
         return AgentExecution(output.envelope, data if isinstance(data, dict) else output.envelope.to_dict(),
             raw, max(1, int((time.perf_counter() - started) * 1000)),
             max(1, int(raw.get("attempts", 1))), refs, key, snapshot)
+
+    def _recover_saved_response(
+        self,
+        agent_id: str,
+        receipt: ExecutionReceipt,
+        context: AgentContext,
+        store: ExecutionStore,
+        key: str,
+        identity: Dict[str, Any],
+        refs: Tuple[UpstreamRef, ...],
+        snapshot: Dict[str, Envelope],
+    ) -> Optional[AgentExecution]:
+        """Re-run the local pipeline over an already-received provider response.
+
+        A run that received a completion and then failed *locally* — malformed
+        JSON, a normalization error, a contract violation — has already paid for
+        that completion. Resuming it used to leave two options: dispatch again
+        (paying twice for one answer) or abandon the run. Neither is necessary
+        when the bytes are on disk.
+
+        What this does NOT do is relax any check. The stored text is parsed and
+        normalized through exactly the same path as a fresh response, and the
+        recovered envelope is accepted only if it validates. A response that was
+        genuinely bad stays bad; the difference is that a response which failed
+        because of a local defect is no longer indistinguishable from one the
+        provider got wrong.
+
+        Returns ``None`` when recovery is not possible, leaving the caller's
+        existing retry/abandon handling untouched.
+        """
+        raw_response = receipt.raw_response
+        if not isinstance(raw_response, dict):
+            return None
+        stored_text = raw_response.get("raw")
+        if not isinstance(stored_text, str) or not stored_text.strip():
+            # The receipt carries an envelope rather than provider text (for
+            # example a controller-mode write). Nothing to re-normalize.
+            return None
+
+        from src.agents.model import extract_json_payload, summarize_provider_usage
+
+        agent = self.registry.resolve(agent_id)
+        try:
+            parsed = extract_json_payload(stored_text)
+            normalize = getattr(agent, "_normalize_envelope", None)
+            data = normalize(parsed, context) if callable(normalize) else parsed
+            recorded_usage = receipt.usage
+            if not isinstance(recorded_usage, dict) or "attempts" not in recorded_usage:
+                history = [r.usage for r in store.get_by_agent(agent_id)
+                           if (r.metadata or {}).get("repair_of") == key]
+                recorded_usage = summarize_provider_usage([*history, recorded_usage])
+            data["metrics"]["tokens"] = recorded_usage.get("total_tokens")
+            env = Envelope.from_dict(data)
+            contract = validate_contract(
+                env,
+                depth_config=context.depth_config,
+                envelopes=snapshot,
+                strict=self.strict,
+                fact_ledger=context.fact_ledger or None,
+                expected_company=str(context.params.get("ticker") or "").upper() or None,
+                cutoff=context.params.get("analysis_date"),
+            )
+            if not contract.valid:
+                store.mark_failed(
+                    key,
+                    "saved provider response still fails local validation: "
+                    + "; ".join(contract.errors)[:500],
+                )
+                return None
+        except Exception as exc:
+            store.mark_failed(
+                key,
+                f"saved provider response could not be recovered locally "
+                f"({type(exc).__name__}: {exc})"[:500],
+            )
+            return None
+
+        recovered_raw = {
+            **raw_response,
+            "agent": agent_id,
+            "recovered_locally": True,
+            "prior_state": receipt.state,
+            "prior_error": receipt.error,
+            "usage": recorded_usage,
+            **identity,
+        }
+        store.mark_returned(key, recovered_raw, usage=recorded_usage)
+        print(
+            f"[{_now_iso()}] [ORCH] Recovered {agent_id} from the saved provider "
+            "response; no provider call was made.",
+            flush=True,
+        )
+        return AgentExecution(
+            env,
+            env.to_dict(),
+            recovered_raw,
+            0,
+            1,
+            refs,
+            key,
+            snapshot,
+            False,
+        )
 
     def _accept_agent(
         self,
@@ -835,6 +990,12 @@ class FUWForgeOrchestrator:
                 # been accepted since its prompt was rendered.
                 envelopes=execution.input_snapshot,
                 strict=self.strict,
+                fact_ledger=(
+                    {fact.id: fact for fact in self.evidence_pack.get_facts(as_of=params.analysis_date)}
+                    if self.evidence_pack else None
+                ),
+                expected_company=params.ticker.upper(),
+                cutoff=params.analysis_date,
             )
             # A reused envelope carries the exact bytes that were sealed and
             # checksummed when it was first accepted. Re-appending contract
@@ -912,7 +1073,9 @@ class FUWForgeOrchestrator:
         provenance.append("ORCH", f"{agent_id} envelope accepted ({detail}).")
         provenance.flush()
 
-        tokens = int(env.metrics.get("tokens") or 0)
+        usage = execution.raw_response.get("usage")
+        tokens = usage.get("total_tokens") if isinstance(usage, dict) else env.metrics.get("tokens")
+        tokens = int(tokens) if isinstance(tokens, (int, float)) and not isinstance(tokens, bool) else None
         metrics.finalize_agent(
             agent_id,
             latency_ms=execution.latency_ms,
@@ -965,12 +1128,19 @@ class FUWForgeOrchestrator:
         assembled_sections = self._assemble_sections(
             envelopes, depth_config=depth_config
         )
+        # The report is the artifact a reader forwards; it must name the backend
+        # that produced it. Without this, a fixture-generated "Buy" rating is
+        # byte-for-byte indistinguishable in its header from a live analysis.
+        provider_name = getattr(self.registry, "provider", "unknown")
+        model_name = getattr(self.registry, "model", None) or "not-applicable"
         front_matter = (
             "---\n"
             f"run_id: {run_id}\n"
             f"ticker: {params.ticker}\n"
             f"analysis_date: {params.analysis_date}\n"
             f"depth: {params.depth}\n"
+            f"provider: {provider_name}\n"
+            f"model: {model_name}\n"
             f"focus: {json.dumps(list(params.focus or []))}\n"
             f"weights: {params.weights if isinstance(params.weights, str) else json.dumps(params.weights)}\n"
             f"frozen_checksum: {checksum}\n"
@@ -981,15 +1151,27 @@ class FUWForgeOrchestrator:
         injected = [agent_id for agent_id, env in envelopes.items() if env.metrics.get("injected_defaults")]
         unverified = [agent_id for agent_id, env in envelopes.items() if env.metrics.get("source_grounding") == "unverified"]
         notice = ""
+        if str(provider_name).strip().lower() != "mock":
+            notice += (
+                "> **Review generated claims:** Beneish and Altman scores are screening signals; "
+                "they do not verify financial integrity or prove the absence of manipulation.\n\n"
+            )
+        if str(provider_name).strip().lower() == "mock":
+            notice += (
+                "> **MOCK PROVIDER — SYNTHETIC OUTPUT.** Every figure and paragraph below "
+                "comes from built-in fixtures, not from retrieved filings or a language "
+                "model. This run exercises pipeline mechanics only: it is not research and "
+                "must not be cited as analysis.\n\n"
+            )
         if injected or unverified:
-            notice = "> **NOT VERIFIED RESEARCH.** "
+            notice += "> **NOT VERIFIED RESEARCH.** "
             if injected:
                 notice += "Runner placeholders were injected for " + ", ".join(injected) + ". "
             if unverified:
                 notice += "Retrieved-document grounding is missing for " + ", ".join(unverified) + ". "
             notice += "Do not treat defaults or unsupported claims as investment facts.\n\n"
         elif self.evidence_pack:
-            notice = "> **Evidence supplied:** retrieved documents are cached and hash-checked. This does not independently verify every generated claim; review cited facts and scenario assumptions.\n\n"
+            notice += "> **Evidence supplied:** retrieved documents are cached and hash-checked. This does not independently verify every generated claim; review cited facts and scenario assumptions.\n\n"
         gaps = {agent_id: missing_data_map(env.metrics["missing_data"]) for agent_id, env in envelopes.items() if env.metrics.get("missing_data")}
         if gaps:
             notice += "> **Incomplete research coverage:** explicit unavailable inputs remain. Null means unknown, not zero or neutral; review these gaps before using ratings or scenarios.\n\n"

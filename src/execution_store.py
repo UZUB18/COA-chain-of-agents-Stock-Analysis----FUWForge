@@ -38,6 +38,7 @@ import hashlib
 import json
 from pathlib import Path
 import sqlite3
+import uuid
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Set, Tuple, Union
 
 from src.execution_identity import (
@@ -47,6 +48,7 @@ from src.execution_identity import (
     execution_key as compute_execution_key,
     true_descendants,
 )
+from src.resources import get_schema_path
 from src.validators import ValidationResult
 
 try:
@@ -54,7 +56,7 @@ try:
 except ImportError:  # pragma: no cover
     Draft202012Validator = None  # type: ignore
 
-SCHEMA_PATH = Path(__file__).resolve().parent.parent / "schemas" / "execution_receipt_v1.json"
+SCHEMA_PATH = get_schema_path("execution_receipt_v1.json")
 
 
 def _now_iso() -> str:
@@ -397,6 +399,38 @@ class ExecutionStore:
                 ),
             )
         return key
+
+    def begin_repair(self, execution_key: str, error: str, prompt_sha256: str) -> None:
+        """Keep the rejected response and atomically mark the repair in flight."""
+        with self._conn:
+            row = self._conn.execute(
+                "SELECT state, raw_checksum, metadata_json FROM execution_receipts WHERE execution_key = ?",
+                (execution_key,),
+            ).fetchone()
+            if not row or row["state"] != ExecutionState.RETURNED.value or not row["raw_checksum"]:
+                raise ValueError("repair requires a recorded provider response")
+            history_key = hashlib.sha256(
+                f"{execution_key}:repair:{row['raw_checksum']}:{uuid.uuid4()}".encode()
+            ).hexdigest()
+            metadata = json.loads(row["metadata_json"]) if row["metadata_json"] else {}
+            self._conn.execute(
+                """INSERT INTO execution_receipts (
+                    execution_key, agent_id, state, provider, model, prompt_sha256,
+                    evidence_sha256, upstream_json, raw_checksum, raw_response_json,
+                    usage_json, latency_ms, error, metadata_json, created_at, updated_at
+                ) SELECT ?, agent_id, 'failed', provider, model, prompt_sha256,
+                    evidence_sha256, upstream_json, raw_checksum, raw_response_json,
+                    usage_json, latency_ms, ?, ?, created_at, ?
+                  FROM execution_receipts WHERE execution_key = ?""",
+                (history_key, error, _canonical_json({**metadata, "repair_of": execution_key}), _now_iso(), execution_key),
+            )
+            self._conn.execute(
+                """UPDATE execution_receipts SET state = 'running', raw_checksum = NULL,
+                    raw_response_json = NULL, accepted_checksum = NULL, accepted_envelope_json = NULL,
+                    usage_json = NULL, latency_ms = NULL, error = NULL, recovery_choice = NULL, metadata_json = ?,
+                    updated_at = ? WHERE execution_key = ?""",
+                (_canonical_json({**metadata, "repair_prompt_sha256": prompt_sha256}), _now_iso(), execution_key),
+            )
 
     def mark_returned(
         self,

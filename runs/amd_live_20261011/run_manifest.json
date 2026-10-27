@@ -1,0 +1,54 @@
+{
+  "schema_version": "run_manifest_v1",
+  "run_id": "run_amd_20261011_172002",
+  "status": "halted",
+  "complete": false,
+  "ticker": "AMD",
+  "analysis_date": "2026-10-11",
+  "halt_reason": "Agent A3 failed after 1 attempts: strict mode: complete model artifacts are required: strict mode: BeneishM carries an unlabelled legacy score; supply BeneishM.indices for deterministic recomputation, or mark it unavailable",
+  "roles": {
+    "A1": "sha256:ba3bbbfd5ba15a5db6b09b9fcb98c805517d35cd2a4ba2531d4aee421f59b276"
+  },
+  "graph": {
+    "A1": []
+  },
+  "outputs": {
+    "provenance": {
+      "path": "AMD_2026-10-11_provenance.log",
+      "sha256": "sha256:ae9b606b48e8dd777257d1fa28b91786540550c8e3256e2b3db7dac02f2fbb49",
+      "bytes": 715
+    },
+    "summary": {
+      "path": "run_summary.json",
+      "sha256": "sha256:9748b66e014a8f9ef19f9f7dc3545178cd58c80998e196c98002143756b1349b",
+      "bytes": 1613
+    }
+  },
+  "evidence": {
+    "pack_checksum": "sha256:3e656b89241b0b295bd57d2cadcc820fa9fca73043760918556b2ed038483970",
+    "state": "source_bytes_verified",
+    "bundle_manifest_sha256": null
+  },
+  "calculator_versions": {},
+  "prompt_sha256": {
+    "A1": "6a46f9e15b7a678d08e922fb237b854c77b7405a99348aca1d6f092d06aec7f6"
+  },
+  "execution_keys": {
+    "A1": "5e37650edd48914b425b3ab255b8b22ccac9f941042786ef0458160536ade394"
+  },
+  "provenance": {
+    "path": "AMD_2026-10-11_provenance.log",
+    "tail": "sha256:063721949b866932b0711e63fa5945de72d7acf568c9ce5a5f83a4b02ba39a53"
+  },
+  "configuration": {
+    "provider": "gemini",
+    "model": "gemini-3.8-flash",
+    "depth": "Quick",
+    "strict": true,
+    "frozen_checksum": "sha256:8ad7131f5152b89e33222fa83640a65a752b4c4e06b6e34d78b42a6cd0b7f5aa",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "generated_at": "2026-10-11T17:22:31Z"
+}

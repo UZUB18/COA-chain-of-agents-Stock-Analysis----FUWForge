@@ -166,7 +166,7 @@ def test_cli_monitor_json_and_out_file():
         assert saved["ticker"] == "MSFT"
 
 
-def test_evaluate_document_opencode_and_openrouter_mocked(monkeypatch):
+def test_evaluate_document_opencode_mocked(monkeypatch):
     run_dir = PROJECT_ROOT / "runs" / "eval_mock"
     mock_resp = json.dumps({
         "materiality": "critical",
@@ -177,12 +177,10 @@ def test_evaluate_document_opencode_and_openrouter_mocked(monkeypatch):
         "reasoning": "Cloud outage contradicts B1",
     })
 
-    from src.agents.model import OpenCodeGoBackend, OpenRouterBackend
+    from src.agents.model import OpenCodeGoBackend
 
     monkeypatch.setattr(OpenCodeGoBackend, "generate", lambda self, prompt: mock_resp)
-    monkeypatch.setattr(OpenRouterBackend, "generate", lambda self, prompt: mock_resp)
 
-    # 1. Test OpenCode Go provider
     res_go = evaluate_document(
         run_dir=run_dir,
         doc_text="Azure outage disrupts service.",
@@ -193,18 +191,6 @@ def test_evaluate_document_opencode_and_openrouter_mocked(monkeypatch):
     assert "opencode" in res_go.provider
     assert res_go.contradiction_scores["B1"] == 0.95
     assert any(item.get("id") == "B1" for item in res_go.threatened_theses)
-
-    # 2. Test OpenRouter provider
-    res_or = evaluate_document(
-        run_dir=run_dir,
-        doc_text="Azure outage disrupts service.",
-        provider="openrouter",
-        model="google/gemini-2.0-flash-001",
-    )
-    assert res_or.requires_rerun
-    assert "openrouter" in res_or.provider
-    assert res_or.contradiction_scores["B1"] == 0.95
-
 
 def test_cli_monitor_long_inline_text(capsys):
     from src.controller import build_parser
@@ -238,11 +224,91 @@ def test_live_opencode_sentry_execution():
     assert res.latency_ms > 0
 
 
+def test_auto_falls_back_to_mock_but_says_so(monkeypatch):
+    """
+    Regression: --provider auto used to swallow a failed Jev call entirely.
+
+    The monitor then printed a confident "THESIS BREACHED / CRITICAL / 0.88"
+    verdict that was produced by the deterministic mock evaluator, with no hint
+    that Jev had been attempted and failed. A monitor that invents a critical
+    alert when its provider is misconfigured is worse than one that errors.
+
+    The fallback must stay (auto keeps working without Jev), but it must carry
+    the failure reason and be labelled in the human-readable report.
+    """
+    import src.sentry as sentry_mod
+
+    class _BoomClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def system_one(self, *args, **kwargs):
+            raise RuntimeError("401 Unauthorized: invalid api key")
+
+    class _Any:
+        def __init__(self, *args, **kwargs):
+            self.args = args
+            self.kwargs = kwargs
+
+    fake_sdk = type(sys)("typesafe_sdk")
+    fake_sdk.Choice = _Any
+    fake_sdk.Noul = _Any
+    fake_sdk.NoulCriteria = _Any
+    fake_sdk.TypeSafeClient = _BoomClient
+    monkeypatch.setitem(sys.modules, "typesafe_sdk", fake_sdk)
+
+    res = evaluate_document(
+        run_dir=PROJECT_ROOT / "runs" / "eval_mock",
+        doc_text="Routine quarterly dividend declaration.",
+        provider="auto",
+        api_key="test-key-not-real",
+    )
+
+    assert res.provider == "mock"
+    assert res.fallback_reason is not None
+    assert "Jev evaluation failed" in res.fallback_reason
+    assert "invalid api key" in res.fallback_reason
+    # The secret must not survive into the recorded reason.
+    assert "test-key-not-real" not in res.fallback_reason
+
+    report = format_sentry_report(res)
+    assert "NOT A JEV RESULT" in report
+    assert "MOCK output" in report
+    assert "Provider: mock" in report
+    # The disclosure must appear above the judgments it qualifies.
+    assert report.index("NOT A JEV RESULT") < report.index("Judgments:")
+
+    # An explicit Jev request must still fail loudly instead of falling back.
+    with pytest.raises(RuntimeError):
+        evaluate_document(
+            run_dir=PROJECT_ROOT / "runs" / "eval_mock",
+            doc_text="Routine quarterly dividend declaration.",
+            provider="jev",
+            api_key="test-key-not-real",
+        )
+
+
+def test_no_fallback_reason_for_plain_mock_run():
+    """Falsification partner: the warning must not appear when nothing failed."""
+    res = evaluate_document(
+        run_dir=PROJECT_ROOT / "runs" / "eval_mock",
+        doc_text="Routine quarterly dividend declaration.",
+        provider="mock",
+    )
+    assert res.provider == "mock"
+    assert res.fallback_reason is None
+    assert "NOT A JEV RESULT" not in format_sentry_report(res)
+
+
 @pytest.mark.live
 def test_live_jev_execution():
-    api_key = os.environ.get("TYPESAFE_API_KEY")
+    from dotenv import dotenv_values
+    from src.sentry import _ENV_PATH
+
+    local = dotenv_values(_ENV_PATH, interpolate=False) if _ENV_PATH.is_file() else {}
+    api_key = os.environ.get("TYPESAFE_API_KEY") or local.get("TYPESAFE_API_KEY")
     if not api_key:
-        pytest.skip("TYPESAFE_API_KEY environment variable not set.")
+        pytest.skip("TYPESAFE_API_KEY is not configured.")
 
     run_dir = PROJECT_ROOT / "runs" / "eval_mock"
     res = evaluate_document(

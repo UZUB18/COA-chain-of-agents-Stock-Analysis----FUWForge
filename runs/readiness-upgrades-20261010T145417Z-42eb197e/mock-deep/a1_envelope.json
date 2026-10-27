@@ -1,0 +1,71 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A1",
+    "name": "Harvester-&-Validator"
+  },
+  "timestamp": "2026-10-10T14:54:58Z",
+  "params": {
+    "company": "Mock Deep Inc",
+    "ticker": "MOCKD",
+    "analysis_date": "2025-06-01",
+    "depth": "Deep",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "gates": {
+    "passed": true,
+    "notes": [
+      "Primary filings reconciled and frozen context checksum generated."
+    ]
+  },
+  "sections_md": {
+    "RAW_DATA_PACK": "### Raw Data Intake: Mock Deep Inc (MOCKD)\n\n**Price Timestamp (EET)**: 2025-06-01T16:00:00Z\n**Share Count (Basic)**: 1,200,000,000\n**Share Count (Diluted)**: 1,224,000,000\n**Closing Share Price**: $150.00\n**Implied Market Capitalization**: $180,000,000,000.00\n\n| Metric | FY-3 | FY-2 | FY-1 | TTM |\n|---|---|---|---|---|\n| Revenue ($M) | 28,400 | 33,100 | 39,800 | 44,200 |\n| Gross Margin | 62.5% | 63.8% | 65.1% | 66.2% |\n| Operating Cash Flow ($M) | 6,800 | 8,200 | 10,400 | 12,100 |\n| Free Cash Flow ($M) | 5,400 | 6,700 | 8,900 | 10,500 |\n"
+  },
+  "artifacts": {
+    "price_timestamp_eet": "2025-06-01T16:00:00Z",
+    "shares_basic": "1200000000",
+    "shares_diluted": "1224000000",
+    "market_cap_check": {
+      "price": 150.0,
+      "shares": 1200000000,
+      "cap": 180000000000.0,
+      "delta_pct": 0.0
+    },
+    "_execution_lineage": {
+      "consumed_upstream": [],
+      "execution_key": "17520f0b4ff531a4f95580ca8067e1f39343f901b263055185694473375ccd6d",
+      "upstream": [],
+      "prompt_sha256": "d3c091c5601676d38691c8ae15badde5e972b00fd04f6e98e9cc0f3e8bc76493",
+      "request_sha256": "375d33b435d6300c349cf24835ee5352653e9785601d886357828d2983091e0e",
+      "evidence_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "provider": "mock",
+      "model": "make_mock_agent_cls.<locals>.ConfiguredMockAgent"
+    }
+  },
+  "sources": [
+    {
+      "type": "10-K",
+      "url": "https://www.sec.gov/edgar/data/10k",
+      "doc_date": "2024-12-31",
+      "accessed": "2026-10-10T14:54:58Z"
+    },
+    {
+      "type": "Exchange Feed",
+      "url": "https://nasdaq.com/feed",
+      "doc_date": "2025-06-01",
+      "accessed": "2026-10-10T14:54:58Z"
+    }
+  ],
+  "warnings": [],
+  "metrics": {
+    "data_checksum": "sha256:653d0437967116efc83f3d36c15156dd4ed31265f25ecbe2874ae4d3bfbc1de3",
+    "latency_ms": 115,
+    "tokens": 420,
+    "retries": 0
+  },
+  "confidence": 0.98,
+  "content_checksum": "sha256:741bd6d173f8987b4683ea5121757a56c31476856cd41b8fe3f8de117b30b2f8",
+  "upstream": []
+}

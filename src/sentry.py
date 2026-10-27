@@ -9,7 +9,10 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from dotenv import dotenv_values
+
 _API_KEY_ENV = "TYPESAFE_API_KEY"
+_ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
 
 
 @dataclass
@@ -27,6 +30,9 @@ class SentryResult:
     requires_rerun: bool
     provider: str
     latency_ms: int
+    #: Set when ``--provider auto`` asked for Jev and the call failed, so the
+    #: result below came from the mock evaluator. ``None`` means no fallback.
+    fallback_reason: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -335,7 +341,7 @@ def evaluate_document(
     model: Optional[str] = None,
 ) -> SentryResult:
     """
-    Evaluate a document using Jev, Gemini (Google AI Studio), OpenCode Go, OpenRouter, or mock.
+    Evaluate a document using Jev, Gemini (Google AI Studio), OpenCode Go, or mock.
     """
     started = time.perf_counter()
     ticker, company, bull_cases, _ = extract_thesis_state(run_dir)
@@ -348,17 +354,16 @@ def evaluate_document(
     snippet = clean_text[:120] + "..." if len(clean_text) > 120 else clean_text
 
     prov = provider.lower()
+    if prov not in ("auto", "mock", "jev", "gemini", "opencode", "opencode-go", "opencode_go"):
+        raise ValueError(f"Unknown monitor provider '{provider}'.")
 
     # Explicit live providers only: auto retains its Jev/mock behavior.
-    if prov in ("gemini", "opencode", "opencode-go", "opencode_go", "openrouter"):
-        from src.agents.model import GeminiApiBackend, OpenCodeGoBackend, OpenRouterBackend
+    if prov in ("gemini", "opencode", "opencode-go", "opencode_go"):
+        from src.agents.model import GeminiApiBackend, OpenCodeGoBackend
 
         if prov == "gemini":
             backend = GeminiApiBackend(api_key=api_key, model=model)
             provider_name = "gemini"
-        elif prov == "openrouter":
-            backend = OpenRouterBackend(api_key=api_key, model=model or "google/gemini-2.0-flash-001")
-            provider_name = "openrouter"
         else:
             backend = OpenCodeGoBackend(api_key=api_key, model=model or "deepseek-v4.1-flash")
             provider_name = "opencode"
@@ -388,9 +393,11 @@ def evaluate_document(
             latency_ms=latency_ms,
         )
 
-    resolved_jev_key = api_key if prov == "jev" else (api_key or os.environ.get(_API_KEY_ENV))
+    local = dotenv_values(_ENV_PATH, interpolate=False) if prov in ("auto", "jev") and _ENV_PATH.is_file() else {}
+    resolved_jev_key = api_key or os.environ.get(_API_KEY_ENV) or local.get(_API_KEY_ENV)
 
     use_jev = False
+    auto_fallback_reason: Optional[str] = None
     if prov == "jev":
         use_jev = True
     elif prov == "auto" and resolved_jev_key:
@@ -408,11 +415,12 @@ def evaluate_document(
                 "incoming_document": clean_text,
             }
 
-            prediction = client.predict(
+            prediction = client.system_one(
                 model=model or "jev-latest",
                 state=state,
                 questions=questions,
             )
+            answers = prediction.answers
 
             contradiction_scores: Dict[str, float] = {}
             threatened: List[Dict[str, Any]] = []
@@ -420,19 +428,23 @@ def evaluate_document(
             for item in bull_cases:
                 bid = item.get("id", "B")
                 q_id = f"contradicts_{bid}"
-                noul_ans = prediction.get(q_id)
-                prob = getattr(noul_ans, "prob", 0.0) if noul_ans is not None else 0.0
-                contradiction_scores[bid] = round(float(prob), 4)
+                prob = float(answers[q_id].noul)
+                if not 0.0 <= prob <= 1.0:
+                    raise ValueError(f"Invalid contradiction probability for {bid}.")
+                contradiction_scores[bid] = round(prob, 4)
                 if contradiction_scores[bid] >= threshold:
                     threatened.append(item)
 
-            mat_ans = prediction.get("materiality")
-            materiality = getattr(mat_ans, "value", "noise") if mat_ans is not None else "noise"
-            mat_prob = getattr(mat_ans, "confidence", 0.9) if mat_ans is not None else 0.9
-
-            act_ans = prediction.get("recommended_action")
-            action = getattr(act_ans, "value", "ignore") if act_ans is not None else "ignore"
-            act_prob = getattr(act_ans, "confidence", 0.9) if act_ans is not None else 0.9
+            mat_ans = answers["materiality"]
+            materiality = mat_ans.choice
+            mat_prob = float(mat_ans.probabilities[materiality])
+            act_ans = answers["recommended_action"]
+            action = act_ans.choice
+            act_prob = float(act_ans.probabilities[action])
+            if materiality not in ("noise", "minor", "meaningful", "critical") or not 0.0 <= mat_prob <= 1.0:
+                raise ValueError("Invalid materiality answer.")
+            if action not in ("ignore", "log_note", "trigger_deep_rerun") or not 0.0 <= act_prob <= 1.0:
+                raise ValueError("Invalid recommended action answer.")
 
             requires_rerun = (action == "trigger_deep_rerun") or (len(threatened) > 0)
             latency_ms = max(1, int((time.perf_counter() - started) * 1000))
@@ -453,9 +465,12 @@ def evaluate_document(
                 latency_ms=latency_ms,
             )
         except Exception as exc:
+            detail = str(exc).replace(resolved_jev_key, "[REDACTED]") if resolved_jev_key else str(exc)
             if prov == "jev":
-                raise RuntimeError(f"TypeSafe Jev evaluation failed: {exc}") from exc
-            pass
+                raise RuntimeError(f"TypeSafe Jev evaluation failed: {detail}") from None
+            # auto: fall back to mock, but never silently. The reason travels
+            # with the result so a mock verdict cannot read as a Jev verdict.
+            auto_fallback_reason = f"TypeSafe Jev evaluation failed: {detail}"
 
     # Mock mode fallback (or auto fallback when no live keys present)
     (
@@ -484,6 +499,7 @@ def evaluate_document(
         requires_rerun=requires_rerun,
         provider="mock",
         latency_ms=latency_ms,
+        fallback_reason=auto_fallback_reason,
     )
 
 
@@ -503,6 +519,14 @@ def format_sentry_report(res: SentryResult) -> str:
         f"",
         f"Bull Thesis Contradiction Probabilities (P(Contradicts)):",
     ]
+    if res.fallback_reason:
+        anchor = next(i for i, ln in enumerate(lines) if ln.startswith("Document:")) + 1
+        lines[anchor:anchor] = [
+            f"",
+            f"  !! NOT A JEV RESULT: --provider auto called Jev and it FAILED.",
+            f"     The judgments below are deterministic MOCK output, not model",
+            f"     probabilities. Reason: {res.fallback_reason}",
+        ]
 
     for bid, score in res.contradiction_scores.items():
         flag = "🔴 ALERT" if score >= 0.75 else ("🟡 WATCH" if score >= 0.40 else "🟢 OK")

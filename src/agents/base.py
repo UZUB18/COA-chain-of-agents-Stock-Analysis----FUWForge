@@ -23,8 +23,16 @@ class AgentContext:
     source_documents: list[Dict[str, Any]] = field(default_factory=list)
     source_text: str = ""
     evidence_checksum: str = ""
+    fact_ledger: Dict[str, Any] = field(default_factory=dict)
+    #: Runner-computed forensic index inputs, when the ledger supports them.
+    #:
+    #: These are arithmetic the runner can do exactly and bind to source facts.
+    #: A model may still report its own indices, but it must not be the only
+    #: source of a number the run presents as computed.
+    forensic_inputs: Dict[str, Any] = field(default_factory=dict)
     challenge_initial: Optional[Dict[str, Any]] = None
     on_provider_return: Optional[Callable[[str], Any]] = None
+    on_repair_start: Optional[Callable[[str, str], Any]] = None
 
 
 @dataclass

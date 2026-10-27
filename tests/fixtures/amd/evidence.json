@@ -1,0 +1,28 @@
+{
+  "schema_version": "1",
+  "ticker": "AMD",
+  "documents": [
+    {
+      "id": "D002",
+      "type": "SECFiling",
+      "title": "AMD 10-K filed 2026-02-04",
+      "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000018/amd-20251227.htm",
+      "doc_date": "2026-02-04",
+      "date_basis": "SEC_filing_date",
+      "accessed": "2026-10-11T17:33:43Z",
+      "content_type": "text/html",
+      "content_sha256": "sha256:34ebef6e1b4d3e6060b60838eae2478c2b9ec98874683b7ae339cae2d85f8478",
+      "text_sha256": "sha256:68aa614f350df2b3861faaf9575db11e83eb34126781b46610b4d1a73cf55b92",
+      "raw_file": "D002.bytes",
+      "text_file": "D002.txt",
+      "verification": "retrieved"
+    }
+  ],
+  "attachments": [
+    {
+      "file": "sec_companyfacts.json",
+      "sha256": "sha256:21a29c75076d90fced568785d855fc427a15c7458bc0bb153a9dedd88ad3349e",
+      "kind": "sec_companyfacts"
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "ticker": "AAPL",
+  "cik": "320193",
+  "company": "Apple Inc.",
+  "analysis_date": "2026-10-26",
+  "annual_filings_requested": 3,
+  "annual_filings_found": 3,
+  "quarterly_filing_found": true,
+  "proxy_found": true,
+  "material_events_found": 2,
+  "market": {
+    "provider": "yahoo_daily",
+    "last_bar_date": "2026-10-26",
+    "price_basis": "Yahoo chart quote.close (not dividend-adjusted adjclose; provider may adjust for splits). Not a point-in-time corporate-action archive.",
+    "probe_accessed": "2026-10-26T22:12:56Z"
+  },
+  "company_facts": {
+    "collected": true,
+    "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json",
+    "availability_policy": "sec-filed-date-end-of-day-v1",
+    "fact_count": 25135,
+    "reason": null
+  },
+  "discovery_records": [
+    {
+      "url": "https://www.sec.gov/files/company_tickers.json",
+      "accessed": "2026-10-26T22:12:55Z",
+      "file": "lookup_01.json",
+      "content_sha256": "sha256:6f9cc4500a98fb4c048328d7df392ed48c092613ec0c3e93cd6c7a3502886074"
+    },
+    {
+      "url": "https://data.sec.gov/submissions/CIK0000320193.json",
+      "accessed": "2026-10-26T22:12:55Z",
+      "file": "lookup_02.json",
+      "content_sha256": "sha256:5891cf875f690e38f26ca628f7091184c9d73ca34ca7646b9cecd5013aeac4ab"
+    },
+    {
+      "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json",
+      "accessed": "2026-10-26T22:12:56Z",
+      "file": "lookup_03.json",
+      "content_sha256": "sha256:73a86c6aedc31f77cac2ea4df5f80f0b3bd7e6eb58bb4e01444fbedf3afb9c43"
+    }
+  ],
+  "limitations": [
+    "Identifier lookup uses the current SEC ticker/CIK mapping, not a historical ticker database.",
+    "SEC inclusion is based on filing date, not an intraday publication-time cutoff.",
+    "Market-provider corporate-action adjustment policies apply; this is not a certified point-in-time backtest dataset.",
+    "Culture, peer estimates, social media and broader news may still be unavailable; never fabricate them."
+  ]
+}

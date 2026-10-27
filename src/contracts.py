@@ -16,10 +16,15 @@ from __future__ import annotations
 
 import math
 import re
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Set, Tuple
+from datetime import date, datetime
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Set, Tuple, Union
 
 from src.data_gaps import ALLOWED_DATA_GAPS, documented_null, missing_data_map
-from src.calculation_witness import PROVENANCE_MODEL_REPORTED
+from src.calculation_witness import (
+    CalculationWitness,
+    PROVENANCE_MODEL_REPORTED,
+    validate_witness,
+)
 from src.envelope import Envelope
 from src.utils.beneish import (
     BENEISH_INPUT_KEYS, CALCULATOR_VERSION, beneish_score, classify,
@@ -701,7 +706,7 @@ def validate_sections(
             errors.append(f"missing required section '{key}'")
 
     allowed = assigned | optional
-    for key in envelope.sections_md:
+    for key, text in envelope.sections_md.items():
         number = _section_number(key)
         if number is not None and number in skipped:
             continue
@@ -709,7 +714,78 @@ def validate_sections(
             warnings.append(
                 f"section '{key}' is not part of agent {agent_id}'s contract"
             )
+        # shortcut: only same-sentence proof claims are checked; review other prose separately.
+        for sentence in re.split(r"\n|(?<=[.!?])\s+", str(text)):
+            if not re.search(r"\b(?:beneish|altman)\b", sentence, re.IGNORECASE):
+                continue
+            proof = re.search(r"\b(?:verify|verifies|verified|prove|proves|confirm|confirms|establish|establishes)\b", sentence, re.IGNORECASE)
+            claim = re.search(r"(?:balance\s+sheet|financial\s+statements?|accounts?|accounting).{0,35}integrity|(?:absence|no|free|without).{0,35}(?:fraud|manipulation)", sentence, re.IGNORECASE)
+            if proof and claim and not re.search(r"\b(?:not|never|cannot|can't|doesn't|don't|isn't|neither|without)\b", sentence[max(0, proof.start() - 35):proof.start()], re.IGNORECASE):
+                errors.append(f"section '{key}' overstates what forensic scores can prove")
+                break
     return ValidationResult(valid=not errors, errors=errors, warnings=warnings)
+
+
+def _collect_embedded_witnesses(
+    data: Any,
+    prefix: str = "",
+    depth: int = 0,
+    max_depth: int = 10,
+    errors: Optional[List[str]] = None,
+) -> List[Tuple[str, Any]]:
+    """Recursively collect embedded calculation witnesses with their location paths."""
+    witnesses: List[Tuple[str, Any]] = []
+    if depth > max_depth:
+        if isinstance(data, (Mapping, list, CalculationWitness)):
+            if errors is not None:
+                loc = prefix or "artifacts"
+                err_msg = f"{loc}: scan depth limit exceeded ({max_depth})"
+                if err_msg not in errors:
+                    errors.append(err_msg)
+        return witnesses
+
+    if isinstance(data, CalculationWitness):
+        witnesses.append((prefix or "witness", data))
+        return witnesses
+
+    if isinstance(data, Mapping):
+        if "calculation_witness" in data:
+            cw_loc = f"{prefix}.calculation_witness" if prefix else "calculation_witness"
+            witnesses.append((cw_loc, data["calculation_witness"]))
+            for key, val in data.items():
+                if key != "calculation_witness":
+                    loc = f"{prefix}.{key}" if prefix else str(key)
+                    witnesses.extend(
+                        _collect_embedded_witnesses(
+                            val, prefix=loc, depth=depth + 1, max_depth=max_depth, errors=errors
+                        )
+                    )
+        elif (
+            len({"formula_id", "calculator_id", "provenance"}.intersection(data)) >= 2
+            and any(key in data for key in ("formula_id", "inputs", "result"))
+        ):
+            # Recognize witnesses before validating metadata; a missing field
+            # must not hide them. Metric containers without witness fields are
+            # not direct witnesses (e.g. legacy Beneish indices/raw_score).
+            witnesses.append((prefix or "witness", data))
+        else:
+            for key, val in data.items():
+                loc = f"{prefix}.{key}" if prefix else str(key)
+                witnesses.extend(
+                    _collect_embedded_witnesses(
+                        val, prefix=loc, depth=depth + 1, max_depth=max_depth, errors=errors
+                    )
+                )
+    elif isinstance(data, list):
+        for idx, item in enumerate(data):
+            item_loc = f"{prefix}[{idx}]" if prefix else f"[{idx}]"
+            witnesses.extend(
+                _collect_embedded_witnesses(
+                    item, prefix=item_loc, depth=depth + 1, max_depth=max_depth, errors=errors
+                )
+            )
+
+    return witnesses
 
 
 def validate_contract(
@@ -718,6 +794,9 @@ def validate_contract(
     depth_config: Optional[Mapping[str, Any]] = None,
     envelopes: Optional[Mapping[str, Envelope]] = None,
     strict: bool = False,
+    fact_ledger: Optional[Mapping[str, Any]] = None,
+    expected_company: Optional[str] = None,
+    cutoff: Optional[Union[str, date, datetime]] = None,
 ) -> ValidationResult:
     """
     Validate an envelope against its machine-checkable contract.
@@ -798,6 +877,41 @@ def validate_contract(
     sections = validate_sections(envelope, depth_config)
     errors.extend(sections.errors)
     warnings.extend(sections.warnings)
+
+    effective_company = (
+        expected_company
+        or (envelope.params.get("ticker") if isinstance(envelope.params, Mapping) else None)
+        or (envelope.params.get("company") if isinstance(envelope.params, Mapping) else None)
+    )
+    effective_cutoff = (
+        cutoff
+        or (envelope.params.get("analysis_date") if isinstance(envelope.params, Mapping) else None)
+        or (envelope.params.get("cutoff") if isinstance(envelope.params, Mapping) else None)
+    )
+
+    depth_errors: List[str] = []
+    embedded_witnesses = _collect_embedded_witnesses(
+        envelope.artifacts, errors=depth_errors
+    )
+    for err in depth_errors:
+        errors.append(err)
+    for loc, witness in embedded_witnesses:
+        w_errors = validate_witness(
+            witness,
+            fact_ledger=fact_ledger,
+            expected_company=effective_company,
+            cutoff=effective_cutoff,
+        )
+        is_model_reported = (
+            (isinstance(witness, CalculationWitness) and witness.provenance == PROVENANCE_MODEL_REPORTED)
+            or (isinstance(witness, Mapping) and witness.get("provenance") == PROVENANCE_MODEL_REPORTED)
+        )
+        for err in w_errors:
+            if (not strict and is_model_reported
+                    and err.startswith(f"witness claims provenance '{PROVENANCE_MODEL_REPORTED}';")):
+                warnings.append(f"{loc}: {err}")
+            else:
+                errors.append(f"{loc}: {err}")
 
     if envelope.metrics.get("source_grounding") == "unverified" or any(source.get("verification") == "unverified" for source in envelope.sources):
         message = "source grounding is unverified: no runner-retrieved document evidence"

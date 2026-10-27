@@ -155,11 +155,19 @@ def test_evidence_backed_strict_pipeline_and_cache_tampering(tmp_path):
         data.pop("content_checksum", None)
         data.pop("upstream_checksums", None)
         data["sources"] = []  # Runner attaches the actual provided source records.
+        if data["agent"]["id"] == "A3":
+            key = "SECTION_4_FINANCIAL_FORENSICS"
+            data["sections_md"][key] = "\n".join(
+                line for line in data["sections_md"][key].splitlines() if "Beneish" not in line
+            )
         envelopes[data["agent"]["id"]] = data
+
+    calls = []
 
     class ReplayBackend(ModelBackend):
         def generate(self, prompt):
             agent_id = re.search(r"You are Agent (A\d[A-Z]?)", prompt).group(1)
+            calls.append(agent_id)
             assert "Revenue: 123" in prompt
             return json.dumps(copy.deepcopy(envelopes[agent_id]))
 
@@ -174,6 +182,13 @@ def test_evidence_backed_strict_pipeline_and_cache_tampering(tmp_path):
     summary = runner.run("grounded", params, output_root=output)
     assert summary["status"] == "completed"
     assert summary["evidence_checksum"]
+    assert verify_run(output, strict=True).valid
+    report_text = Path(summary["outputs"]["report"]).read_text(encoding="utf-8")
+    assert "screening signals" in report_text
+    assert "review generated claims" in report_text.lower()
+    call_count = len(calls)
+    runner.run("grounded", params, output_root=output, resume=True)
+    assert len(calls) == call_count
     assert verify_run(output, strict=True).valid
     for file in output.glob("a*_envelope.json"):
         data = json.loads(file.read_text())

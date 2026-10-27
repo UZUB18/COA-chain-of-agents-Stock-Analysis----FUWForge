@@ -1,0 +1,129 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A6B",
+    "name": "Bull-Case"
+  },
+  "timestamp": "2026-10-10T14:54:28Z",
+  "params": {
+    "company": "Mock Quick Inc",
+    "ticker": "MOCKQ",
+    "analysis_date": "2025-06-01",
+    "depth": "Quick",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "gates": {
+    "passed": true,
+    "notes": []
+  },
+  "sections_md": {
+    "SECTION_10_BULL_CASE": "# Section 10: Bull Case Theses\n\n1. **Enterprise Cloud Expansion**: High net retention (>118%) drives compounding recurring revenue.\n2. **Operating Margin Leverage**: Automation and infrastructure optimization expand operating margins by +200 bps.\n3. **Capital Return Acceleration**: Expanding FCF yields enable robust annual share repurchases."
+  },
+  "artifacts": {
+    "BullCase": [
+      {
+        "id": "B1",
+        "thesis": "Enterprise Cloud Expansion",
+        "evidence": [
+          "A2.PEER_LIST",
+          "A3.AltmanZ"
+        ],
+        "impact": "Topline revenue CAGR +15%"
+      },
+      {
+        "id": "B2",
+        "thesis": "Operating Margin Leverage",
+        "evidence": [
+          "A3.OCF_vs_NI_Flag"
+        ],
+        "impact": "Operating margin +200 bps"
+      },
+      {
+        "id": "B3",
+        "thesis": "Capital Return Acceleration",
+        "evidence": [
+          "A5.SentimentSplit"
+        ],
+        "impact": "FCF per share +12% annualized"
+      }
+    ],
+    "_execution_lineage": {
+      "consumed_upstream": [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5"
+      ],
+      "execution_key": "640beecda0b602999b34c3253b0976b777fcb1295a5e8f6008e935018fb8b00c",
+      "upstream": [
+        {
+          "agent": "A1",
+          "content_checksum": "sha256:89377abcdf604eee790ac7bc67a1fa10b9f5d115830c124f273b59237ca32aa3"
+        },
+        {
+          "agent": "A2",
+          "content_checksum": "sha256:83781824f4fa598ba140967744a4d945bc2478cd23a4a8eb695b4e9765457baa"
+        },
+        {
+          "agent": "A3",
+          "content_checksum": "sha256:f26d3d2874043d38fd71594004aaa089861f0aa3cd49822ddc77211224498c11"
+        },
+        {
+          "agent": "A4",
+          "content_checksum": "sha256:1ca23145b28d789abb9c3ad18c8aff246fbe8c9ee2396a132ae812698489ceeb"
+        },
+        {
+          "agent": "A5",
+          "content_checksum": "sha256:4aa6993a1d18d0780185b447edf7cfcd9b347bd746cf2c86b2e5e4c349e5821d"
+        }
+      ],
+      "prompt_sha256": "e2eeff0c657f0bebd527200d7b5cef4a9e80df3972635036b5f1aba74b6663ea",
+      "request_sha256": "3e6de5dbca95a04ef83ab30c8f0de6ff50c1787bd49cd5750fb4aafada67bd2a",
+      "evidence_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "provider": "mock",
+      "model": "make_mock_agent_cls.<locals>.ConfiguredMockAgent"
+    }
+  },
+  "sources": [
+    {
+      "type": "Synthesis",
+      "url": "internal:a6b",
+      "doc_date": "2025-01-31",
+      "accessed": "2026-10-10T14:54:28Z"
+    }
+  ],
+  "warnings": [],
+  "metrics": {
+    "data_checksum": "sha256:bbf6ae930c81a8dbaa3874c2363ee5ca6a64a0d51a3b88875dec07938831c479",
+    "latency_ms": 80,
+    "tokens": 310,
+    "retries": 0
+  },
+  "confidence": 0.95,
+  "content_checksum": "sha256:c84af6da3313d538b2ee63df73c3fd12417ad42cdfd6a18b40dc02b7f2960c50",
+  "upstream": [
+    {
+      "agent": "A1",
+      "content_checksum": "sha256:89377abcdf604eee790ac7bc67a1fa10b9f5d115830c124f273b59237ca32aa3"
+    },
+    {
+      "agent": "A2",
+      "content_checksum": "sha256:83781824f4fa598ba140967744a4d945bc2478cd23a4a8eb695b4e9765457baa"
+    },
+    {
+      "agent": "A3",
+      "content_checksum": "sha256:f26d3d2874043d38fd71594004aaa089861f0aa3cd49822ddc77211224498c11"
+    },
+    {
+      "agent": "A4",
+      "content_checksum": "sha256:1ca23145b28d789abb9c3ad18c8aff246fbe8c9ee2396a132ae812698489ceeb"
+    },
+    {
+      "agent": "A5",
+      "content_checksum": "sha256:4aa6993a1d18d0780185b447edf7cfcd9b347bd746cf2c86b2e5e4c349e5821d"
+    }
+  ]
+}

@@ -1,0 +1,129 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A6B",
+    "name": "Bull-Case"
+  },
+  "timestamp": "2026-10-10T15:01:44Z",
+  "params": {
+    "company": "Synthetic Corp",
+    "ticker": "SYNTH",
+    "analysis_date": "2025-06-01",
+    "depth": "Standard",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "gates": {
+    "passed": true,
+    "notes": []
+  },
+  "sections_md": {
+    "SECTION_10_BULL_CASE": "# Section 10: Bull Case Theses\n\n1. **Enterprise Cloud Expansion**: High net retention (>118%) drives compounding recurring revenue.\n2. **Operating Margin Leverage**: Automation and infrastructure optimization expand operating margins by +200 bps.\n3. **Capital Return Acceleration**: Expanding FCF yields enable robust annual share repurchases."
+  },
+  "artifacts": {
+    "BullCase": [
+      {
+        "id": "B1",
+        "thesis": "Enterprise Cloud Expansion",
+        "evidence": [
+          "A2.PEER_LIST",
+          "A3.AltmanZ"
+        ],
+        "impact": "Topline revenue CAGR +15%"
+      },
+      {
+        "id": "B2",
+        "thesis": "Operating Margin Leverage",
+        "evidence": [
+          "A3.OCF_vs_NI_Flag"
+        ],
+        "impact": "Operating margin +200 bps"
+      },
+      {
+        "id": "B3",
+        "thesis": "Capital Return Acceleration",
+        "evidence": [
+          "A5.SentimentSplit"
+        ],
+        "impact": "FCF per share +12% annualized"
+      }
+    ],
+    "_execution_lineage": {
+      "consumed_upstream": [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5"
+      ],
+      "execution_key": "a1303a71794d949f248f83d0c988f75a38eb3c1157116b50240a9be214697d76",
+      "upstream": [
+        {
+          "agent": "A1",
+          "content_checksum": "sha256:129ed0aed5c6bec8ea607638583c38740fa575c24561009486bff08e71c0ea9a"
+        },
+        {
+          "agent": "A2",
+          "content_checksum": "sha256:cff064295dac37465b70e88832f7ac8a10b5d08884e5e7942674e9cafabfbab8"
+        },
+        {
+          "agent": "A3",
+          "content_checksum": "sha256:964110fcb19447c6e7e20930eb9001987f5e83b9f705db23f9cd4fa71014b551"
+        },
+        {
+          "agent": "A4",
+          "content_checksum": "sha256:3d21ee2d06c971a0efc6a0c7a73cfd154e46439167d6850806cc471468927aba"
+        },
+        {
+          "agent": "A5",
+          "content_checksum": "sha256:da436c62e4aa4f937e09050ccb4f4feb18b23ea2412353536b795c3001d635ff"
+        }
+      ],
+      "prompt_sha256": "c44f5466b9e2e0a16354633f7b06f6b41bbae2c63d2856461e6cf1c565c920cf",
+      "request_sha256": "8c067cd79e1d6858c2e4c2369c806bfdebd8b8d81faa7fa59ddb2fc9e1b8d7c1",
+      "evidence_sha256": "ecbbf96e92f18154727271eeaf7572398e111e98aa28044e0255b9ea2f2883dd",
+      "provider": "mock",
+      "model": "make_mock_agent_cls.<locals>.ConfiguredMockAgent"
+    }
+  },
+  "sources": [
+    {
+      "type": "Synthesis",
+      "url": "internal:a6b",
+      "doc_date": "2025-01-31",
+      "accessed": "2026-10-10T15:01:44Z"
+    }
+  ],
+  "warnings": [],
+  "metrics": {
+    "data_checksum": "sha256:dc97a0b2d1334ea3bf64858941c95d3f1d3eed7c69f9438883034ded4eacc4aa",
+    "latency_ms": 80,
+    "tokens": 310,
+    "retries": 0
+  },
+  "confidence": 0.95,
+  "content_checksum": "sha256:4f35a4d6308a99e3bf0dab444f5778e700748796dc5ba0527643def4dcf1f1a1",
+  "upstream": [
+    {
+      "agent": "A1",
+      "content_checksum": "sha256:129ed0aed5c6bec8ea607638583c38740fa575c24561009486bff08e71c0ea9a"
+    },
+    {
+      "agent": "A2",
+      "content_checksum": "sha256:cff064295dac37465b70e88832f7ac8a10b5d08884e5e7942674e9cafabfbab8"
+    },
+    {
+      "agent": "A3",
+      "content_checksum": "sha256:964110fcb19447c6e7e20930eb9001987f5e83b9f705db23f9cd4fa71014b551"
+    },
+    {
+      "agent": "A4",
+      "content_checksum": "sha256:3d21ee2d06c971a0efc6a0c7a73cfd154e46439167d6850806cc471468927aba"
+    },
+    {
+      "agent": "A5",
+      "content_checksum": "sha256:da436c62e4aa4f937e09050ccb4f4feb18b23ea2412353536b795c3001d635ff"
+    }
+  ]
+}

@@ -1,0 +1,122 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A6R",
+    "name": "Bear-Case"
+  },
+  "timestamp": "2026-10-10T14:55:11Z",
+  "params": {
+    "company": "Mock IndBear Inc",
+    "ticker": "MOCKIB",
+    "analysis_date": "2025-06-01",
+    "depth": "Standard",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "gates": {
+    "passed": true,
+    "notes": []
+  },
+  "sections_md": {
+    "SECTION_11_BEAR_CASE": "# Section 11: Bear Rebuttals\n\n1. **Deal Elongation Scrutiny**: Macro enterprise IT budget tightening may delay cloud expansions (Probability: Med, Severity: Med).\n2. **Talent & Hosting Cost Inflation**: High specialist salaries could offset operational automation gains (Probability: Low, Severity: High).\n3. **Multiple De-rating Risk**: Premium PEG valuation multiples remain vulnerable if growth decelerates below 10% (Probability: Med, Severity: Med)."
+  },
+  "artifacts": {
+    "BearRebuttals": [
+      {
+        "bull_id": "B1",
+        "probability": "Med",
+        "severity": "Med",
+        "counter": "Macro enterprise IT budget scrutiny could delay expansion cycles."
+      },
+      {
+        "bull_id": "B2",
+        "probability": "Low",
+        "severity": "High",
+        "counter": "AI compute capex and engineer hiring costs could compress gross margins."
+      },
+      {
+        "bull_id": "B3",
+        "probability": "Med",
+        "severity": "Med",
+        "counter": "Multiple de-rating could offset share repurchases if revenue guidance softens."
+      }
+    ],
+    "_execution_lineage": {
+      "consumed_upstream": [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5"
+      ],
+      "execution_key": "37821a6c59e090f0774e1f2cf42a2b06dad2cb9c3580af74db8fbda4043dc396",
+      "upstream": [
+        {
+          "agent": "A1",
+          "content_checksum": "sha256:f96c4d6e845cc3cc2f54baa5896e60feeca4e18cbf4df789e5d3d3f152d2c6b5"
+        },
+        {
+          "agent": "A2",
+          "content_checksum": "sha256:0ead348a97a05ef8ca254669fe6b92a15c68cf16eefde4775eb106df5e015348"
+        },
+        {
+          "agent": "A3",
+          "content_checksum": "sha256:275368c009ba451b3bc903a731950c14c4f71d0904b73e58060b1de08407609d"
+        },
+        {
+          "agent": "A4",
+          "content_checksum": "sha256:166698afa73da702f093d347b5be227759a997b6c8dacbd5b4f8c5d2017a7510"
+        },
+        {
+          "agent": "A5",
+          "content_checksum": "sha256:3b23de66db43e8c7401e64add2b82c0555067d33dea21f5896750e152ade865f"
+        }
+      ],
+      "prompt_sha256": "f71665ce07daa7f8edf2d85b09c4977300b1abcbc16d01fb674dcb8fd481e5cf",
+      "request_sha256": "f68780685a0831e3cbe22f581be81f9ced8023611968e28089ae1f0ce887a7ff",
+      "evidence_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "provider": "mock",
+      "model": "make_mock_agent_cls.<locals>.ConfiguredMockAgent"
+    }
+  },
+  "sources": [
+    {
+      "type": "Synthesis",
+      "url": "internal:a6r",
+      "doc_date": "2025-01-31",
+      "accessed": "2026-10-10T14:55:11Z"
+    }
+  ],
+  "warnings": [],
+  "metrics": {
+    "data_checksum": "sha256:8b818c1a9719af34127b0dec8c073febdb9d511b9e790167e533aacf84ca7e0f",
+    "latency_ms": 85,
+    "tokens": 330,
+    "retries": 0
+  },
+  "confidence": 0.94,
+  "content_checksum": "sha256:35f37ed481416a406661fc973080c4cbed1614717eb4f16328ea04f3b23df05d",
+  "upstream": [
+    {
+      "agent": "A1",
+      "content_checksum": "sha256:f96c4d6e845cc3cc2f54baa5896e60feeca4e18cbf4df789e5d3d3f152d2c6b5"
+    },
+    {
+      "agent": "A2",
+      "content_checksum": "sha256:0ead348a97a05ef8ca254669fe6b92a15c68cf16eefde4775eb106df5e015348"
+    },
+    {
+      "agent": "A3",
+      "content_checksum": "sha256:275368c009ba451b3bc903a731950c14c4f71d0904b73e58060b1de08407609d"
+    },
+    {
+      "agent": "A4",
+      "content_checksum": "sha256:166698afa73da702f093d347b5be227759a997b6c8dacbd5b4f8c5d2017a7510"
+    },
+    {
+      "agent": "A5",
+      "content_checksum": "sha256:3b23de66db43e8c7401e64add2b82c0555067d33dea21f5896750e152ade865f"
+    }
+  ]
+}

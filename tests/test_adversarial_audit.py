@@ -536,9 +536,10 @@ def test_each_level_is_reported_separately():
     byte-integrity failure, and vice versa.
 
     The fabricated input here is deliberately modest (1.5 rather than 150) so it
-    does not also push the score across the Beneish screening threshold, which
-    would trip the *contract* level for an unrelated reason. The point of this
-    fixture is level isolation, not threshold behaviour.
+    does not push the score across the Beneish screening threshold. Embedded
+    source-binding checks now intentionally reject the same defect during
+    contract validation and independent calculation replay; unrelated levels
+    must still remain separate.
     """
     tmp = Path(tempfile.mkdtemp(prefix="fuwforge_p5_levels_"))
     try:
@@ -555,9 +556,10 @@ def test_each_level_is_reported_separately():
             "final_artifacts",
             "completeness",
         }
-        # The calculation defect is isolated to its own level.
-        assert report.levels["calculation_replay"] != "passed"
-        assert report.levels["graph_and_contracts"] == "passed", report.errors
+        # Runtime contracts and replay both reject the fabricated input.
+        assert report.levels["calculation_replay"] == "failed"
+        assert report.levels["graph_and_contracts"] == "failed", report.errors
+        assert any("A3 contract:" in error and "claimed value" in error for error in report.errors)
         assert report.levels["final_artifacts"] == "passed"
         assert report.levels["completeness"] == "passed"
         assert report.levels["envelope_integrity"] == "passed"

@@ -1,0 +1,129 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A6B",
+    "name": "Bull-Case"
+  },
+  "timestamp": "2026-10-10T14:55:11Z",
+  "params": {
+    "company": "Mock IndBear Inc",
+    "ticker": "MOCKIB",
+    "analysis_date": "2025-06-01",
+    "depth": "Standard",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "gates": {
+    "passed": true,
+    "notes": []
+  },
+  "sections_md": {
+    "SECTION_10_BULL_CASE": "# Section 10: Bull Case Theses\n\n1. **Enterprise Cloud Expansion**: High net retention (>118%) drives compounding recurring revenue.\n2. **Operating Margin Leverage**: Automation and infrastructure optimization expand operating margins by +200 bps.\n3. **Capital Return Acceleration**: Expanding FCF yields enable robust annual share repurchases."
+  },
+  "artifacts": {
+    "BullCase": [
+      {
+        "id": "B1",
+        "thesis": "Enterprise Cloud Expansion",
+        "evidence": [
+          "A2.PEER_LIST",
+          "A3.AltmanZ"
+        ],
+        "impact": "Topline revenue CAGR +15%"
+      },
+      {
+        "id": "B2",
+        "thesis": "Operating Margin Leverage",
+        "evidence": [
+          "A3.OCF_vs_NI_Flag"
+        ],
+        "impact": "Operating margin +200 bps"
+      },
+      {
+        "id": "B3",
+        "thesis": "Capital Return Acceleration",
+        "evidence": [
+          "A5.SentimentSplit"
+        ],
+        "impact": "FCF per share +12% annualized"
+      }
+    ],
+    "_execution_lineage": {
+      "consumed_upstream": [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5"
+      ],
+      "execution_key": "aa5de83b9782c66d3eb8f4c49f4c345f5f3f8b89aed513e6125b48cf35a2133c",
+      "upstream": [
+        {
+          "agent": "A1",
+          "content_checksum": "sha256:f96c4d6e845cc3cc2f54baa5896e60feeca4e18cbf4df789e5d3d3f152d2c6b5"
+        },
+        {
+          "agent": "A2",
+          "content_checksum": "sha256:0ead348a97a05ef8ca254669fe6b92a15c68cf16eefde4775eb106df5e015348"
+        },
+        {
+          "agent": "A3",
+          "content_checksum": "sha256:275368c009ba451b3bc903a731950c14c4f71d0904b73e58060b1de08407609d"
+        },
+        {
+          "agent": "A4",
+          "content_checksum": "sha256:166698afa73da702f093d347b5be227759a997b6c8dacbd5b4f8c5d2017a7510"
+        },
+        {
+          "agent": "A5",
+          "content_checksum": "sha256:3b23de66db43e8c7401e64add2b82c0555067d33dea21f5896750e152ade865f"
+        }
+      ],
+      "prompt_sha256": "44f1f4ec57721a5d01f82cb4ca7550fe53f40ae9ff4481d3d655db2679d00060",
+      "request_sha256": "92bccd2bedbaee10eef3aea36c675f9663169f3a46b2ac615c4f62422a75698f",
+      "evidence_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "provider": "mock",
+      "model": "make_mock_agent_cls.<locals>.ConfiguredMockAgent"
+    }
+  },
+  "sources": [
+    {
+      "type": "Synthesis",
+      "url": "internal:a6b",
+      "doc_date": "2025-01-31",
+      "accessed": "2026-10-10T14:55:11Z"
+    }
+  ],
+  "warnings": [],
+  "metrics": {
+    "data_checksum": "sha256:8b818c1a9719af34127b0dec8c073febdb9d511b9e790167e533aacf84ca7e0f",
+    "latency_ms": 80,
+    "tokens": 310,
+    "retries": 0
+  },
+  "confidence": 0.95,
+  "content_checksum": "sha256:97b759e3cb495b4574a961303a9078c1c3eb2a3a5078951362c549ca155843c8",
+  "upstream": [
+    {
+      "agent": "A1",
+      "content_checksum": "sha256:f96c4d6e845cc3cc2f54baa5896e60feeca4e18cbf4df789e5d3d3f152d2c6b5"
+    },
+    {
+      "agent": "A2",
+      "content_checksum": "sha256:0ead348a97a05ef8ca254669fe6b92a15c68cf16eefde4775eb106df5e015348"
+    },
+    {
+      "agent": "A3",
+      "content_checksum": "sha256:275368c009ba451b3bc903a731950c14c4f71d0904b73e58060b1de08407609d"
+    },
+    {
+      "agent": "A4",
+      "content_checksum": "sha256:166698afa73da702f093d347b5be227759a997b6c8dacbd5b4f8c5d2017a7510"
+    },
+    {
+      "agent": "A5",
+      "content_checksum": "sha256:3b23de66db43e8c7401e64add2b82c0555067d33dea21f5896750e152ade865f"
+    }
+  ]
+}

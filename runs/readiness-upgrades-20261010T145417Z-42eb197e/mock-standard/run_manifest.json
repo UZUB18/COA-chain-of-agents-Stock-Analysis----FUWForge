@@ -1,0 +1,136 @@
+{
+  "schema_version": "run_manifest_v1",
+  "run_id": "run_mocks_20261010_145450",
+  "status": "completed",
+  "complete": true,
+  "ticker": "MOCKS",
+  "analysis_date": "2025-06-01",
+  "halt_reason": null,
+  "roles": {
+    "A1": "sha256:22e0f692f5cd5e10bc05f0ae283481af1c9b47e91cda46a68e0c32d23d801005",
+    "A2": "sha256:2d1675fe1abfaeb6097f113577cf39edb6e854711abed50e97c31a8717355d24",
+    "A3": "sha256:8201d8ec7b8d0cffa0259292768336c9bf4d001692b46f929df7a42692953f44",
+    "A4": "sha256:b5dddbc865c79fb55e14435b8ded026fa63eb75ee185335f1055d103cca2cb18",
+    "A5": "sha256:feff91af67579b2d45b38af0c95c69fe2e88c1cb99ec66f33652b39606e66943",
+    "A6": "sha256:a6a0556476b493facc292c8ea34983c6e01303a64ad0fc49c1efc7b0f3de0781",
+    "A6B": "sha256:73aa785afe5eaa67035fcdf3128b4a8bcc685d238475f9313dca0f27ead07749",
+    "A6R": "sha256:a230ca4524318b444f9b1b6d184e5f8e7292c002ad1cf5f68dd841d38015834a",
+    "A7": "sha256:384263ba0239487a1325a0db6d2cf5add53acbdbf9a570b5e5ede0b7c89b1b37"
+  },
+  "graph": {
+    "A1": [],
+    "A2": [
+      "A1"
+    ],
+    "A3": [
+      "A1"
+    ],
+    "A4": [
+      "A1"
+    ],
+    "A5": [
+      "A1"
+    ],
+    "A6": [
+      "A1",
+      "A2",
+      "A3",
+      "A4",
+      "A5",
+      "A6B",
+      "A6R"
+    ],
+    "A6B": [
+      "A1",
+      "A2",
+      "A3",
+      "A4",
+      "A5"
+    ],
+    "A6R": [
+      "A1",
+      "A2",
+      "A3",
+      "A4",
+      "A5",
+      "A6B"
+    ],
+    "A7": [
+      "A1",
+      "A2",
+      "A3",
+      "A4",
+      "A5",
+      "A6",
+      "A6B",
+      "A6R"
+    ]
+  },
+  "outputs": {
+    "report": {
+      "path": "MOCKS_2025-06-01_report.md",
+      "sha256": "sha256:e9ec74ac8a24f0cb4ba8977db08a5bce5d8e67251fac820b159031c7b588069b",
+      "bytes": 6400
+    },
+    "artifacts": {
+      "path": "MOCKS_2025-06-01_artifacts.json",
+      "sha256": "sha256:0e0a9e3e13e347fecaccc07e71a0ef9aa5bc89ba35e39528be69eaf175325645",
+      "bytes": 42006
+    },
+    "provenance": {
+      "path": "MOCKS_2025-06-01_provenance.log",
+      "sha256": "sha256:be67b482a358b5ebf930089d0eb84e0277d5b35b420b54e737a4617f187cac0e",
+      "bytes": 2908
+    },
+    "summary": {
+      "path": "run_summary.json",
+      "sha256": "sha256:7aa7b00404e29ec0d4c15c18a666b5e515c0540b3539887b2635a5a1566597e9",
+      "bytes": 2739
+    }
+  },
+  "evidence": {
+    "pack_checksum": null,
+    "state": "source_bytes_unavailable",
+    "bundle_manifest_sha256": null
+  },
+  "calculator_versions": {
+    "beneish_m_score": "2.0.0"
+  },
+  "prompt_sha256": {
+    "A1": "2d828e3f87f71e883911834a743f6d21204a15c9163160b8189b59b314d697e1",
+    "A2": "83407b50e837139d129d5269342268daed3ec6eafe2e617af008a0b956e15650",
+    "A3": "12f8f25d4a264d1d1d78724245464921837a5fc51f076d8b47df7c4e7ac08fb5",
+    "A4": "e671d72e4c40d686f64454c7c7cdd9b1e444c969f2d7bc9f13225e2b9a299303",
+    "A5": "ed5c1292e7713bb86afc3503085648fc498a9ed7205f271b6f410e4863ea7cca",
+    "A6": "fbf652a5483b11f959ef30ae62184b6f8eea1282c432c6e86e4850fee0aa597d",
+    "A6B": "12805a33f291884d8699af7f7ff095933b3963cba63b5af37c280ea2326e2107",
+    "A6R": "b06f7c6c4cc1fb6b24e1ce67bb292285702d7f4d4b472c4a9d8778864b27dc95",
+    "A7": "79fc836ba0e6e040e6e334fcce244fb94ea4f1b7ef032fdd975124edc27fb7a8"
+  },
+  "execution_keys": {
+    "A1": "73544a626d8958400447731b20625568f3672beeca231ec618065c3e3473d3b4",
+    "A2": "2cc477590169c2399b574dec8df90f7ff6fa8449feb29d847c38edeb3d0786a9",
+    "A3": "5b8e4f419f12602c6c91b97555b132ed872d81234c44b0b9965c66b812c76f85",
+    "A4": "325baeb62c9f01154a5b76640bebe1b535bcb54445fed11a64a532909ced8094",
+    "A5": "474dded0974db1afd25b234e08b7c3180e1271019a4febe594468be08eee5e1a",
+    "A6": "31ae7ee19b66b94e241cfb42918ed79242ee91c4e0e1d75cef597a9135861e1f",
+    "A6B": "699f4d0f5b5cb0a3b343e220287ab31748d6f04be6681d90486c74b4ccb4b633",
+    "A6R": "8fb4e17516dac9327d1d033ca79e2961338d6ee2457e4ae92a2e7eb73b909630",
+    "A7": "4c3fb002c21394358a46a7daa9a579b64284ea35cedf7f99b8013886209659cf"
+  },
+  "provenance": {
+    "path": "MOCKS_2025-06-01_provenance.log",
+    "tail": "sha256:232eecef5f374ae78778762b93ef00ae6ed9776b5ee144d95d2dbd623e4e5fbb"
+  },
+  "configuration": {
+    "provider": "mock",
+    "model": "not-applicable",
+    "depth": "Standard",
+    "strict": false,
+    "frozen_checksum": "sha256:99e7ee529412a9d1bafa1e0f1403ee741b897eb8202a901cab791768e1d96f27",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "generated_at": "2026-10-10T15:01:42Z"
+}

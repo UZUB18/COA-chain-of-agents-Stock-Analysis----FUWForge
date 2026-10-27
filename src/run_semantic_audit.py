@@ -40,9 +40,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Set, Tuple, Union
 
-from src.contracts import AGENT_IDS, validate_contract
+from src.contracts import AGENT_IDS, _collect_embedded_witnesses, validate_contract
 from src.envelope import Envelope
 from src.fact_binding import binding_failures, binding_notes, verify_witness_bindings
+from src.resources import get_config_dir, get_schema_path
 from src.utils.checksum import checksum_file, envelope_content_checksum
 from src.validators import EnvelopeValidator, ValidationResult
 
@@ -76,6 +77,13 @@ class AuditReport:
     unavailable: List[str] = field(default_factory=list)
     complete: bool = False
     halted: bool = False
+    witnesses_attempted: int = 0
+    witnesses_replayed: int = 0
+    inputs_verified: int = 0
+    inputs_unverified: int = 0
+    core_witnesses_replayed: int = 0
+    core_inputs_verified: int = 0
+    core_inputs_unverified: int = 0
 
     @property
     def valid(self) -> bool:
@@ -89,12 +97,86 @@ class AuditReport:
             return "incomplete"
         return "verified"
 
+    def source_backed_acceptance(self) -> List[str]:
+        """The unmet conditions of the opt-in source-backed gate.
+
+        This is the single source of truth for both the gate and the assurance
+        label, so the check that fails a run and the label a reader sees can
+        never drift apart.
+        """
+        unmet: List[str] = []
+        if self.levels.get("source_reconstruction") != "source_bytes_verified":
+            unmet.append(
+                "run requires verified source bytes "
+                f"(source_reconstruction is '{self.levels.get('source_reconstruction')}')"
+            )
+        # A borrowed identity fact cannot substitute for core financial forensics.
+        from src.utils.beneish import BENEISH_INPUT_KEYS
+
+        if (
+            self.core_witnesses_replayed != 1
+            or self.core_inputs_verified != len(BENEISH_INPUT_KEYS)
+            or self.core_inputs_unverified != 0
+        ):
+            unmet.append(
+                "A3 BeneishM must replay with all eight source-verified index inputs "
+                "and no unverified core inputs"
+            )
+        if self.witnesses_replayed < 1:
+            unmet.append("no deterministic calculation witnesses replayed (expected >= 1)")
+        if self.inputs_verified < 1:
+            unmet.append("no verified financial inputs found (expected >= 1)")
+        if self.unavailable:
+            unmet.append(f"{len(self.unavailable)} calculation gap(s) disclosed")
+        return unmet
+
+    @property
+    def assurance(self) -> Dict[str, Any]:
+        """What this audit result actually establishes, stated as one label.
+
+        ``overall_state`` answers "did the audit pass". It is not an assurance
+        level: a run whose forensics rest on disclosed gaps passes the ordinary
+        audit, and calling that "verified" invites the reader to hear "the
+        financial analysis was validated". Those are different claims and the
+        result must not blur them.
+        """
+        unmet = self.source_backed_acceptance()
+        if self.errors:
+            label = "failed"
+            means = "The audit found defects; no assurance level applies until they are resolved."
+        elif self.halted or not self.complete:
+            label = "incomplete"
+            means = "Only the completed subgraph was audited. This is not a complete report."
+        elif not unmet:
+            label = "source_backed"
+            means = (
+                "Sealed bytes match, the core forensic witness replayed, and all eight "
+                "core inputs bound to typed facts with no disclosed calculation gap."
+            )
+        else:
+            label = "internally_consistent_with_disclosed_gaps"
+            means = (
+                "Sealed bytes match and the structure is internally consistent, but the "
+                "run is not source-backed end to end."
+            )
+        return {
+            "label": label,
+            "means": means,
+            "does_not_mean": (
+                "It is not a statement that the issuer's disclosures are accurate, that "
+                "the economic inputs were the right ones, or that the investment "
+                "conclusion follows from the evidence."
+            ),
+            "unmet_source_backed_conditions": unmet,
+        }
+
     def failed_levels(self) -> List[str]:
         return [name for name, state in self.levels.items() if state == "failed"]
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "overall_state": self.overall_state,
+            "assurance": self.assurance,
             "complete": self.complete,
             "halted": self.halted,
             "levels": dict(self.levels),
@@ -102,6 +184,21 @@ class AuditReport:
             "errors": list(self.errors),
             "warnings": list(self.warnings),
             "unavailable": list(self.unavailable),
+            "witnesses_attempted": self.witnesses_attempted,
+            "witnesses_replayed": self.witnesses_replayed,
+            "inputs_verified": self.inputs_verified,
+            "inputs_bound": self.inputs_verified,
+            "inputs_unverified": self.inputs_unverified,
+            "coverage": {
+                "witnesses_attempted": self.witnesses_attempted,
+                "witnesses_replayed": self.witnesses_replayed,
+                "inputs_verified": self.inputs_verified,
+                "inputs_bound": self.inputs_verified,
+                "inputs_unverified": self.inputs_unverified,
+                "core_witnesses_replayed": self.core_witnesses_replayed,
+                "core_inputs_verified": self.core_inputs_verified,
+                "core_inputs_unverified": self.core_inputs_unverified,
+            },
         }
 
 
@@ -331,7 +428,7 @@ def build_run_manifest(
 
 def validate_run_manifest(manifest: Dict[str, Any]) -> List[str]:
     """Validate a manifest against ``schemas/run_manifest_v1.json``."""
-    schema_path = PROJECT_ROOT / "schemas" / "run_manifest_v1.json"
+    schema_path = get_schema_path("run_manifest_v1.json")
     if not schema_path.is_file():  # pragma: no cover - packaging guard
         return ["run_manifest_v1.json schema is missing"]
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
@@ -354,25 +451,129 @@ def _load_fact_ledger(
     envelopes: Dict[str, Envelope],
     *,
     problems: Optional[List[str]] = None,
+    manifest: Optional[Dict[str, Any]] = None,
+    ticker: Optional[str] = None,
+    analysis_date: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Load the fact ledger from run files and envelope artifacts.
+    Load the fact ledger from verified evidence snapshot, run files, and envelopes.
 
-    A ledger that exists but cannot be parsed is a **defect**, not an absence.
-    Swallowing the error (the previous behaviour) made a corrupted ledger
-    indistinguishable from no ledger, which in turn let a fabricated input pass
-    as "no fact cited". When ``problems`` is supplied, a load failure is
-    reported there so the audit can fail the run instead of silently degrading.
+    Reconstructs facts from verified evidence snapshots (under run/evidence)
+    with full checksum validation, rejects corrupt, malformed, or conflicting
+    same-ID fact records, and prevents model-generated envelope facts from
+    replacing or contradicting real source facts.
     """
     if problems is None:
         problems = []
     facts_map: Dict[str, Any] = {}
     try:
-        from src.facts import Fact, load_fact_ledger
+        from src.facts import Fact, load_fact_ledger, validate_fact
     except Exception as exc:  # pragma: no cover - import of core module
         problems.append(f"fact ledger support unavailable: {exc}")
         return facts_map
 
+    run_dir = Path(run_dir)
+    if manifest is None:
+        manifest = _load_manifest(run_dir)
+
+    if ticker is None or analysis_date is None:
+        if manifest:
+            ticker = ticker or manifest.get("ticker")
+            analysis_date = analysis_date or manifest.get("analysis_date")
+        if "A1" in envelopes and envelopes["A1"].params:
+            ticker = ticker or envelopes["A1"].params.get("ticker")
+            analysis_date = analysis_date or envelopes["A1"].params.get("analysis_date")
+        elif envelopes:
+            for env in envelopes.values():
+                if env.params:
+                    ticker = ticker or env.params.get("ticker")
+                    analysis_date = analysis_date or env.params.get("analysis_date")
+                    if ticker and analysis_date:
+                        break
+        if ticker is None or analysis_date is None:
+            for p in sorted(run_dir.glob("run_summary.json")):
+                try:
+                    summ = json.loads(p.read_text(encoding="utf-8"))
+                    p_params = summ.get("params") or {}
+                    ticker = ticker or p_params.get("ticker")
+                    analysis_date = analysis_date or p_params.get("analysis_date")
+                except Exception:
+                    pass
+                break
+
+    evidence_dir = run_dir / "evidence"
+    ev_file = evidence_dir / "evidence.json"
+    evidence_snapshot_loaded = False
+
+    manifest_evidence = (
+        manifest.get("evidence")
+        if manifest and isinstance(manifest.get("evidence"), dict)
+        else {}
+    )
+    manifest_claims_evidence = bool(
+        manifest_evidence.get("pack_checksum")
+        or manifest_evidence.get("state") == "source_bytes_verified"
+    )
+
+    # 1. Verified Evidence Snapshot under run/evidence
+    if evidence_dir.is_dir() or ev_file.is_file():
+        if not ev_file.is_file():
+            problems.append(
+                f"evidence directory exists at {evidence_dir.name} but evidence.json is missing"
+            )
+        else:
+            try:
+                from src.evidence import EvidencePack
+
+                pack = EvidencePack(
+                    ev_file,
+                    ticker=str(ticker) if ticker else "UNKNOWN",
+                    analysis_date=str(analysis_date) if analysis_date else "UNKNOWN",
+                )
+                manifest_cksum = manifest_evidence.get("pack_checksum")
+                if manifest_cksum and pack.checksum != manifest_cksum:
+                    problems.append(
+                        f"evidence snapshot checksum mismatch: pack checksum '{pack.checksum}' "
+                        f"does not match manifest recorded checksum '{manifest_cksum}'"
+                    )
+
+                bundle_manifest_file = evidence_dir / "evidence_bundle_manifest.json"
+                if bundle_manifest_file.is_file() and manifest_evidence.get("bundle_manifest_sha256"):
+                    actual_bm_sha = checksum_file(bundle_manifest_file)
+                    if actual_bm_sha != manifest_evidence["bundle_manifest_sha256"]:
+                        problems.append(
+                            f"evidence bundle manifest checksum mismatch: actual '{actual_bm_sha}' "
+                            f"does not match manifest recorded checksum '{manifest_evidence['bundle_manifest_sha256']}'"
+                        )
+
+                for f in getattr(pack, "facts", []):
+                    val_res = validate_fact(f)
+                    if val_res.errors:
+                        problems.append(
+                            f"fact {getattr(f, 'id', '<unknown>')!r} in evidence snapshot is malformed: "
+                            + "; ".join(val_res.errors)
+                        )
+                        continue
+                    if f.id in facts_map:
+                        if facts_map[f.id] != f:
+                            problems.append(
+                                f"conflicting fact identity for {f.id!r}: evidence snapshot contains "
+                                f"conflicting definitions for the same fact ID"
+                            )
+                    else:
+                        facts_map[f.id] = f
+                evidence_snapshot_loaded = True
+            except Exception as exc:
+                problems.append(
+                    f"evidence snapshot at {evidence_dir.name} could not be loaded: {exc}. "
+                    "An unreadable or corrupt evidence pack must not be treated as an absent one."
+                )
+    elif manifest_claims_evidence:
+        problems.append(
+            "manifest records verified evidence pack, but evidence directory is missing from run directory"
+        )
+
+    # 2. Top-level fact files
     for candidate in (
         run_dir / "facts",
         run_dir / "fact_ledger.json",
@@ -389,9 +590,24 @@ def _load_fact_ledger(
             )
             continue
         for f in loaded:
-            facts_map[f.id] = f
+            val_res = validate_fact(f)
+            if val_res.errors:
+                problems.append(
+                    f"fact {getattr(f, 'id', '<unknown>')!r} at {candidate.name} is malformed: "
+                    + "; ".join(val_res.errors)
+                )
+                continue
+            if f.id in facts_map:
+                if facts_map[f.id] != f:
+                    problems.append(
+                        f"conflicting fact identity for {f.id!r}: {candidate.name} conflicts with "
+                        f"previously loaded fact"
+                    )
+            else:
+                facts_map[f.id] = f
 
-    for env in envelopes.values():
+    # 3. Envelope artifacts (model facts)
+    for agent_id, env in sorted(envelopes.items()):
         art_facts = (env.artifacts or {}).get("facts") or (
             env.artifacts or {}
         ).get("fact_ledger")
@@ -403,16 +619,39 @@ def _load_fact_ledger(
             continue
         for item in items:
             if not isinstance(item, dict) or "id" not in item:
+                problems.append(
+                    f"fact embedded in {agent_id} envelope is malformed (expected dict with 'id')"
+                )
                 continue
             try:
                 fact = item if isinstance(item, Fact) else Fact.from_dict(item)
             except Exception as exc:
                 problems.append(
-                    f"fact {item.get('id')!r} embedded in an envelope could not be "
+                    f"fact {item.get('id')!r} embedded in {agent_id} envelope could not be "
                     f"parsed as a typed fact: {exc}"
                 )
                 continue
-            facts_map[fact.id] = fact
+            val_res = validate_fact(fact)
+            if val_res.errors:
+                problems.append(
+                    f"fact {fact.id!r} embedded in {agent_id} envelope is invalid: "
+                    + "; ".join(val_res.errors)
+                )
+                continue
+
+            if fact.id in facts_map:
+                if facts_map[fact.id] != fact:
+                    problems.append(
+                        f"fact {fact.id!r} embedded in {agent_id} envelope conflicts with "
+                        f"verified source fact; model cannot replace source facts"
+                    )
+            elif evidence_snapshot_loaded:
+                problems.append(
+                    f"fact {fact.id!r} embedded in {agent_id} envelope was not found in the "
+                    f"verified evidence snapshot; facts must be bound to real snapshot facts"
+                )
+            else:
+                facts_map[fact.id] = fact
     return facts_map
 
 
@@ -422,6 +661,7 @@ def replay_beneish(
     analysis_date: Optional[str] = None,
     expected_company: Optional[str] = None,
     unavailable: Optional[List[str]] = None,
+    counters: Optional[Dict[str, int]] = None,
 ) -> List[str]:
     """
     Independently recompute A3's Beneish score from its recorded witness.
@@ -446,8 +686,12 @@ def replay_beneish(
     if not isinstance(beneish, dict):
         return ["A3 BeneishM artifact is missing"]
 
+    if counters is not None:
+        counters["witnesses_attempted"] += 1
+
     score = beneish.get("score")
-    if score is None or beneish.get("feasible") is False:
+    feasible = beneish.get("feasible")
+    if score is None or feasible is False:
         reason = beneish.get("unavailable_reason")
         if not isinstance(reason, str) or not reason.strip():
             return ["A3 BeneishM is unavailable without a documented reason"]
@@ -456,41 +700,65 @@ def replay_beneish(
             return [
                 "A3 BeneishM is marked unavailable but calculation witness claims deterministic result"
             ]
+        if unavailable is not None:
+            unavailable.append(f"A3 BeneishM is unavailable: {reason}")
         return []
 
-    provenance = beneish.get("provenance")
-    if provenance == "model_reported_unverified":
-        return [
-            "A3 BeneishM is model-reported with no index ratios; calculation "
-            "replay is not possible (score not independently verifiable)"
-        ]
+    from src.utils.beneish import BENEISH_INPUT_KEYS, beneish_score
+    from src.calculation_witness import _finite
 
+    provenance = beneish.get("provenance")
     witness = beneish.get("calculation_witness")
+
+    # If calculation_witness is missing, check for legacy direct indices
     if not isinstance(witness, dict):
-        return [
-            "A3 BeneishM claims a computed score but carries no calculation "
-            "witness; calculation replay is not possible"
-        ]
+        legacy_indices = beneish.get("indices")
+        if isinstance(legacy_indices, dict) and all(k in legacy_indices for k in BENEISH_INPUT_KEYS):
+            witness = {
+                "formula_id": "beneish_m_score",
+                "formula_version": beneish.get("calculator_version") or "1.0.0",
+                "calculator_id": beneish.get("calculator_id") or "beneish_calculator",
+                "provenance": provenance or "deterministic",
+                "inputs": legacy_indices,
+                "result": beneish.get("raw_score") if beneish.get("raw_score") is not None else score,
+            }
+        elif provenance == "model_reported_unverified":
+            if unavailable is not None:
+                unavailable.append(
+                    "A3 BeneishM is model-reported with no index ratios; calculation replay is not possible"
+                )
+            return []
+        else:
+            return [
+                "A3 BeneishM claims a computed score but carries no calculation "
+                "witness; calculation replay is not possible"
+            ]
 
     w_prov = witness.get("provenance")
-    if w_prov == "model_reported_unverified":
-        return [
-            "A3 BeneishM calculation witness indicates model_reported_unverified; calculation replay is not possible"
-        ]
+    inputs = witness.get("inputs")
+
+    # Handle model-reported provenance
+    if provenance == "model_reported_unverified" or w_prov == "model_reported_unverified":
+        if not isinstance(inputs, dict) or not all(k in inputs for k in BENEISH_INPUT_KEYS):
+            if unavailable is not None:
+                unavailable.append(
+                    "A3 BeneishM is model-reported with no index ratios; calculation replay is not possible"
+                )
+            return []
+
     if w_prov == "unavailable":
         return [
             "A3 BeneishM claims a computed score but its calculation witness is marked unavailable"
         ]
-    if w_prov != "deterministic":
+    if w_prov not in ("deterministic", "model_reported_unverified"):
         return [
             f"A3 BeneishM calculation witness has invalid provenance '{w_prov}', expected 'deterministic'"
         ]
 
-    inputs = witness.get("inputs")
+    if witness.get("formula_id") != "beneish_m_score":
+        return ["A3 BeneishM calculation witness must name the beneish_m_score formula"]
     if not isinstance(inputs, dict):
         return ["A3 BeneishM calculation witness carries no inputs"]
-
-    from src.utils.beneish import BENEISH_INPUT_KEYS, beneish_score
 
     missing = [key for key in BENEISH_INPUT_KEYS if key not in inputs]
     if missing:
@@ -499,12 +767,24 @@ def replay_beneish(
             + ", ".join(missing)
         ]
 
+    unexpected = [key for key in inputs if key not in BENEISH_INPUT_KEYS]
+    if unexpected:
+        return [
+            "A3 BeneishM calculation witness carries unexpected input labels: "
+            + ", ".join(unexpected)
+        ]
+
     for key in BENEISH_INPUT_KEYS:
         val = inputs[key]
-        if isinstance(val, bool) or not isinstance(val, (int, float)) or not math.isfinite(val):
+        if _finite(val) is None:
             return [
                 f"A3 BeneishM calculation witness input '{key}' is not a finite number: {val!r}"
             ]
+
+    from src.forensic_inputs import validate_forensic_witness
+    semantic_errors = validate_forensic_witness(witness, fact_ledger or {})
+    if semantic_errors:
+        return [f"A3 BeneishM {problem}" for problem in semantic_errors]
 
     # Source binding: every input that cites a fact must match that fact's
     # recorded value, unit, period, basis, filing identity and availability.
@@ -533,18 +813,30 @@ def replay_beneish(
         for note in binding_notes(bindings):
             unavailable.append(f"A3 BeneishM {note}")
 
+    if counters is not None:
+        for b in bindings:
+            if b.bound:
+                counters["inputs_verified"] += 1
+            elif b.status == "unavailable":
+                counters["inputs_unverified"] += 1
+
     try:
         recomputed = beneish_score(
             **{key: float(inputs[key]) for key in BENEISH_INPUT_KEYS}
         )
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, OverflowError) as exc:
         return [f"A3 BeneishM calculation witness inputs are not usable: {exc}"]
+    if _finite(recomputed) is None or _finite(score) is None:
+        return ["A3 BeneishM computed and displayed scores must be finite numeric values"]
+    witness_result = _finite(witness.get("result"))
+    if witness_result is None or abs(witness_result - recomputed) > 1e-9:
+        return ["A3 BeneishM witness result is nonfinite or does not match recomputed arithmetic"]
 
     recorded_raw = beneish.get("raw_score")
-    if not isinstance(recorded_raw, (int, float)) or isinstance(recorded_raw, bool):
+    if recorded_raw is None:
         recorded_raw = witness.get("result")
-    if not isinstance(recorded_raw, (int, float)) or isinstance(recorded_raw, bool):
-        return ["A3 BeneishM has no recorded raw score to compare against"]
+    if _finite(recorded_raw) is None:
+        return ["A3 BeneishM has no finite recorded raw score to compare against"]
 
     if abs(float(recorded_raw) - recomputed) > 1e-9:
         return [
@@ -557,13 +849,20 @@ def replay_beneish(
             f"A3 BeneishM display score {float(score)!r} does not match the "
             f"recomputed value rounded for display ({round(recomputed, 2)!r})"
         ]
+
+    if counters is not None:
+        counters["witnesses_replayed"] += 1
+
     return []
 
 
 # ------------------------------------------------------------------- audit
 
 
-def semantic_audit(run_dir: Path) -> AuditReport:
+def semantic_audit(
+    run_dir: Path,
+    require_source_backed: bool = False,
+) -> AuditReport:
     """
     Audit a run directory across independent levels.
 
@@ -580,7 +879,9 @@ def semantic_audit(run_dir: Path) -> AuditReport:
             report.levels[level] = "failed"
         return report
 
-    validator = EnvelopeValidator(PROJECT_ROOT / "schemas" / "envelope_v2_1.json")
+    manifest = _load_manifest(run_dir)
+
+    validator = EnvelopeValidator(get_schema_path("envelope_v2_1.json"))
     envelopes: Dict[str, Envelope] = {}
     by_file: Dict[str, Dict[str, Any]] = {}
     integrity_errors: List[str] = []
@@ -647,6 +948,34 @@ def semantic_audit(run_dir: Path) -> AuditReport:
     report.levels["envelope_integrity"] = "failed" if integrity_errors else "passed"
     report.errors.extend(integrity_errors)
 
+    # Resolve ticker and analysis_date (cutoff) from manifest, envelopes, or summary
+    ticker = None
+    analysis_date = None
+    if manifest:
+        ticker = manifest.get("ticker")
+        analysis_date = manifest.get("analysis_date")
+    if not ticker or not analysis_date:
+        if "A1" in envelopes and envelopes["A1"].params:
+            ticker = ticker or envelopes["A1"].params.get("ticker")
+            analysis_date = analysis_date or envelopes["A1"].params.get("analysis_date")
+        elif envelopes:
+            for env in envelopes.values():
+                if env.params:
+                    ticker = ticker or env.params.get("ticker")
+                    analysis_date = analysis_date or env.params.get("analysis_date")
+                    if ticker and analysis_date:
+                        break
+    if not ticker or not analysis_date:
+        for p in sorted(run_dir.glob("run_summary.json")):
+            try:
+                summ = json.loads(p.read_text(encoding="utf-8"))
+                p_params = summ.get("params") or {}
+                ticker = ticker or p_params.get("ticker")
+                analysis_date = analysis_date or p_params.get("analysis_date")
+            except Exception:
+                pass
+            break
+
     # Level 2 — source reconstruction.
     retrieved = [
         source
@@ -655,19 +984,35 @@ def semantic_audit(run_dir: Path) -> AuditReport:
         if isinstance(source, dict) and source.get("verification") == "retrieved"
     ]
     evidence_dir = run_dir / "evidence"
+    manifest_evidence = (
+        manifest.get("evidence")
+        if manifest and isinstance(manifest.get("evidence"), dict)
+        else {}
+    )
+    manifest_claims_evidence = bool(
+        manifest_evidence.get("pack_checksum")
+        or manifest_evidence.get("state") == "source_bytes_verified"
+    )
+
     if not retrieved and not evidence_dir.exists():
-        report.levels["source_reconstruction"] = "not_applicable"
+        if manifest_claims_evidence:
+            report.levels["source_reconstruction"] = "source_bytes_unavailable"
+            report.errors.append(
+                "source reconstruction unavailable: manifest records verified evidence pack, "
+                "but evidence directory is missing from run directory"
+            )
+        else:
+            report.levels["source_reconstruction"] = "not_applicable"
     else:
         try:
-            first = next(iter(envelopes.values())) if envelopes else None
-            if not first:
-                raise ValueError("no envelopes to reconstruct sources from")
+            if not (evidence_dir / "evidence.json").is_file():
+                raise ValueError("evidence directory exists but evidence.json is missing")
             from src.evidence import EvidencePack
 
             pack = EvidencePack(
                 evidence_dir / "evidence.json",
-                ticker=first.params.get("ticker", "UNKNOWN"),
-                analysis_date=first.params.get("analysis_date", "UNKNOWN"),
+                ticker=str(ticker) if ticker else "UNKNOWN",
+                analysis_date=str(analysis_date) if analysis_date else "UNKNOWN",
             )
             # Check retrieved sources match pack
             canonical = {source["id"]: source for source in pack.sources()}
@@ -677,6 +1022,14 @@ def semantic_audit(run_dir: Path) -> AuditReport:
                     raise ValueError(f"retrieved source '{src_id}' missing from evidence pack")
                 if source != canonical[src_id]:
                     raise ValueError(f"retrieved source '{src_id}' metadata mismatch")
+
+            manifest_cksum = manifest_evidence.get("pack_checksum")
+            if manifest_cksum and pack.checksum != manifest_cksum:
+                raise ValueError(
+                    f"evidence pack checksum '{pack.checksum}' does not match "
+                    f"manifest recorded checksum '{manifest_cksum}'"
+                )
+
             report.levels["source_reconstruction"] = "source_bytes_verified"
         except Exception as exc:  # noqa: BLE001 - reported, not raised
             report.levels["source_reconstruction"] = "source_bytes_unavailable"
@@ -685,32 +1038,42 @@ def semantic_audit(run_dir: Path) -> AuditReport:
                 "bytes cannot be restored is not fully auditable)"
             )
 
+    # Load fact ledger early so graph contract validation and calculation replay
+    # have access to the verified ledger.
+    ledger_problems: List[str] = []
+    fact_ledger = _load_fact_ledger(
+        run_dir,
+        envelopes,
+        problems=ledger_problems,
+        manifest=manifest,
+        ticker=ticker,
+        analysis_date=analysis_date,
+    )
+    # SEC CompanyFacts records the ticker as the fact's company identity, so
+    # that is the value a cited fact must carry.
+    expected_company = str(ticker).strip().upper() if ticker else None
+
     # Level 3 — graph and contracts.
-    graph_errors = _audit_graph(envelopes, run_dir, report)
+    graph_errors = _audit_graph(
+        envelopes, run_dir, report, fact_ledger=fact_ledger,
+        expected_company=expected_company, cutoff=analysis_date,
+    )
     graph_errors = list(duplicate_role_errors) + graph_errors
     report.errors.extend(graph_errors)
     report.levels["graph_and_contracts"] = "failed" if graph_errors else "passed"
 
     # Level 4 — calculation replay.
-    ledger_problems: List[str] = []
-    fact_ledger = _load_fact_ledger(run_dir, envelopes, problems=ledger_problems)
-    analysis_date = None
-    ticker = None
-    if "A1" in envelopes and envelopes["A1"].params:
-        analysis_date = envelopes["A1"].params.get("analysis_date")
-        ticker = envelopes["A1"].params.get("ticker")
-    elif envelopes:
-        first_env = next(iter(envelopes.values()))
-        if first_env.params:
-            analysis_date = first_env.params.get("analysis_date")
-            ticker = first_env.params.get("ticker")
-    # SEC CompanyFacts records the ticker as the fact's company identity, so
-    # that is the value a cited fact must carry.
-    expected_company = str(ticker).strip().upper() if ticker else None
-
     # A ledger that could not be loaded is itself a calculation-replay defect:
     # it is indistinguishable, to a reader, from arithmetic with no sources.
     calc_errors: List[str] = list(ledger_problems)
+    counters = {
+        "witnesses_attempted": 0,
+        "witnesses_replayed": 0,
+        "inputs_verified": 0,
+        "inputs_unverified": 0,
+    }
+
+    core_counters = dict(counters)
     if "A3" in envelopes:
         calc_errors.extend(
             replay_beneish(
@@ -719,18 +1082,54 @@ def semantic_audit(run_dir: Path) -> AuditReport:
                 analysis_date=analysis_date,
                 expected_company=expected_company,
                 unavailable=report.unavailable,
+                counters=core_counters,
             )
         )
+    counters.update(core_counters)
+    report.core_witnesses_replayed = core_counters["witnesses_replayed"]
+    report.core_inputs_verified = core_counters["inputs_verified"]
+    report.core_inputs_unverified = core_counters["inputs_unverified"]
 
-    from src.calculation_witness import validate_witness
+    from src.calculation_witness import CalculationWitness, validate_witness
 
     for agent_id, env in sorted(envelopes.items()):
-        if agent_id == "A3":
-            continue
-        for art_name, art_val in (env.artifacts or {}).items():
-            if isinstance(art_val, dict):
-                witness = art_val.get("calculation_witness")
+        depth_errors: List[str] = []
+        for art_name, witness in _collect_embedded_witnesses(
+            env.artifacts or {}, errors=depth_errors
+        ):
+            if agent_id == "A3" and art_name == "BeneishM.calculation_witness":
+                # Only the primary Beneish witness was already replayed above.
+                continue
+            if isinstance(witness, (dict, CalculationWitness)):
+                witness = witness.to_dict() if isinstance(witness, CalculationWitness) else witness
                 if isinstance(witness, dict):
+                    counters["witnesses_attempted"] += 1
+                    w_prov = witness.get("provenance")
+                    if w_prov == "unavailable":
+                        w_errors = validate_witness(
+                            witness,
+                            fact_ledger=fact_ledger,
+                            cutoff=analysis_date,
+                            expected_company=expected_company,
+                        )
+                        calc_errors.extend(
+                            f"{agent_id}.{art_name} witness: {e}" for e in w_errors
+                        )
+                        report.unavailable.append(
+                            f"{agent_id}.{art_name} witness is unavailable: {witness.get('notes')}"
+                        )
+                        continue
+                    if w_prov == "model_reported_unverified":
+                        report.unavailable.append(
+                            f"{agent_id}.{art_name} witness: model-reported with no recomputable inputs"
+                        )
+                        continue
+                    if w_prov != "deterministic":
+                        calc_errors.append(
+                            f"{agent_id}.{art_name} witness: invalid provenance '{w_prov}', expected 'deterministic'"
+                        )
+                        continue
+
                     w_errors = validate_witness(
                         witness,
                         fact_ledger=fact_ledger,
@@ -740,9 +1139,92 @@ def semantic_audit(run_dir: Path) -> AuditReport:
                     calc_errors.extend(
                         f"{agent_id}.{art_name} witness: {e}" for e in w_errors
                     )
+                    w_inputs = witness.get("inputs")
+                    if not isinstance(w_inputs, dict) or not w_inputs:
+                        # Empty or non-mapping inputs cannot establish source coverage
+                        continue
+
+                    w_bindings = verify_witness_bindings(
+                        witness,
+                        fact_ledger=fact_ledger or {},
+                        expected_company=expected_company,
+                        cutoff=analysis_date,
+                        expected_periods=witness.get("input_periods"),
+                        expected_bases=witness.get("input_bases"),
+                    )
+                    for note in binding_notes(w_bindings):
+                        report.unavailable.append(f"{agent_id}.{art_name} witness: {note}")
+
+                    formula_id = witness.get("formula_id")
+                    formula_replayed = False
+                    if not w_errors:
+                        if formula_id == "beneish_m_score":
+                            formula_replayed = True
+                        elif formula_id in ("test_identity", "identity") and len(w_inputs) == 1:
+                            in_val = next(iter(w_inputs.values()))
+                            res_val = witness.get("result")
+                            if (
+                                isinstance(in_val, (int, float))
+                                and isinstance(res_val, (int, float))
+                                and not isinstance(in_val, bool)
+                                and not isinstance(res_val, bool)
+                                and math.isclose(in_val, res_val, rel_tol=1e-9)
+                            ):
+                                formula_replayed = True
+                        else:
+                            # A derived *input* does not replay an unknown output formula.
+                            report.unavailable.append(
+                                f"{agent_id}.{art_name} witness: unsupported formula '{formula_id}'; "
+                                "output arithmetic was not replayed"
+                            )
+                        if formula_id in ("test_identity", "identity") and not formula_replayed:
+                            calc_errors.append(
+                                f"{agent_id}.{art_name} witness: identity arithmetic mismatch "
+                                "or invalid input count (expected one input equal to result)"
+                            )
+
+                    if formula_replayed:
+                        counters["witnesses_replayed"] += 1
+                        for b in w_bindings:
+                            if b.bound:
+                                counters["inputs_verified"] += 1
+                            elif b.status == "unavailable":
+                                counters["inputs_unverified"] += 1
+                    else:
+                        for b in w_bindings:
+                            if b.status == "unavailable":
+                                counters["inputs_unverified"] += 1
+
+        for err in depth_errors:
+            calc_errors.append(f"{agent_id}.{err}")
+
+    report.witnesses_attempted = counters["witnesses_attempted"]
+    report.witnesses_replayed = counters["witnesses_replayed"]
+    report.inputs_verified = counters["inputs_verified"]
+    report.inputs_unverified = counters["inputs_unverified"]
+
+    if require_source_backed:
+        unmet = report.source_backed_acceptance()
+        if unmet:
+            calc_errors.append(
+                "require-source-backed: run is not source-backed end to end. Unmet: "
+                + "; ".join(unmet)
+            )
+            if report.unavailable:
+                for item in report.unavailable:
+                    calc_errors.append(
+                        f"require-source-backed: calculation input is not source-backed: {item}"
+                    )
 
     report.errors.extend(calc_errors)
-    report.levels["calculation_replay"] = "failed" if calc_errors else "passed"
+    if calc_errors:
+        report.levels["calculation_replay"] = "failed"
+    elif counters["witnesses_replayed"] > 0:
+        report.levels["calculation_replay"] = "passed"
+    elif counters["witnesses_attempted"] > 0:
+        report.levels["calculation_replay"] = "not_replayable"
+    else:
+        report.levels["calculation_replay"] = "not_applicable"
 
     # Level 5 — final artifacts bound to the manifest.
     artifact_errors = _audit_final_artifacts(run_dir, envelopes, report)
@@ -750,7 +1232,7 @@ def semantic_audit(run_dir: Path) -> AuditReport:
     report.levels["final_artifacts"] = "failed" if artifact_errors else "passed"
 
     # Level 6 — completeness.
-    manifest = _load_manifest(run_dir)
+    manifest = manifest or _load_manifest(run_dir)
     expected = set(EXPECTED_ROLES)
     present = set(envelopes)
     missing = sorted(expected - present)
@@ -779,7 +1261,12 @@ def semantic_audit(run_dir: Path) -> AuditReport:
 
 
 def _audit_graph(
-    envelopes: Dict[str, Envelope], run_dir: Path, report: AuditReport
+    envelopes: Dict[str, Envelope],
+    run_dir: Path,
+    report: AuditReport,
+    fact_ledger: Optional[Mapping[str, Any]] = None,
+    expected_company: Optional[str] = None,
+    cutoff: Optional[str] = None,
 ) -> List[str]:
     """Validate consumed-parent lineage and machine-checkable contracts."""
     errors: List[str] = []
@@ -794,7 +1281,7 @@ def _audit_graph(
             try:
                 from src.config import load_depth_modes
 
-                modes = load_depth_modes(PROJECT_ROOT / "config")
+                modes = load_depth_modes(get_config_dir())
                 depth_config = modes.get(str(depth).lower(), {}).payload
             except Exception:  # noqa: BLE001 - config is optional context
                 depth_config = None
@@ -877,6 +1364,9 @@ def _audit_graph(
             )
 
     # Contracts are re-run here in dependency order, independently of acceptance.
+    import inspect
+    sig = inspect.signature(validate_contract)
+
     for agent_id in ("A1", "A2", "A3", "A4", "A5", "A6B", "A6R", "A6", "A7"):
         env = envelopes.get(agent_id)
         if env is None:
@@ -887,9 +1377,22 @@ def _audit_graph(
                 parent = entry.get("agent")
                 if parent in envelopes:
                     upstream_envelopes[parent] = envelopes[parent]
-        result = validate_contract(
-            env, depth_config=depth_config, envelopes=upstream_envelopes, strict=False
-        )
+
+        kwargs: Dict[str, Any] = {
+            "depth_config": depth_config,
+            "envelopes": upstream_envelopes,
+            "strict": False,
+        }
+        if "fact_ledger" in sig.parameters:
+            kwargs["fact_ledger"] = fact_ledger
+        elif "ledger" in sig.parameters:
+            kwargs["ledger"] = fact_ledger
+        if "expected_company" in sig.parameters:
+            kwargs["expected_company"] = expected_company
+        if "cutoff" in sig.parameters:
+            kwargs["cutoff"] = cutoff
+
+        result = validate_contract(env, **kwargs)
         errors.extend(f"{agent_id} contract: {err}" for err in result.errors)
 
     return errors
@@ -941,6 +1444,24 @@ def _audit_final_artifacts(
                 f"{name}: final {name} bytes do not match the run manifest "
                 f"(changed after sealing)"
             )
+
+    a3 = envelopes.get("A3")
+    if a3 and a3.metrics.get("runner_beneish_block"):
+        from src.utils.beneish import render_beneish_block
+
+        artifact = a3.artifacts.get("BeneishM")
+        section = a3.sections_md.get("SECTION_4_FINANCIAL_FORENSICS", "")
+        block = render_beneish_block(artifact) if isinstance(artifact, dict) else ""
+        record = outputs.get("report")
+        safe, path = _is_safe_path(run_dir, record.get("path")) if isinstance(record, dict) and isinstance(record.get("path"), str) else (False, None)
+        try:
+            report_text = path.read_text(encoding="utf-8") if safe and path and path.is_file() else ""
+        except (OSError, UnicodeError):
+            report_text = ""
+        if (not block or section.count(block) != 1 or report_text.count(block) != 1
+                or section.count("<!-- runner-beneish:start -->") != 1
+                or report_text.count("<!-- runner-beneish:start -->") != 1):
+            errors.append("report Beneish block does not match the A3 artifact")
 
     # Check manifest roles against envelopes
     manifest_roles = manifest.get("roles")
@@ -1011,9 +1532,13 @@ def _load_manifest(run_dir: Path) -> Optional[Dict[str, Any]]:
         return None
 
 
-def verify_run_semantic(run_dir: Path, strict: bool = False) -> ValidationResult:
+def verify_run_semantic(
+    run_dir: Path,
+    strict: bool = False,
+    require_source_backed: bool = False,
+) -> ValidationResult:
     """ValidationResult-compatible view of :func:`semantic_audit`."""
-    report = semantic_audit(run_dir)
+    report = semantic_audit(run_dir, require_source_backed=require_source_backed)
     errors = list(report.errors)
     warnings = list(report.warnings)
     if strict:

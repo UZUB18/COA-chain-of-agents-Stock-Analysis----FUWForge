@@ -1,0 +1,82 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A2",
+    "name": "Business-Market-Peers"
+  },
+  "timestamp": "2026-10-10T14:55:51Z",
+  "params": {
+    "analysis_date": "2025-06-01",
+    "company": "Mock Resume Inc",
+    "depth": "Quick",
+    "focus": [],
+    "independent_bear": false,
+    "ticker": "MOCKRES",
+    "weights": "default"
+  },
+  "gates": {
+    "notes": [],
+    "passed": true
+  },
+  "sections_md": {
+    "SECTION_1_COMPANY_PROFILE": "# Section 1: Company Profile \u2014 Mock Resume Inc\n\nMock Resume Inc (MOCKRES) provides high-margin enterprise infrastructure and cloud solutions. The business exhibits strong network effects and sticky recurring software subscription models.",
+    "SECTION_2_BUSINESS_MODEL": "# Section 2: Business Model & Monetization\n\nOperating leverage is powered by a SaaS/usage hybrid model with gross margins exceeding 65%. Customer acquisition costs continue to decline as enterprise land-and-expand motions mature.",
+    "SECTION_3_MARKET_AND_PEERS": "# Section 3: Market Position and Peer Analysis\n\nKey competitive benchmark peers include MOCKRES_PEER1, MOCKRES_PEER2, MOCKRES_PEER3. Mock Resume Inc maintains market leadership with an estimated 32% share in core target verticals."
+  },
+  "artifacts": {
+    "MoatTrend": "Expanding",
+    "PEER_LIST": [
+      "MOCKRES_PEER1",
+      "MOCKRES_PEER2",
+      "MOCKRES_PEER3"
+    ],
+    "TopCustomerPct": "Not disclosed",
+    "TopSupplierPct": "Not disclosed",
+    "_execution_lineage": {
+      "consumed_upstream": [
+        "A1"
+      ],
+      "evidence_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "execution_key": "d932d69e49af36f96f597647bb966a9606fcc98739a47b898a1945ed781d0d10",
+      "model": "make_mock_agent_cls.<locals>.ConfiguredMockAgent",
+      "prompt_sha256": "3df78aa0ba5b32f0d5c92180148799aad3935b12d187285a85514a011b22ca20",
+      "provider": "mock",
+      "request_sha256": "d23e3b99800eb0f9e8aa0bbb924f5bc296da1b86adc6deb03cc2ef27c8bce619",
+      "upstream": [
+        {
+          "agent": "A1",
+          "content_checksum": "sha256:4deaffa142b4f70b0b71e00ddde082267e1e8e4ed56deffa33434a723071ee37"
+        }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "accessed": "2026-10-10T14:55:51Z",
+      "doc_date": "2024-12-31",
+      "type": "10-K",
+      "url": "https://www.sec.gov/edgar/data/10k"
+    },
+    {
+      "accessed": "2026-10-10T14:55:51Z",
+      "doc_date": "2024-11-15",
+      "type": "Investor Day Presentation",
+      "url": "https://ir.company.com/deck"
+    }
+  ],
+  "warnings": [],
+  "metrics": {
+    "data_checksum": "sha256:f1d3ba1cfa24d75e568ecd77996579c53ff5adc1a8128c3ce6e7b9f026a4b041",
+    "latency_ms": 130,
+    "retries": 0,
+    "tokens": 480
+  },
+  "confidence": 0.95,
+  "content_checksum": "sha256:44dca7dacead13915657ac9b6a6e34f57f9540fed9c17b6f0f9c3cb4d2845b26",
+  "upstream": [
+    {
+      "agent": "A1",
+      "content_checksum": "sha256:4deaffa142b4f70b0b71e00ddde082267e1e8e4ed56deffa33434a723071ee37"
+    }
+  ]
+}

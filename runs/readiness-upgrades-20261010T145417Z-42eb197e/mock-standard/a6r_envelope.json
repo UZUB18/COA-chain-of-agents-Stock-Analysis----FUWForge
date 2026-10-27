@@ -1,0 +1,131 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A6R",
+    "name": "Bear-Case"
+  },
+  "timestamp": "2026-10-10T14:54:50Z",
+  "params": {
+    "company": "Mock Standard Inc",
+    "ticker": "MOCKS",
+    "analysis_date": "2025-06-01",
+    "depth": "Standard",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "gates": {
+    "passed": true,
+    "notes": []
+  },
+  "sections_md": {
+    "SECTION_11_BEAR_CASE": "# Section 11: Bear Rebuttals\n\n1. **Deal Elongation Scrutiny**: Macro enterprise IT budget tightening may delay cloud expansions (Probability: Med, Severity: Med).\n2. **Talent & Hosting Cost Inflation**: High specialist salaries could offset operational automation gains (Probability: Low, Severity: High).\n3. **Multiple De-rating Risk**: Premium PEG valuation multiples remain vulnerable if growth decelerates below 10% (Probability: Med, Severity: Med)."
+  },
+  "artifacts": {
+    "BearRebuttals": [
+      {
+        "bull_id": "B1",
+        "probability": "Med",
+        "severity": "Med",
+        "counter": "Macro enterprise IT budget scrutiny could delay expansion cycles."
+      },
+      {
+        "bull_id": "B2",
+        "probability": "Low",
+        "severity": "High",
+        "counter": "AI compute capex and engineer hiring costs could compress gross margins."
+      },
+      {
+        "bull_id": "B3",
+        "probability": "Med",
+        "severity": "Med",
+        "counter": "Multiple de-rating could offset share repurchases if revenue guidance softens."
+      }
+    ],
+    "_execution_lineage": {
+      "consumed_upstream": [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5",
+        "A6B"
+      ],
+      "execution_key": "8fb4e17516dac9327d1d033ca79e2961338d6ee2457e4ae92a2e7eb73b909630",
+      "upstream": [
+        {
+          "agent": "A1",
+          "content_checksum": "sha256:22e0f692f5cd5e10bc05f0ae283481af1c9b47e91cda46a68e0c32d23d801005"
+        },
+        {
+          "agent": "A2",
+          "content_checksum": "sha256:2d1675fe1abfaeb6097f113577cf39edb6e854711abed50e97c31a8717355d24"
+        },
+        {
+          "agent": "A3",
+          "content_checksum": "sha256:8201d8ec7b8d0cffa0259292768336c9bf4d001692b46f929df7a42692953f44"
+        },
+        {
+          "agent": "A4",
+          "content_checksum": "sha256:b5dddbc865c79fb55e14435b8ded026fa63eb75ee185335f1055d103cca2cb18"
+        },
+        {
+          "agent": "A5",
+          "content_checksum": "sha256:feff91af67579b2d45b38af0c95c69fe2e88c1cb99ec66f33652b39606e66943"
+        },
+        {
+          "agent": "A6B",
+          "content_checksum": "sha256:73aa785afe5eaa67035fcdf3128b4a8bcc685d238475f9313dca0f27ead07749"
+        }
+      ],
+      "prompt_sha256": "b06f7c6c4cc1fb6b24e1ce67bb292285702d7f4d4b472c4a9d8778864b27dc95",
+      "request_sha256": "e6172f7f678d39111d1403fb688cff0119d544bdb0a508e6ceb38fbd7c7f6794",
+      "evidence_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "provider": "mock",
+      "model": "make_mock_agent_cls.<locals>.ConfiguredMockAgent"
+    }
+  },
+  "sources": [
+    {
+      "type": "Synthesis",
+      "url": "internal:a6r",
+      "doc_date": "2025-01-31",
+      "accessed": "2026-10-10T14:54:50Z"
+    }
+  ],
+  "warnings": [],
+  "metrics": {
+    "data_checksum": "sha256:99e7ee529412a9d1bafa1e0f1403ee741b897eb8202a901cab791768e1d96f27",
+    "latency_ms": 85,
+    "tokens": 330,
+    "retries": 0
+  },
+  "confidence": 0.94,
+  "content_checksum": "sha256:a230ca4524318b444f9b1b6d184e5f8e7292c002ad1cf5f68dd841d38015834a",
+  "upstream": [
+    {
+      "agent": "A1",
+      "content_checksum": "sha256:22e0f692f5cd5e10bc05f0ae283481af1c9b47e91cda46a68e0c32d23d801005"
+    },
+    {
+      "agent": "A2",
+      "content_checksum": "sha256:2d1675fe1abfaeb6097f113577cf39edb6e854711abed50e97c31a8717355d24"
+    },
+    {
+      "agent": "A3",
+      "content_checksum": "sha256:8201d8ec7b8d0cffa0259292768336c9bf4d001692b46f929df7a42692953f44"
+    },
+    {
+      "agent": "A4",
+      "content_checksum": "sha256:b5dddbc865c79fb55e14435b8ded026fa63eb75ee185335f1055d103cca2cb18"
+    },
+    {
+      "agent": "A5",
+      "content_checksum": "sha256:feff91af67579b2d45b38af0c95c69fe2e88c1cb99ec66f33652b39606e66943"
+    },
+    {
+      "agent": "A6B",
+      "content_checksum": "sha256:73aa785afe5eaa67035fcdf3128b4a8bcc685d238475f9313dca0f27ead07749"
+    }
+  ]
+}

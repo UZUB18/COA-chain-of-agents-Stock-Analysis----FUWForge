@@ -1,0 +1,82 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A2",
+    "name": "Business-Market-Peers"
+  },
+  "timestamp": "2026-10-10T14:54:50Z",
+  "params": {
+    "company": "Mock Standard Inc",
+    "ticker": "MOCKS",
+    "analysis_date": "2025-06-01",
+    "depth": "Standard",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "gates": {
+    "passed": true,
+    "notes": []
+  },
+  "sections_md": {
+    "SECTION_1_COMPANY_PROFILE": "# Section 1: Company Profile \u2014 Mock Standard Inc\n\nMock Standard Inc (MOCKS) provides high-margin enterprise infrastructure and cloud solutions. The business exhibits strong network effects and sticky recurring software subscription models.",
+    "SECTION_2_BUSINESS_MODEL": "# Section 2: Business Model & Monetization\n\nOperating leverage is powered by a SaaS/usage hybrid model with gross margins exceeding 65%. Customer acquisition costs continue to decline as enterprise land-and-expand motions mature.",
+    "SECTION_3_MARKET_AND_PEERS": "# Section 3: Market Position and Peer Analysis\n\nKey competitive benchmark peers include MOCKS_PEER1, MOCKS_PEER2, MOCKS_PEER3. Mock Standard Inc maintains market leadership with an estimated 32% share in core target verticals."
+  },
+  "artifacts": {
+    "PEER_LIST": [
+      "MOCKS_PEER1",
+      "MOCKS_PEER2",
+      "MOCKS_PEER3"
+    ],
+    "MoatTrend": "Expanding",
+    "TopCustomerPct": "Not disclosed",
+    "TopSupplierPct": "Not disclosed",
+    "_execution_lineage": {
+      "consumed_upstream": [
+        "A1"
+      ],
+      "execution_key": "2cc477590169c2399b574dec8df90f7ff6fa8449feb29d847c38edeb3d0786a9",
+      "upstream": [
+        {
+          "agent": "A1",
+          "content_checksum": "sha256:22e0f692f5cd5e10bc05f0ae283481af1c9b47e91cda46a68e0c32d23d801005"
+        }
+      ],
+      "prompt_sha256": "83407b50e837139d129d5269342268daed3ec6eafe2e617af008a0b956e15650",
+      "request_sha256": "3a5c66e04e64f6f0bd462c28dbdf3854e70a5d86582bb7883f3c176eaf10b9da",
+      "evidence_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "provider": "mock",
+      "model": "make_mock_agent_cls.<locals>.ConfiguredMockAgent"
+    }
+  },
+  "sources": [
+    {
+      "type": "10-K",
+      "url": "https://www.sec.gov/edgar/data/10k",
+      "doc_date": "2024-12-31",
+      "accessed": "2026-10-10T14:54:50Z"
+    },
+    {
+      "type": "Investor Day Presentation",
+      "url": "https://ir.company.com/deck",
+      "doc_date": "2024-11-15",
+      "accessed": "2026-10-10T14:54:50Z"
+    }
+  ],
+  "warnings": [],
+  "metrics": {
+    "data_checksum": "sha256:99e7ee529412a9d1bafa1e0f1403ee741b897eb8202a901cab791768e1d96f27",
+    "latency_ms": 130,
+    "tokens": 480,
+    "retries": 0
+  },
+  "confidence": 0.95,
+  "content_checksum": "sha256:2d1675fe1abfaeb6097f113577cf39edb6e854711abed50e97c31a8717355d24",
+  "upstream": [
+    {
+      "agent": "A1",
+      "content_checksum": "sha256:22e0f692f5cd5e10bc05f0ae283481af1c9b47e91cda46a68e0c32d23d801005"
+    }
+  ]
+}

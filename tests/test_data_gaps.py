@@ -123,6 +123,37 @@ class Backend(ModelBackend):
 
 
 @pytest.mark.parametrize("strict", [False, True])
+@pytest.mark.parametrize("field", ["TopCustomerPct", "TopSupplierPct"])
+def test_null_concentration_object_becomes_documented_gap(context, strict, field):
+    data = envelope("A2", context).to_dict()
+    data["sources"] = []
+    data["artifacts"][field] = {"percent": None, "note": "No concentration figure was disclosed."}
+    result = ModelAgent("A2", "Business", Backend(data), strict=strict, max_retries=0).run(context).envelope
+    assert result.artifacts[field] is None
+    assert result.metrics["missing_data"][field] == "No concentration figure was disclosed."
+    assert "No concentration figure was disclosed." in result.sections_md["MISSING_DATA_TABLE"]
+    assert validate_contract(result, strict=True).valid
+
+
+@pytest.mark.parametrize("value", [{"percent": None}, {"percent": None, "note": " "}, {"note": "Unavailable"}])
+def test_undocumented_or_missing_concentration_percent_is_not_a_gap(context, value):
+    data = envelope("A2", context).to_dict()
+    data["sources"] = []
+    data["artifacts"]["TopCustomerPct"] = value
+    with pytest.raises(RuntimeError, match="TopCustomerPct"):
+        ModelAgent("A2", "Business", Backend(data), strict=True, max_retries=0).run(context)
+
+
+def test_concentration_normalization_does_not_erase_conflicting_gap_reason(context):
+    data = envelope("A2", context).to_dict()
+    data["sources"] = []
+    data["artifacts"]["TopCustomerPct"] = {"percent": None, "note": "No concentration figure."}
+    data["metrics"]["missing_data"] = {"TopCustomerPct": "The filing was unavailable."}
+    with pytest.raises(RuntimeError, match="conflicting unavailable-data reasons"):
+        ModelAgent("A2", "Business", Backend(data), strict=True, max_retries=0).run(context)
+
+
+@pytest.mark.parametrize("strict", [False, True])
 def test_model_preserves_culture_null_without_injecting_default(context, strict):
     data = envelope("A4", context).to_dict()
     data["sources"] = []

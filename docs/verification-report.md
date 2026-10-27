@@ -4,6 +4,9 @@ Branch: `p0-baseline-preserve-verification`
 Base commit: `28c17b4` (baseline checkpoint taken before any implementation change)
 Report date: 2026-10-08
 
+**Historical report:** see the [2026-10-10 readiness update](<readiness-upgrades.md>)
+for subsequent hardening, installed-distribution validation, and current acceptance limits.
+
 ---
 
 ## 1. Headline result

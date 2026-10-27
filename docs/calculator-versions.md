@@ -20,6 +20,25 @@ Two primary mathematical corrections and one major structural policy change were
 4. **Calculation Witness Records**
    - Every computed score is emitted with a calculation witness (`CalculationWitness`, `src/calculation_witness.py`) recording the formula ID, version (`2.0.0`), all 8 input ratios, parameter thresholds, and unrounded raw score so results can be audited and independently recomputed.
 
+### Runner-derived inputs
+
+On 2026-10-26 the runner's gross-margin index was corrected to use the prior
+gross margin divided by the current gross margin. Earlier runner-derived inputs
+could subtract one from that ratio, lowering the score by 0.528. The runner
+also now refuses to combine annual flows with balance-sheet dates that cannot be
+matched to the same periods. These changes do not change the score equation or
+its calculator version.
+
+Historical runs are not rewritten. Check a saved witness's GMI derivation and
+periods, and create a fresh run when they are affected. Replaying a witness
+checks its recorded arithmetic; it does not independently establish that the
+recorded economic formula was appropriate.
+
+The runner now requires consecutive fiscal years and comparable concepts across
+both periods. General and administrative expense alone is not treated as total
+selling, general and administrative expense. Recorded runner derivations are
+checked for these cases during replay; other financial claims still need review.
+
 ---
 
 ## 2. Published Source and Coefficient Comparison

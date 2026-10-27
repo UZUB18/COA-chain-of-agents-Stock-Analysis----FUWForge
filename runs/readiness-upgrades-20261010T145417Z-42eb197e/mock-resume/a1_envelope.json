@@ -1,0 +1,71 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A1",
+    "name": "Harvester-&-Validator"
+  },
+  "timestamp": "2026-10-10T14:55:51Z",
+  "params": {
+    "analysis_date": "2025-06-01",
+    "company": "Mock Resume Inc",
+    "depth": "Quick",
+    "focus": [],
+    "independent_bear": false,
+    "ticker": "MOCKRES",
+    "weights": "default"
+  },
+  "gates": {
+    "notes": [
+      "Primary filings reconciled and frozen context checksum generated."
+    ],
+    "passed": true
+  },
+  "sections_md": {
+    "RAW_DATA_PACK": "### Raw Data Intake: Mock Resume Inc (MOCKRES)\n\n**Price Timestamp (EET)**: 2025-06-01T16:00:00Z\n**Share Count (Basic)**: 1,200,000,000\n**Share Count (Diluted)**: 1,224,000,000\n**Closing Share Price**: $150.00\n**Implied Market Capitalization**: $180,000,000,000.00\n\n| Metric | FY-3 | FY-2 | FY-1 | TTM |\n|---|---|---|---|---|\n| Revenue ($M) | 28,400 | 33,100 | 39,800 | 44,200 |\n| Gross Margin | 62.5% | 63.8% | 65.1% | 66.2% |\n| Operating Cash Flow ($M) | 6,800 | 8,200 | 10,400 | 12,100 |\n| Free Cash Flow ($M) | 5,400 | 6,700 | 8,900 | 10,500 |\n"
+  },
+  "artifacts": {
+    "_execution_lineage": {
+      "consumed_upstream": [],
+      "evidence_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "execution_key": "4fab91b951535db82113dd2904bda4ba027f41dffd93cd7e590f09db9a3a28b9",
+      "model": "make_mock_agent_cls.<locals>.ConfiguredMockAgent",
+      "prompt_sha256": "8a5c7041882baab6f74e7c49be9da113a7aea59c0aa76f436b44aa5d653c5e66",
+      "provider": "mock",
+      "request_sha256": "48e9795817e49cb3fce07b9bdbeefd16c75aba050817f7e689fe8eea331e4968",
+      "upstream": []
+    },
+    "market_cap_check": {
+      "cap": 180000000000.0,
+      "delta_pct": 0.0,
+      "price": 150.0,
+      "shares": 1200000000
+    },
+    "price_timestamp_eet": "2025-06-01T16:00:00Z",
+    "shares_basic": "1200000000",
+    "shares_diluted": "1224000000"
+  },
+  "sources": [
+    {
+      "accessed": "2026-10-10T14:55:51Z",
+      "doc_date": "2024-12-31",
+      "type": "10-K",
+      "url": "https://www.sec.gov/edgar/data/10k"
+    },
+    {
+      "accessed": "2026-10-10T14:55:51Z",
+      "doc_date": "2025-06-01",
+      "type": "Exchange Feed",
+      "url": "https://nasdaq.com/feed"
+    }
+  ],
+  "warnings": [],
+  "metrics": {
+    "data_checksum": "sha256:f1d3ba1cfa24d75e568ecd77996579c53ff5adc1a8128c3ce6e7b9f026a4b041",
+    "latency_ms": 115,
+    "retries": 0,
+    "tokens": 420
+  },
+  "confidence": 0.98,
+  "content_checksum": "sha256:4deaffa142b4f70b0b71e00ddde082267e1e8e4ed56deffa33434a723071ee37",
+  "upstream": []
+}

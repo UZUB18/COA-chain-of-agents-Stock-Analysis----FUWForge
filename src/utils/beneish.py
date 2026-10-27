@@ -30,6 +30,7 @@ Boundaries stated plainly:
 
 from __future__ import annotations
 
+import html
 import math
 from typing import Any, Dict
 
@@ -72,6 +73,24 @@ THRESHOLD_POLICY = {
     "threshold": BENEISH_SCREENING_THRESHOLD,
     "note": "Screening signal only; not a determination that manipulation occurred.",
 }
+
+
+def render_beneish_block(artifact: Dict[str, Any]) -> str:
+    """Render the recorded result without reinterpreting the screening signal."""
+    if artifact.get("feasible") is False or artifact.get("score") is None:
+        reason = html.escape(str(artifact.get("unavailable_reason") or "Not available"))
+        result = f"Beneish M-Score: **Unavailable** — {reason}"
+    else:
+        score = artifact["score"]
+        classification = html.escape(str(artifact.get("classification") or ""))
+        provenance = html.escape(str(artifact.get("provenance") or "unverified"))
+        result = f"Beneish M-Score: **{score}** ({classification}; {provenance})."
+    return (
+        "<!-- runner-beneish:start -->\n"
+        + result
+        + "\nScreening signal only; not a finding of manipulation.\n"
+        + "<!-- runner-beneish:end -->"
+    )
 
 
 def _require_finite(value: Any, label: str) -> float:

@@ -1,0 +1,86 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A5",
+    "name": "News-Sentiment-Flows"
+  },
+  "timestamp": "2026-10-10T14:55:51Z",
+  "params": {
+    "analysis_date": "2025-06-01",
+    "company": "Mock Resume Inc",
+    "depth": "Quick",
+    "focus": [],
+    "independent_bear": false,
+    "ticker": "MOCKRES",
+    "weights": "default"
+  },
+  "gates": {
+    "notes": [],
+    "passed": true
+  },
+  "sections_md": {
+    "SECTION_8_NEWS_SENTIMENT": "# Section 8: News Sentiment Analysis\n\nQualitative headline flow over the trailing 90 days remains 64% positive, focused on new enterprise product rollouts and key executive additions.",
+    "SECTION_9_FLOW_LITIGATION": "# Section 9: Insider Flows, Institutional Positioning & Litigation\n\nForm 4 filings reflect moderate net insider purchases. Institutional sponsorship increased +1.6% QoQ. No active material litigation cases pending."
+  },
+  "artifacts": {
+    "AuditorChangeYN": "No",
+    "InsiderNet12m": {
+      "direction": "NetBuy",
+      "shares": 42000,
+      "value": 6300000.0
+    },
+    "InstitutionalOwnershipTrend": {
+      "delta_pct": 1.6,
+      "direction": "Up"
+    },
+    "MajorLitigation": [],
+    "RegulatoryWatchlist": [],
+    "SentimentSplit": {
+      "lookback_days": 90,
+      "neg": 0.1,
+      "neu": 0.26,
+      "pos": 0.64
+    },
+    "SocialVsFundDivergence": "Aligned",
+    "_execution_lineage": {
+      "consumed_upstream": [
+        "A1"
+      ],
+      "evidence_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "execution_key": "c82e72f1ed178ed79036d788841d79440d41e140dc8cfe999d7f8abb939b06d4",
+      "model": "make_mock_agent_cls.<locals>.ConfiguredMockAgent",
+      "prompt_sha256": "cba98af3ee55734c7063c18774d3aba4aadb1527488d5f819e32e4d4e9a21e9e",
+      "provider": "mock",
+      "request_sha256": "67255651f75893a30b85753d8ac8c668cd8aeabd536e2620b3f5b46096fab0e4",
+      "upstream": [
+        {
+          "agent": "A1",
+          "content_checksum": "sha256:4deaffa142b4f70b0b71e00ddde082267e1e8e4ed56deffa33434a723071ee37"
+        }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "accessed": "2026-10-10T14:55:51Z",
+      "doc_date": "2025-01-31",
+      "type": "News Wire & SEC Form 4",
+      "url": "https://fuwforge.internal/feeds/sentiment"
+    }
+  ],
+  "warnings": [],
+  "metrics": {
+    "data_checksum": "sha256:f1d3ba1cfa24d75e568ecd77996579c53ff5adc1a8128c3ce6e7b9f026a4b041",
+    "latency_ms": 110,
+    "retries": 0,
+    "tokens": 430
+  },
+  "confidence": 0.93,
+  "content_checksum": "sha256:10101a4ac902be4c4dbdbe5e856f15548413751da7450ce9d82c33b882a73e91",
+  "upstream": [
+    {
+      "agent": "A1",
+      "content_checksum": "sha256:4deaffa142b4f70b0b71e00ddde082267e1e8e4ed56deffa33434a723071ee37"
+    }
+  ]
+}

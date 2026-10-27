@@ -1,0 +1,129 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A6B",
+    "name": "Bull-Case"
+  },
+  "timestamp": "2026-10-10T14:54:50Z",
+  "params": {
+    "company": "Mock Standard Inc",
+    "ticker": "MOCKS",
+    "analysis_date": "2025-06-01",
+    "depth": "Standard",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "gates": {
+    "passed": true,
+    "notes": []
+  },
+  "sections_md": {
+    "SECTION_10_BULL_CASE": "# Section 10: Bull Case Theses\n\n1. **Enterprise Cloud Expansion**: High net retention (>118%) drives compounding recurring revenue.\n2. **Operating Margin Leverage**: Automation and infrastructure optimization expand operating margins by +200 bps.\n3. **Capital Return Acceleration**: Expanding FCF yields enable robust annual share repurchases."
+  },
+  "artifacts": {
+    "BullCase": [
+      {
+        "id": "B1",
+        "thesis": "Enterprise Cloud Expansion",
+        "evidence": [
+          "A2.PEER_LIST",
+          "A3.AltmanZ"
+        ],
+        "impact": "Topline revenue CAGR +15%"
+      },
+      {
+        "id": "B2",
+        "thesis": "Operating Margin Leverage",
+        "evidence": [
+          "A3.OCF_vs_NI_Flag"
+        ],
+        "impact": "Operating margin +200 bps"
+      },
+      {
+        "id": "B3",
+        "thesis": "Capital Return Acceleration",
+        "evidence": [
+          "A5.SentimentSplit"
+        ],
+        "impact": "FCF per share +12% annualized"
+      }
+    ],
+    "_execution_lineage": {
+      "consumed_upstream": [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5"
+      ],
+      "execution_key": "699f4d0f5b5cb0a3b343e220287ab31748d6f04be6681d90486c74b4ccb4b633",
+      "upstream": [
+        {
+          "agent": "A1",
+          "content_checksum": "sha256:22e0f692f5cd5e10bc05f0ae283481af1c9b47e91cda46a68e0c32d23d801005"
+        },
+        {
+          "agent": "A2",
+          "content_checksum": "sha256:2d1675fe1abfaeb6097f113577cf39edb6e854711abed50e97c31a8717355d24"
+        },
+        {
+          "agent": "A3",
+          "content_checksum": "sha256:8201d8ec7b8d0cffa0259292768336c9bf4d001692b46f929df7a42692953f44"
+        },
+        {
+          "agent": "A4",
+          "content_checksum": "sha256:b5dddbc865c79fb55e14435b8ded026fa63eb75ee185335f1055d103cca2cb18"
+        },
+        {
+          "agent": "A5",
+          "content_checksum": "sha256:feff91af67579b2d45b38af0c95c69fe2e88c1cb99ec66f33652b39606e66943"
+        }
+      ],
+      "prompt_sha256": "12805a33f291884d8699af7f7ff095933b3963cba63b5af37c280ea2326e2107",
+      "request_sha256": "51cfbf3aab7b0364fa25af3ab8cc195899ab2eb2c6557f3c644f6f08a3fc887c",
+      "evidence_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "provider": "mock",
+      "model": "make_mock_agent_cls.<locals>.ConfiguredMockAgent"
+    }
+  },
+  "sources": [
+    {
+      "type": "Synthesis",
+      "url": "internal:a6b",
+      "doc_date": "2025-01-31",
+      "accessed": "2026-10-10T14:54:50Z"
+    }
+  ],
+  "warnings": [],
+  "metrics": {
+    "data_checksum": "sha256:99e7ee529412a9d1bafa1e0f1403ee741b897eb8202a901cab791768e1d96f27",
+    "latency_ms": 80,
+    "tokens": 310,
+    "retries": 0
+  },
+  "confidence": 0.95,
+  "content_checksum": "sha256:73aa785afe5eaa67035fcdf3128b4a8bcc685d238475f9313dca0f27ead07749",
+  "upstream": [
+    {
+      "agent": "A1",
+      "content_checksum": "sha256:22e0f692f5cd5e10bc05f0ae283481af1c9b47e91cda46a68e0c32d23d801005"
+    },
+    {
+      "agent": "A2",
+      "content_checksum": "sha256:2d1675fe1abfaeb6097f113577cf39edb6e854711abed50e97c31a8717355d24"
+    },
+    {
+      "agent": "A3",
+      "content_checksum": "sha256:8201d8ec7b8d0cffa0259292768336c9bf4d001692b46f929df7a42692953f44"
+    },
+    {
+      "agent": "A4",
+      "content_checksum": "sha256:b5dddbc865c79fb55e14435b8ded026fa63eb75ee185335f1055d103cca2cb18"
+    },
+    {
+      "agent": "A5",
+      "content_checksum": "sha256:feff91af67579b2d45b38af0c95c69fe2e88c1cb99ec66f33652b39606e66943"
+    }
+  ]
+}

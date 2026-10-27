@@ -11,6 +11,7 @@ cleanly (with optional Arelle detection) rather than fabricated.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 import json
 import logging
@@ -33,6 +34,147 @@ logger = logging.getLogger(__name__)
 
 EXTRACTOR_VERSION_SEC = "sec_companyfacts_v1"
 
+#: Concepts that must survive intake truncation, in descending priority.
+#:
+#: CompanyFacts payloads iterate alphabetically, so a plain "consume records
+#: until the cap" loop spends its whole budget inside the ``A``–``D`` concepts
+#: (``DeferredIncomeTax*`` alone is thousands of records) and never reaches
+#: ``Revenues``, ``NetIncomeLoss``, ``NetCashProvidedByUsedInOperatingActivities``
+#: or ``SellingGeneralAndAdministrativeExpense``. Those concepts then have zero
+#: ledger entries, so no downstream prompt selection can recover them and every
+#: forensic index that needs them is silently unavailable.
+#:
+#: Ordering here is intake priority only. It is not a claim that these concepts
+#: are the right economic inputs; downstream binding still decides that.
+PRIORITY_CONCEPTS: Tuple[str, ...] = (
+    # Income statement — revenue, margin, earnings, tax.
+    "Revenues",
+    "RevenueFromContractWithCustomerExcludingAssessedTax",
+    "RevenueFromContractWithCustomerIncludingAssessedTax",
+    "SalesRevenueNet",
+    "CostOfGoodsAndServicesSold",
+    "CostOfRevenue",
+    "GrossProfit",
+    "OperatingIncomeLoss",
+    "NetIncomeLoss",
+    "ProfitLoss",
+    "ResearchAndDevelopmentExpense",
+    "SellingGeneralAndAdministrativeExpense",
+    "IncomeTaxExpenseBenefit",
+    # Balance sheet — leverage, accruals, receivables, equity.
+    "Assets",
+    "AssetsCurrent",
+    "Liabilities",
+    "LiabilitiesCurrent",
+    "LiabilitiesAndStockholdersEquity",
+    "StockholdersEquity",
+    "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+    "RetainedEarningsAccumulatedDeficit",
+    "AccountsReceivableNetCurrent",
+    "AccountsReceivableNet",
+    "ReceivablesNetCurrent",
+    "AccountsReceivableGrossCurrent",
+    "CashAndCashEquivalentsAtCarryingValue",
+    "PropertyPlantAndEquipmentNet",
+    "PropertyPlantAndEquipmentGross",
+    "LongTermDebtCurrent",
+    "LongTermDebtNoncurrent",
+    "LongTermDebt",
+    # Cash flow — operating cash, capex, depreciation and amortization.
+    "NetCashProvidedByUsedInOperatingActivities",
+    "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
+    "NetCashProvidedByUsedInInvestingActivities",
+    "PaymentsToAcquirePropertyPlantAndEquipment",
+    "PaymentsToAcquireProductiveAssets",
+    "DepreciationDepletionAndAmortization",
+    "DepreciationAmortizationAndAccretionNet",
+    "Depreciation",
+    # Share counts and per-share amounts used by valuation checks.
+    "EntityCommonStockSharesOutstanding",
+    "CommonStockSharesOutstanding",
+    "WeightedAverageNumberOfDilutedSharesOutstanding",
+    "WeightedAverageNumberOfSharesOutstandingBasic",
+    "EarningsPerShareDiluted",
+)
+
+_PRIORITY_INDEX = {concept: index for index, concept in enumerate(PRIORITY_CONCEPTS)}
+
+#: Taxonomy namespaces whose concepts are standard enough to ingest in full.
+STANDARD_TAXONOMIES = ("us-gaap", "dei", "ifrs-full", "invest", "srt")
+
+
+def concept_priority(concept: str) -> int:
+    """Return the intake priority of ``concept`` (lower is kept first)."""
+    return _PRIORITY_INDEX.get(str(concept), len(_PRIORITY_INDEX))
+
+
+def _entry_recency_key(entry: Dict[str, Any]) -> Tuple[str, str]:
+    """Descending sort key: newest availability, then newest accession."""
+    return (
+        str(entry.get("availability_time") or entry.get("filed") or ""),
+        str(entry.get("accn") or ""),
+    )
+
+
+@dataclass(frozen=True)
+class SealIntakeCoverage:
+    """What a bounded CompanyFacts intake actually retained.
+
+    ``fact_count`` alone is not a coverage statement. A payload can yield the
+    full record budget and still contain none of the concepts a forensic input
+    needs, which is exactly what an alphabetically truncated intake produced.
+    This records the retained and dropped concept sets so the difference between
+    "the issuer did not tag it" and "our budget discarded it" is never guessed.
+    """
+
+    availability_policy: str
+    fact_limit: int
+    truncated: bool
+    records_seen: int
+    records_retained: int
+    concepts_seen: int
+    concepts_retained: int
+    concepts_dropped_by_limit: Tuple[str, ...] = ()
+    priority_concepts_seen: Tuple[str, ...] = ()
+    priority_concepts_missing_from_payload: Tuple[str, ...] = ()
+    priority_concepts_dropped_by_limit: Tuple[str, ...] = ()
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "availability_policy": self.availability_policy,
+            "fact_limit": self.fact_limit,
+            "truncated": self.truncated,
+            "records_seen": self.records_seen,
+            "records_retained": self.records_retained,
+            "concepts_seen": self.concepts_seen,
+            "concepts_retained": self.concepts_retained,
+            "concepts_dropped_by_limit": list(self.concepts_dropped_by_limit),
+            "priority_concepts_seen": list(self.priority_concepts_seen),
+            "priority_concepts_missing_from_payload": list(
+                self.priority_concepts_missing_from_payload
+            ),
+            "priority_concepts_dropped_by_limit": list(
+                self.priority_concepts_dropped_by_limit
+            ),
+        }
+
+
+@dataclass(frozen=True)
+class FactIntakeReport:
+    """Typed facts plus the intake coverage that produced them."""
+
+    facts: List[Fact]
+    coverage: SealIntakeCoverage
+
+    def __iter__(self):
+        return iter(self.facts)
+
+    def __len__(self) -> int:
+        return len(self.facts)
+
+    def __getitem__(self, index):
+        return self.facts[index]
+
 #: Point-in-time availability policy for SEC-sourced facts.
 #:
 #: The SEC ``filed`` field carries a calendar date with **no intraday
@@ -52,29 +194,35 @@ EXTRACTOR_VERSION_SEC = "sec_companyfacts_v1"
 AVAILABILITY_POLICY = "sec-filed-date-end-of-day-v1"
 
 
-def _conservative_availability(filed: str) -> str:
-    """
-    Convert an SEC calendar ``filed`` date into a conservative UTC timestamp.
+def _conservative_availability(filed: str) -> Optional[str]:
+    """Return the end of the valid filing day, or ``None`` if unknown.
 
-    ``YYYY-MM-DD`` -> ``YYYY-MM-DDT23:59:59Z`` (end of the filed day).
+    ``YYYY-MM-DD`` -> ``YYYY-MM-DDT23:59:59Z``. Timestamp fixtures are
+    normalised to UTC before choosing their day, so an offset cannot make a
+    filing appear available before its actual timestamp. Naive timestamps use
+    UTC, consistent with the fact-ledger timestamp policy.
 
-    If a full timestamp is supplied (some upstream fixtures carry one), it is
-    normalised but *floored to the end of its own calendar day* so the policy is
-    applied uniformly. A malformed date falls back to a clearly-unusable epoch
-    so the fact is never accidentally treated as recent.
+    Unknown dates must not become a historical sentinel: an epoch timestamp
+    would pass every modern ``availability <= cutoff`` check. The parser
+    excludes these observations instead of manufacturing an availability date.
     """
     raw = str(filed or "").strip()
     if not raw:
-        # Unknown filing date: use an obviously unavailable epoch rather than
-        # guessing "now".
-        return "1970-01-01T23:59:59Z"
-    day = raw[:10]
+        return None
     try:
-        date.fromisoformat(day)
-    except ValueError:
-        # Unparseable filing date -> never available early.
-        return "1970-01-01T23:59:59Z"
-    return f"{day}T23:59:59Z"
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw):
+            day = date.fromisoformat(raw)
+        else:
+            # A valid date prefix followed by garbage is not a valid date.
+            if not re.match(r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}", raw):
+                return None
+            stamp = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            if stamp.tzinfo is None:
+                stamp = stamp.replace(tzinfo=timezone.utc)
+            day = stamp.astimezone(timezone.utc).date()
+    except (ValueError, OverflowError):
+        return None
+    return f"{day.isoformat()}T23:59:59Z"
 
 
 def _values_equal(a: Optional[float], b: Optional[float]) -> bool:
@@ -142,18 +290,18 @@ def _accounting_basis_for_taxonomy(taxonomy: str) -> AccountingBasis:
     return AccountingBasis.OTHER
 
 
-def parse_sec_company_facts(
+def parse_sec_company_facts_report(
     data: Union[Dict[str, Any], str, bytes, Path],
     *,
     ticker: Optional[str] = None,
     cik: Optional[Union[str, int]] = None,
     retrieval_time: Optional[str] = None,
-    max_facts: int = 5000,
+    max_facts: Optional[int] = 50000,
     as_of: Optional[Union[str, date, datetime]] = None,
     defer_dimensional: bool = True,
-) -> List[Fact]:
+) -> "FactIntakeReport":
     """
-    Parse an SEC EDGAR companyfacts JSON payload into a list of typed Fact objects.
+    Parse an SEC EDGAR companyfacts JSON payload into typed facts and a coverage report.
 
     Preserves:
     - Exact accession (e.g. "0000320193-23-000106")
@@ -165,7 +313,22 @@ def parse_sec_company_facts(
 
     Unsupported custom or multi-dimensional concepts are deferred cleanly
     rather than pretended or fabricated.
+
+    ``max_facts`` bounds how many raw observations become facts. The bound is
+    applied **after** the whole payload is seen and in :data:`PRIORITY_CONCEPTS`
+    order, so intake cannot lose a core statement concept to an unrelated
+    concept that merely sorts earlier in the JSON. ``max_facts=None`` ingests
+    every observation.
+
+    The returned :class:`FactIntakeReport` states what was retained, what the
+    payload genuinely did not tag, and what the bound discarded. Those three are
+    different facts about a run and must never be reported as one number.
     """
+    if max_facts is not None:
+        if isinstance(max_facts, bool) or not isinstance(max_facts, int):
+            raise TypeError("max_facts must be an int or None")
+        if max_facts <= 0:
+            raise ValueError("max_facts must be a positive record budget")
     # 1. Load payload
     if isinstance(data, Path):
         content = data.read_text(encoding="utf-8")
@@ -186,8 +349,21 @@ def parse_sec_company_facts(
 
     facts_dict = payload.get("facts")
     if not isinstance(facts_dict, dict):
-        # Empty or invalid facts section
-        return []
+        # Empty or invalid facts section: an explicitly empty report, never a
+        # silent "no facts were reported by the issuer" conclusion.
+        return FactIntakeReport(
+            facts=[],
+            coverage=SealIntakeCoverage(
+                availability_policy=AVAILABILITY_POLICY,
+                fact_limit=int(max_facts) if max_facts is not None else 0,
+                truncated=False,
+                records_seen=0,
+                records_retained=0,
+                concepts_seen=0,
+                concepts_retained=0,
+                priority_concepts_missing_from_payload=PRIORITY_CONCEPTS,
+            ),
+        )
 
     # Collected raw items grouped by (taxonomy, concept, unit, period_key)
     # to reconstruct chronology and supersession
@@ -234,9 +410,6 @@ def parse_sec_company_facts(
                     "metadata": {"deferred": True, "taxonomy": taxonomy},
                 }
                 raw_fact_groups.setdefault(group_key, []).append(deferred_entry)
-                count += 1
-                if count >= max_facts:
-                    break
                 continue
 
             for unit_key, fact_entries in units_dict.items():
@@ -253,6 +426,13 @@ def parse_sec_company_facts(
                     start = entry.get("start")
                     end = entry.get("end")
                     filed = str(entry.get("filed") or entry.get("filingDate") or "")
+                    availability = _conservative_availability(filed)
+                    if availability is None:
+                        logger.warning(
+                            "Excluded SEC observation with unknown or malformed filing date: %s:%s",
+                            taxonomy, concept_name,
+                        )
+                        continue
                     accn = str(entry.get("accn") or entry.get("accessionNumber") or "0000320193-00-000000")
                     form = str(entry.get("form") or "")
                     fy = entry.get("fy")
@@ -296,6 +476,7 @@ def parse_sec_company_facts(
                         "val": val_float,
                         "missing_reason": missing_reason,
                         "filed": filed,
+                        "availability_time": availability,
                         "accn": accn,
                         "form": form,
                         "fy": fy,
@@ -320,22 +501,83 @@ def parse_sec_company_facts(
 
                     raw_fact_groups.setdefault(group_key, []).append(parsed_entry)
                     count += 1
-                    if count >= max_facts:
-                        break
-                if count >= max_facts:
+
+    # 1b. Bounded intake, decided by concept priority rather than payload order.
+    #
+    # The limit is applied *after* every record has been seen, so a concept that
+    # is important but late in the alphabet is never lost to an earlier concept's
+    # long history. Retention is round-robin across concept/unit/period groups
+    # ordered by priority, so the budget buys breadth of concepts first and depth
+    # of history second; within a group the most recent entries are kept, which
+    # preserves the current period and its supersession chain.
+    records_seen = count
+    concepts_seen = sorted({key[1] for key in raw_fact_groups})
+    truncated = False
+    records_retained = records_seen
+    if max_facts is not None and records_seen > max_facts:
+        truncated = True
+        ordered_keys = sorted(
+            raw_fact_groups,
+            key=lambda key: (concept_priority(key[1]), key[1], key[0], key[2], key[3]),
+        )
+        queues: Dict[Tuple[str, str, str, str], List[Dict[str, Any]]] = {
+            key: sorted(raw_fact_groups[key], key=_entry_recency_key, reverse=True)
+            for key in ordered_keys
+        }
+        positions = dict.fromkeys(ordered_keys, 0)
+        bounded: Dict[Tuple[str, str, str, str], List[Dict[str, Any]]] = {
+            key: [] for key in ordered_keys
+        }
+        retained = 0
+        while retained < max_facts:
+            progressed = False
+            for key in ordered_keys:
+                if retained >= max_facts:
                     break
-            if count >= max_facts:
+                position = positions[key]
+                if position >= len(queues[key]):
+                    continue
+                bounded[key].append(queues[key][position])
+                positions[key] = position + 1
+                retained += 1
+                progressed = True
+            if not progressed:
                 break
-        if count >= max_facts:
-            break
+        raw_fact_groups = {key: entries for key, entries in bounded.items() if entries}
+        records_retained = retained
+
+    concepts_retained = sorted({key[1] for key in raw_fact_groups})
+    coverage = SealIntakeCoverage(
+        availability_policy=AVAILABILITY_POLICY,
+        fact_limit=int(max_facts) if max_facts is not None else records_seen,
+        truncated=truncated,
+        records_seen=records_seen,
+        records_retained=records_retained,
+        concepts_seen=len(concepts_seen),
+        concepts_retained=len(concepts_retained),
+        concepts_dropped_by_limit=tuple(sorted(set(concepts_seen) - set(concepts_retained))),
+        priority_concepts_seen=tuple(
+            concept for concept in PRIORITY_CONCEPTS if concept in set(concepts_seen)
+        ),
+        priority_concepts_missing_from_payload=tuple(
+            concept for concept in PRIORITY_CONCEPTS if concept not in set(concepts_seen)
+        ),
+        priority_concepts_dropped_by_limit=tuple(
+            concept
+            for concept in PRIORITY_CONCEPTS
+            if concept in set(concepts_seen) and concept not in set(concepts_retained)
+        ),
+    )
 
     # 2. Build Fact objects with supersession chains for amendments/restatements
     facts: List[Fact] = []
+    emitted_ids: Set[str] = set()
 
     for (taxonomy, concept_name, unit, period_key), entries in raw_fact_groups.items():
         # Sort chronologically by filing date, then accession
         def _sort_key(e: Dict[str, Any]) -> Tuple[str, str]:
-            return (e.get("filed") or "1970-01-01", e.get("accn") or "")
+            # Compare UTC availability, not lexical timestamps with offsets.
+            return (e.get("availability_time") or _conservative_availability(e["filed"]) or "", e.get("accn") or "")
 
         sorted_entries = sorted(entries, key=_sort_key)
 
@@ -345,7 +587,7 @@ def parse_sec_company_facts(
         prior_basis: Optional[AccountingBasis] = None
 
         for idx, entry in enumerate(sorted_entries):
-            filed = entry["filed"] or "1970-01-01"
+            filed = entry["filed"]
             accn = entry["accn"]
             accn_clean = accn.replace("-", "")
             concept_slug = re.sub(r"[^a-zA-Z0-9_]", "_", concept_name).lower()
@@ -354,8 +596,11 @@ def parse_sec_company_facts(
 
             fact_id = f"fact_{comp_slug}_{concept_slug}_{period_slug}_{accn_clean}"
 
-            # If identical ID occurs in same group (rare duplicate accession entry), append index
-            if any(f.id == fact_id for f in facts):
+            # If identical ID occurs in same group (rare duplicate accession
+            # entry), append an index. Membership is tracked in a set: a linear
+            # scan here made intake quadratic, which is what forced a small
+            # record budget in the first place.
+            if fact_id in emitted_ids:
                 fact_id = f"{fact_id}_{idx}"
 
             # Conservative availability: the SEC 'filed' field is a calendar date
@@ -364,7 +609,10 @@ def parse_sec_company_facts(
             # claims the fact was public earlier than the evidence supports
             # (a filing accepted after the close of business is still only
             # knowable from the filing date onward, not from 00:00).
-            avail_iso = _conservative_availability(filed)
+            avail_iso = entry.get("availability_time") or _conservative_availability(filed)
+            if avail_iso is None:
+                # Defensive guard: no constructed Fact may invent a timestamp.
+                continue
 
             entry_value = entry.get("val")
             entry_unit = entry.get("unit")
@@ -468,6 +716,7 @@ def parse_sec_company_facts(
             )
 
             facts.append(fact)
+            emitted_ids.add(fact.id)
             prior_fact_id = fact.id
             prior_val = fact.value
             prior_unit = unit
@@ -477,7 +726,34 @@ def parse_sec_company_facts(
     if as_of is not None:
         facts = [f for f in facts if usable_as_of(f, as_of)]
 
-    return facts
+    return FactIntakeReport(facts=facts, coverage=coverage)
+
+
+def parse_sec_company_facts(
+    data: Union[Dict[str, Any], str, bytes, Path],
+    *,
+    ticker: Optional[str] = None,
+    cik: Optional[Union[str, int]] = None,
+    retrieval_time: Optional[str] = None,
+    max_facts: Optional[int] = 50000,
+    as_of: Optional[Union[str, date, datetime]] = None,
+    defer_dimensional: bool = True,
+) -> List[Fact]:
+    """Parse CompanyFacts into typed facts (list-shaped convenience wrapper).
+
+    Coverage is available from :func:`parse_sec_company_facts_report`, which
+    this delegates to; use that when the difference between "not tagged by the
+    issuer" and "discarded by our record budget" matters.
+    """
+    return parse_sec_company_facts_report(
+        data,
+        ticker=ticker,
+        cik=cik,
+        retrieval_time=retrieval_time,
+        max_facts=max_facts,
+        as_of=as_of,
+        defer_dimensional=defer_dimensional,
+    ).facts
 
 
 def ingest_company_facts_file(

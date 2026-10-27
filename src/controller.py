@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import io
 import json
 import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -16,6 +18,7 @@ from src.contracts import COMPARISON_FIELD_KEYS, SCORECARD_CATEGORIES
 from src.envelope import Envelope
 from src.orchestrator import FUWForgeOrchestrator, OrchestratorParams
 from src.run_audit import verify_run
+from src.resources import get_default_runs_dir
 from src.utils.checksum import envelope_content_checksum
 from src.utils.finance import generate_comparison_fields, resolve_weights
 from src.validators import validate_checksum
@@ -180,7 +183,7 @@ def cmd_run(args: argparse.Namespace) -> None:
         raise ValueError("--web-max-sources must be between 1 and 6.")
     if web_enabled and not (evidence_pack or getattr(args, "auto_sources", False)):
         raise ValueError("Gemini web search requires --auto-sources or --evidence-pack for financial inputs; use --no-web-search to disable it.")
-    source_root = (Path(args.run_dir).resolve() if args.run_dir else PROJECT_ROOT / "runs" / run_id)
+    source_root = (Path(args.run_dir).resolve() if args.run_dir else get_default_runs_dir(PROJECT_ROOT) / run_id)
     if not getattr(args, "resume", False) and ((source_root / "run_summary.json").exists() or any(source_root.glob("*_envelope.json"))):
         raise FileExistsError("Existing run will not be overwritten. Use --resume or a fresh run directory.")
     if getattr(args, "resume", False):
@@ -249,13 +252,25 @@ def cmd_verify_run(args: argparse.Namespace) -> None:
         print(f"Run integrity succeeded ({len(result.warnings)} warning(s)).")
         return
 
-    report = semantic_audit(run_dir)
+    require_source_backed = getattr(args, "require_source_backed", False)
+    report = semantic_audit(run_dir, require_source_backed=require_source_backed)
+    if args.strict:
+        report.errors.extend(report.warnings)
+        if not report.complete:
+            report.errors.append("strict: run is incomplete")
 
     if getattr(args, "json", False):
         print(json.dumps(report.to_dict(), indent=2))
     else:
         print(f"Run audit: {run_dir}")
         print(f"Overall state: {report.overall_state}")
+        assurance = report.assurance
+        print(f"Assurance: {assurance['label']}")
+        print(f"  means: {assurance['means']}")
+        if assurance["unmet_source_backed_conditions"]:
+            print("  source-backed conditions NOT met:")
+            for condition in assurance["unmet_source_backed_conditions"]:
+                print(f"    - {condition}")
         print("\nIndependent levels:")
         for level, state in report.levels.items():
             print(f"  - {level:<24} {state}")
@@ -272,29 +287,75 @@ def cmd_verify_run(args: argparse.Namespace) -> None:
             for error in report.errors:
                 print(f"  - {error}")
 
-    if args.strict:
-        report.errors.extend(report.warnings)
-        if not report.complete:
-            report.errors.append("strict: run is incomplete")
-
     if report.errors:
-        print("\nRun audit FAILED:")
-        for error in report.errors:
-            print(f"- {error}")
+        if not getattr(args, "json", False):
+            print("\nRun audit FAILED:")
+            for error in report.errors:
+                print(f"- {error}")
         raise SystemExit(1)
 
     if report.overall_state == "incomplete":
-        print(
-            "\nAudit passed for the completed subgraph only. This run is NOT a "
-            "complete research report."
-        )
+        if not getattr(args, "json", False):
+            print(
+                "\nAudit passed for the completed subgraph only. This run is NOT a "
+                "complete research report."
+            )
         raise SystemExit(1)
 
-    print(
-        "\nAudit passed. Matching bytes are established; source reconstruction, "
-        "arithmetic replay and factual support are reported at their own levels "
-        "above and are not implied by this result."
-    )
+    if not getattr(args, "json", False):
+        print(
+            "\nAudit passed. Matching bytes are established; source reconstruction, "
+            "arithmetic replay and factual support are reported at their own levels "
+            "above and are not implied by this result."
+        )
+        if report.assurance["label"] != "source_backed":
+            print(
+                "Assurance level is "
+                f"'{report.assurance['label']}': this run is NOT a source-backed "
+                "financial validation. Re-run with --require-source-backed to fail "
+                "closed on the conditions listed above."
+            )
+
+
+def _changed_manifest_outputs(run_dir: Path) -> List[str]:
+    """Return recorded final artifacts whose bytes no longer match the manifest.
+
+    ``seal`` rebuilds ``run_manifest.json`` from what is on disk. Without this
+    comparison, editing the report (or the artifact bundle) and re-sealing made
+    the audit certify the edited bytes as the run's own output. Only the
+    *outputs* are compared: re-sealing legitimately rewrites envelope bytes, so
+    envelope digests are expected to change.
+    """
+    manifest_path = run_dir / "run_manifest.json"
+    if not manifest_path.is_file():
+        return []
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    recorded = manifest.get("outputs")
+    if not isinstance(recorded, dict):
+        return []
+    changed: List[str] = []
+    for label, entry in recorded.items():
+        if not isinstance(entry, dict):
+            continue
+        rel = entry.get("path")
+        expect = entry.get("sha256")
+        if not isinstance(rel, str) or not isinstance(expect, str) or not expect:
+            continue
+        target = (run_dir / rel).resolve()
+        if run_dir.resolve() not in target.parents and target != run_dir.resolve():
+            changed.append(f"{rel} ({label}: recorded path escapes the run directory)")
+            continue
+        try:
+            actual = "sha256:" + hashlib.sha256(target.read_bytes()).hexdigest()
+        except OSError:
+            changed.append(f"{rel} ({label}: recorded output is missing)")
+            continue
+        if actual != expect:
+            changed.append(f"{rel} ({label}: recorded {expect[:19]}…, on disk {actual[:19]}…)")
+    return changed
 
 
 def cmd_seal(args: argparse.Namespace) -> None:
@@ -320,6 +381,21 @@ def cmd_seal(args: argparse.Namespace) -> None:
                 f"{path.name}: content checksum mismatch; refusing to re-seal a "
                 "modified envelope (use --force to override)."
             )
+
+    # Re-sealing rewrites the manifest, so a report or artifact edited after the
+    # run would be re-pinned to its new bytes and then audit as verified. That is
+    # laundering, not sealing: compare the recorded final-artifact digests with
+    # what is on disk and refuse before touching anything.
+    changed_outputs = _changed_manifest_outputs(run_dir)
+    if changed_outputs and not force:
+        raise SystemExit(
+            "Refusing to re-seal: these final artifacts no longer match the "
+            "digests recorded in run_manifest.json, so re-sealing would certify "
+            "edited output as the run's result:\n- "
+            + "\n- ".join(changed_outputs)
+            + "\nRestore the original bytes, or pass --force to certify the edited "
+            "bytes deliberately."
+        )
 
     checksums: Dict[str, str] = {}
     restored_agents: set[str] = set()
@@ -394,7 +470,9 @@ def cmd_seal(args: argparse.Namespace) -> None:
     # Re-sealing changes envelope bytes, so any manifest sealed alongside them is
     # now stale. Rebuild it from the newly sealed envelopes; leaving a stale
     # manifest behind would report the run as unverifiable for no good reason.
-    manifest_rebuilt = _rebuild_run_manifest(run_dir)
+    manifest_rebuilt = _rebuild_run_manifest(
+        run_dir, resealed_outputs=changed_outputs if force else None
+    )
 
     print(
         f"Sealed {len(sealed_agents)} envelope(s) in {run_dir}"
@@ -413,10 +491,19 @@ def cmd_seal(args: argparse.Namespace) -> None:
             else ""
         )
         + (" Rebuilt run_manifest.json." if manifest_rebuilt else "")
+        + (
+            " WARNING: --force re-sealed final artifacts that no longer matched the "
+            "recorded digests (" + ", ".join(changed_outputs) + "); this run now "
+            "certifies the edited bytes, not the original execution."
+            if (changed_outputs and force)
+            else ""
+        )
     )
 
 
-def _rebuild_run_manifest(run_dir: Path) -> bool:
+def _rebuild_run_manifest(
+    run_dir: Path, resealed_outputs: Optional[List[str]] = None
+) -> bool:
     """Rebuild run_manifest.json from the run's current sealed envelopes."""
     manifest_path = run_dir / "run_manifest.json"
     if not manifest_path.is_file():
@@ -455,6 +542,15 @@ def _rebuild_run_manifest(run_dir: Path) -> bool:
         # re-verify source bytes.
         if manifest.get("evidence"):
             rebuilt["evidence"] = manifest["evidence"]
+        # A forced re-seal of edited final artifacts is a durable fact about the
+        # run, not just a console warning: an auditor reading the manifest later
+        # must be able to see that these bytes are not the execution's output.
+        if resealed_outputs:
+            rebuilt["resealed"] = {
+                "at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+                "changed_outputs": list(resealed_outputs),
+                "means": "seal --force certified edited final artifacts; these bytes are not the original execution output",
+            }
         manifest_path.write_text(json.dumps(rebuilt, indent=2), encoding="utf-8")
         return True
     except (OSError, ValueError, KeyError, json.JSONDecodeError):
@@ -915,7 +1011,6 @@ def build_parser() -> argparse.ArgumentParser:
             "opencode",
             "opencode-go",
             "opencode_go",
-            "openrouter",
             "openai",
             "gemini",
         ],
@@ -975,6 +1070,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Treat warnings and incompleteness as errors.",
     )
     verify_parser.add_argument(
+        "--require-source-backed",
+        action="store_true",
+        help="Require verified evidence bytes, all eight source-bound A3 Beneish inputs, and no disclosed calculation gaps.",
+    )
+    verify_parser.add_argument(
         "--integrity-only",
         action="store_true",
         help="Only run the legacy hash/schema/lineage integrity check (faster).",
@@ -1028,7 +1128,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     monitor_parser = subparsers.add_parser(
         "monitor",
-        help="Evaluate a document using Jev / TypeSafe, Gemini / Google AI Studio, OpenCode Go, or OpenRouter.",
+        help="Evaluate a document using Jev / TypeSafe, Gemini / Google AI Studio, or OpenCode Go.",
     )
     monitor_parser.add_argument("run_dir", help="Completed run directory.")
     monitor_parser.add_argument(
@@ -1044,7 +1144,6 @@ def build_parser() -> argparse.ArgumentParser:
             "opencode",
             "opencode-go",
             "opencode_go",
-            "openrouter",
             "mock",
         ],
         help="Evaluation provider (default: auto; uses Jev if configured, else mock; select gemini explicitly for Google AI Studio).",
@@ -1052,7 +1151,7 @@ def build_parser() -> argparse.ArgumentParser:
     monitor_parser.add_argument(
         "--model",
         default=None,
-        help="Model name override for Jev, Gemini, OpenCode Go, or OpenRouter.",
+        help="Model name override for Jev, Gemini, or OpenCode Go.",
     )
     monitor_parser.add_argument(
         "--threshold",
@@ -1142,11 +1241,33 @@ def build_parser() -> argparse.ArgumentParser:
     )
     export_pkt_parser.set_defaults(func=cmd_export_packet)
 
+    wizard_parser = subparsers.add_parser(
+        "wizard",
+        aliases=["guided", "interactive"],
+        help="Interactive guided wizard to configure, execute, and audit an analysis run.",
+    )
+    wizard_parser.set_defaults(func=lambda _args: _run_wizard_entry())
+
     return parser
+
+
+def _run_wizard_entry() -> None:
+    from src.wizard import run_wizard
+
+    try:
+        run_wizard()
+    except KeyboardInterrupt:
+        print("\n\nOperation cancelled by user.")
 
 
 def main() -> None:
     parser = build_parser()
+    if len(sys.argv) == 1:
+        if sys.stdin.isatty():
+            _run_wizard_entry()
+            return
+        parser.print_help()
+        sys.exit(2)
     args = parser.parse_args()
     args.func(args)
 

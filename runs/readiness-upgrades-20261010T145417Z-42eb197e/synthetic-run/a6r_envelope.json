@@ -1,0 +1,131 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A6R",
+    "name": "Bear-Case"
+  },
+  "timestamp": "2026-10-10T15:01:44Z",
+  "params": {
+    "company": "Synthetic Corp",
+    "ticker": "SYNTH",
+    "analysis_date": "2025-06-01",
+    "depth": "Standard",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "gates": {
+    "passed": true,
+    "notes": []
+  },
+  "sections_md": {
+    "SECTION_11_BEAR_CASE": "# Section 11: Bear Rebuttals\n\n1. **Deal Elongation Scrutiny**: Macro enterprise IT budget tightening may delay cloud expansions (Probability: Med, Severity: Med).\n2. **Talent & Hosting Cost Inflation**: High specialist salaries could offset operational automation gains (Probability: Low, Severity: High).\n3. **Multiple De-rating Risk**: Premium PEG valuation multiples remain vulnerable if growth decelerates below 10% (Probability: Med, Severity: Med)."
+  },
+  "artifacts": {
+    "BearRebuttals": [
+      {
+        "bull_id": "B1",
+        "probability": "Med",
+        "severity": "Med",
+        "counter": "Macro enterprise IT budget scrutiny could delay expansion cycles."
+      },
+      {
+        "bull_id": "B2",
+        "probability": "Low",
+        "severity": "High",
+        "counter": "AI compute capex and engineer hiring costs could compress gross margins."
+      },
+      {
+        "bull_id": "B3",
+        "probability": "Med",
+        "severity": "Med",
+        "counter": "Multiple de-rating could offset share repurchases if revenue guidance softens."
+      }
+    ],
+    "_execution_lineage": {
+      "consumed_upstream": [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5",
+        "A6B"
+      ],
+      "execution_key": "29e9db8827b7efeb6f8a2f4f1d98f96e01a37ca55ab391626327be5b33136baf",
+      "upstream": [
+        {
+          "agent": "A1",
+          "content_checksum": "sha256:129ed0aed5c6bec8ea607638583c38740fa575c24561009486bff08e71c0ea9a"
+        },
+        {
+          "agent": "A2",
+          "content_checksum": "sha256:cff064295dac37465b70e88832f7ac8a10b5d08884e5e7942674e9cafabfbab8"
+        },
+        {
+          "agent": "A3",
+          "content_checksum": "sha256:964110fcb19447c6e7e20930eb9001987f5e83b9f705db23f9cd4fa71014b551"
+        },
+        {
+          "agent": "A4",
+          "content_checksum": "sha256:3d21ee2d06c971a0efc6a0c7a73cfd154e46439167d6850806cc471468927aba"
+        },
+        {
+          "agent": "A5",
+          "content_checksum": "sha256:da436c62e4aa4f937e09050ccb4f4feb18b23ea2412353536b795c3001d635ff"
+        },
+        {
+          "agent": "A6B",
+          "content_checksum": "sha256:4f35a4d6308a99e3bf0dab444f5778e700748796dc5ba0527643def4dcf1f1a1"
+        }
+      ],
+      "prompt_sha256": "8da9399ef8cbb236ff63ad44e639c305207ad3aa95a08c1e5e4c6502a54c0800",
+      "request_sha256": "7854d02c4b0a1c26d681ddbe78228e81b83156f7604eba7309db1673251a6c4c",
+      "evidence_sha256": "ecbbf96e92f18154727271eeaf7572398e111e98aa28044e0255b9ea2f2883dd",
+      "provider": "mock",
+      "model": "make_mock_agent_cls.<locals>.ConfiguredMockAgent"
+    }
+  },
+  "sources": [
+    {
+      "type": "Synthesis",
+      "url": "internal:a6r",
+      "doc_date": "2025-01-31",
+      "accessed": "2026-10-10T15:01:44Z"
+    }
+  ],
+  "warnings": [],
+  "metrics": {
+    "data_checksum": "sha256:dc97a0b2d1334ea3bf64858941c95d3f1d3eed7c69f9438883034ded4eacc4aa",
+    "latency_ms": 85,
+    "tokens": 330,
+    "retries": 0
+  },
+  "confidence": 0.94,
+  "content_checksum": "sha256:d4fd276d8df4b48207d3044c1ce158a45f8fa9c0ee8030d1fd4433b909b37ae6",
+  "upstream": [
+    {
+      "agent": "A1",
+      "content_checksum": "sha256:129ed0aed5c6bec8ea607638583c38740fa575c24561009486bff08e71c0ea9a"
+    },
+    {
+      "agent": "A2",
+      "content_checksum": "sha256:cff064295dac37465b70e88832f7ac8a10b5d08884e5e7942674e9cafabfbab8"
+    },
+    {
+      "agent": "A3",
+      "content_checksum": "sha256:964110fcb19447c6e7e20930eb9001987f5e83b9f705db23f9cd4fa71014b551"
+    },
+    {
+      "agent": "A4",
+      "content_checksum": "sha256:3d21ee2d06c971a0efc6a0c7a73cfd154e46439167d6850806cc471468927aba"
+    },
+    {
+      "agent": "A5",
+      "content_checksum": "sha256:da436c62e4aa4f937e09050ccb4f4feb18b23ea2412353536b795c3001d635ff"
+    },
+    {
+      "agent": "A6B",
+      "content_checksum": "sha256:4f35a4d6308a99e3bf0dab444f5778e700748796dc5ba0527643def4dcf1f1a1"
+    }
+  ]
+}

@@ -1,0 +1,139 @@
+{
+  "schema_version": "1",
+  "ticker": "AAPL",
+  "documents": [
+    {
+      "id": "D001",
+      "type": "SECFiling",
+      "title": "AAPL 10-K filed 2025-10-31",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm",
+      "doc_date": "2025-10-31",
+      "date_basis": "SEC_filing_date",
+      "accessed": "2026-10-26T22:12:57Z",
+      "content_type": "text/html",
+      "content_sha256": "sha256:900c7ea3a2be4717cc225b42dcdcb432a981fcc75b29414a45867ab98c320849",
+      "text_sha256": "sha256:5ae017a48a27f442784dfcde47e0c079b10ff2f761a22f8fcb49f995c217456a",
+      "raw_file": "D001.bytes",
+      "text_file": "D001.txt",
+      "verification": "retrieved"
+    },
+    {
+      "id": "D002",
+      "type": "SECFiling",
+      "title": "AAPL 10-K filed 2024-11-01",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019324000123/aapl-20240928.htm",
+      "doc_date": "2024-11-01",
+      "date_basis": "SEC_filing_date",
+      "accessed": "2026-10-26T22:12:58Z",
+      "content_type": "text/html",
+      "content_sha256": "sha256:de0bd0385fa03005e3310b5d91213f904e0611b98a22a9ba5a440d4eb9ef2869",
+      "text_sha256": "sha256:8b30f4c8862536f80cba39667c5b5455023a617e65b1b48c1da746b2cac6448f",
+      "raw_file": "D002.bytes",
+      "text_file": "D002.txt",
+      "verification": "retrieved"
+    },
+    {
+      "id": "D003",
+      "type": "SECFiling",
+      "title": "AAPL 10-K filed 2023-11-03",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019323000106/aapl-20230930.htm",
+      "doc_date": "2023-11-03",
+      "date_basis": "SEC_filing_date",
+      "accessed": "2026-10-26T22:12:59Z",
+      "content_type": "text/html",
+      "content_sha256": "sha256:8d470eb2abf1e0e80cb18f1e44812e2273531cb1484045c661900f0bc7c35e00",
+      "text_sha256": "sha256:d5cae020d898cc07cbbe1ca2f4c846b5eaa0fb395276d767a94bce9b1f2d8a24",
+      "raw_file": "D003.bytes",
+      "text_file": "D003.txt",
+      "verification": "retrieved"
+    },
+    {
+      "id": "D004",
+      "type": "SECFiling",
+      "title": "AAPL 10-Q filed 2026-07-31",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000020/aapl-20260627.htm",
+      "doc_date": "2026-07-31",
+      "date_basis": "SEC_filing_date",
+      "accessed": "2026-10-26T22:12:59Z",
+      "content_type": "text/html",
+      "content_sha256": "sha256:554089728be59481c6c8ead945724ba2832a7bc2a9ced0a4459aacfeb02a2e39",
+      "text_sha256": "sha256:b3e9bc09b82cad0096645ea8009fbf7d625b4840da78da458b8d6be427fc1b49",
+      "raw_file": "D004.bytes",
+      "text_file": "D004.txt",
+      "verification": "retrieved"
+    },
+    {
+      "id": "D005",
+      "type": "SECFiling",
+      "title": "AAPL DEF 14A filed 2026-01-08",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000130817926000008/aapl014016-def14a.htm",
+      "doc_date": "2026-01-08",
+      "date_basis": "SEC_filing_date",
+      "accessed": "2026-10-26T22:13:00Z",
+      "content_type": "text/html",
+      "content_sha256": "sha256:6fb010f77bce0eba9a23fd811533f17fa34c4fab73c5ba607815d5842928479f",
+      "text_sha256": "sha256:5ea04a9a1efe0215bb5d2485c75c566ddf389f56e98bd8e24548a2946f8f6e67",
+      "raw_file": "D005.bytes",
+      "text_file": "D005.txt",
+      "verification": "retrieved"
+    },
+    {
+      "id": "D006",
+      "type": "SECMaterialEvent",
+      "title": "AAPL 8-K/A filed 2026-09-01",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000114036126035325/ef20081427_8ka.htm",
+      "doc_date": "2026-09-01",
+      "date_basis": "SEC_filing_date",
+      "accessed": "2026-10-26T22:13:00Z",
+      "content_type": "text/html",
+      "content_sha256": "sha256:6a20848525ecf6286280e76f35d33eed2732885800eeb4a7152dcde66639ffed",
+      "text_sha256": "sha256:b4fa71acaa52e60ad183321cbe64d82313e5a0e26fb4172fea546b01af7eb63f",
+      "raw_file": "D006.bytes",
+      "text_file": "D006.txt",
+      "verification": "retrieved"
+    },
+    {
+      "id": "D007",
+      "type": "SECMaterialEvent",
+      "title": "AAPL 8-K filed 2026-07-30",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000018/aapl-20260730.htm",
+      "doc_date": "2026-07-30",
+      "date_basis": "SEC_filing_date",
+      "accessed": "2026-10-26T22:13:00Z",
+      "content_type": "text/html",
+      "content_sha256": "sha256:205908a881452e378d990d56359145f318f2495694800bd510d347b5254f3ab3",
+      "text_sha256": "sha256:cab42602c52c99e1569b48d8e8c94170fc64aafc066ab2baafd69a753e7ab800",
+      "raw_file": "D007.bytes",
+      "text_file": "D007.txt",
+      "verification": "retrieved"
+    },
+    {
+      "id": "D008",
+      "type": "MarketHistory",
+      "title": "AAPL daily price history through 2026-10-26",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/AAPL?period1=1745452800&period2=1793059200&interval=1d",
+      "doc_date": "2026-10-26",
+      "date_basis": "requested_market_history_cutoff",
+      "accessed": "2026-10-26T22:13:00Z",
+      "content_type": "application/json;charset=utf-8",
+      "content_sha256": "sha256:b1ac2e2d813042992a9327b4aa681b393ade11fa6c081ab7cf8edd22e87e4392",
+      "text_sha256": "sha256:2f746a0113ea92ffea26a95c0ad18e8343e9bc3fb72f8cb81da499fc322ab49c",
+      "raw_file": "D008.bytes",
+      "text_file": "D008.txt",
+      "verification": "retrieved",
+      "transform": {
+        "kind": "yahoo_daily",
+        "ticker": "AAPL",
+        "symbol": "AAPL",
+        "analysis_date": "2026-10-26"
+      }
+    }
+  ],
+  "attachments": [
+    {
+      "file": "sec_companyfacts.json",
+      "sha256": "sha256:73a86c6aedc31f77cac2ea4df5f80f0b3bd7e6eb58bb4e01444fbedf3afb9c43",
+      "kind": "sec_companyfacts"
+    }
+  ]
+}

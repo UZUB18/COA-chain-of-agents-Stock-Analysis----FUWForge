@@ -1,0 +1,94 @@
+{
+  "run_id": "run_mockres_20261010_150144",
+  "status": "completed",
+  "halt_reason": null,
+  "provider": "mock",
+  "model": "not-applicable",
+  "strict": false,
+  "flow_mode": "automated",
+  "params": {
+    "company": "Mock Resume Inc",
+    "ticker": "MOCKRES",
+    "analysis_date": "2025-06-01",
+    "depth": "Quick",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "checksum": "sha256:f1d3ba1cfa24d75e568ecd77996579c53ff5adc1a8128c3ce6e7b9f026a4b041",
+  "evidence_checksum": null,
+  "metrics": {
+    "A1": {
+      "latency_ms": 0,
+      "tokens": 420,
+      "retries": 0,
+      "confidence": 0.98,
+      "status": "passed"
+    },
+    "A2": {
+      "latency_ms": 0,
+      "tokens": 480,
+      "retries": 0,
+      "confidence": 0.95,
+      "status": "passed"
+    },
+    "A3": {
+      "latency_ms": 0,
+      "tokens": 510,
+      "retries": 0,
+      "confidence": 0.96,
+      "status": "passed"
+    },
+    "A4": {
+      "latency_ms": 0,
+      "tokens": 390,
+      "retries": 0,
+      "confidence": 0.94,
+      "status": "passed"
+    },
+    "A5": {
+      "latency_ms": 0,
+      "tokens": 430,
+      "retries": 0,
+      "confidence": 0.93,
+      "status": "passed"
+    },
+    "A6B": {
+      "latency_ms": 0,
+      "tokens": 310,
+      "retries": 0,
+      "confidence": 0.95,
+      "status": "passed"
+    },
+    "A6R": {
+      "latency_ms": 0,
+      "tokens": 330,
+      "retries": 0,
+      "confidence": 0.94,
+      "status": "passed"
+    },
+    "A6": {
+      "latency_ms": 0,
+      "tokens": 530,
+      "retries": 0,
+      "confidence": 0.96,
+      "status": "passed"
+    },
+    "A7": {
+      "latency_ms": 0,
+      "tokens": 620,
+      "retries": 0,
+      "confidence": 0.97,
+      "status": "passed"
+    }
+  },
+  "outputs": {
+    "report": "/home/trbuzu/Documents/COA-chain-of-agents-Stock-Analysis----FUWForge/runs/readiness-upgrades-20261010T145417Z-42eb197e/mock-resume/MOCKRES_2025-06-01_report.md",
+    "artifacts": "/home/trbuzu/Documents/COA-chain-of-agents-Stock-Analysis----FUWForge/runs/readiness-upgrades-20261010T145417Z-42eb197e/mock-resume/MOCKRES_2025-06-01_artifacts.json",
+    "provenance": "/home/trbuzu/Documents/COA-chain-of-agents-Stock-Analysis----FUWForge/runs/readiness-upgrades-20261010T145417Z-42eb197e/mock-resume/MOCKRES_2025-06-01_provenance.log",
+    "summary": "/home/trbuzu/Documents/COA-chain-of-agents-Stock-Analysis----FUWForge/runs/readiness-upgrades-20261010T145417Z-42eb197e/mock-resume/run_summary.json",
+    "manifest": "/home/trbuzu/Documents/COA-chain-of-agents-Stock-Analysis----FUWForge/runs/readiness-upgrades-20261010T145417Z-42eb197e/mock-resume/run_manifest.json"
+  },
+  "started_at": "2026-10-10T15:01:44Z",
+  "finished_at": "2026-10-10T15:01:44Z"
+}

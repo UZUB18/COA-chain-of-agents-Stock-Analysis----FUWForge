@@ -1,0 +1,50 @@
+{
+  "ticker": "AMD",
+  "cik": "2488",
+  "company": "ADVANCED MICRO DEVICES INC",
+  "analysis_date": "2026-10-11",
+  "annual_filings_requested": 3,
+  "annual_filings_found": 3,
+  "quarterly_filing_found": true,
+  "proxy_found": true,
+  "material_events_found": 2,
+  "market": {
+    "provider": "yahoo_daily",
+    "last_bar_date": "2026-10-09",
+    "price_basis": "Yahoo chart quote.close (not dividend-adjusted adjclose; provider may adjust for splits). Not a point-in-time corporate-action archive.",
+    "probe_accessed": "2026-10-11T17:33:18Z"
+  },
+  "company_facts": {
+    "collected": true,
+    "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0000002488.json",
+    "availability_policy": "sec-filed-date-end-of-day-v1",
+    "fact_count": 5000,
+    "reason": null
+  },
+  "discovery_records": [
+    {
+      "url": "https://www.sec.gov/files/company_tickers.json",
+      "accessed": "2026-10-11T17:33:18Z",
+      "file": "lookup_01.json",
+      "content_sha256": "sha256:a9595d33a34615553ee706c95458fff0bb9fec9642a9d61710f3e5dbd45ca23e"
+    },
+    {
+      "url": "https://data.sec.gov/submissions/CIK0000002488.json",
+      "accessed": "2026-10-11T17:33:18Z",
+      "file": "lookup_02.json",
+      "content_sha256": "sha256:9789d97cfb1b41fb58cc5fcebd13cfced084409dc3bbcfb6ca1382304f092493"
+    },
+    {
+      "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0000002488.json",
+      "accessed": "2026-10-11T17:33:41Z",
+      "file": "lookup_03.json",
+      "content_sha256": "sha256:21a29c75076d90fced568785d855fc427a15c7458bc0bb153a9dedd88ad3349e"
+    }
+  ],
+  "limitations": [
+    "Identifier lookup uses the current SEC ticker/CIK mapping, not a historical ticker database.",
+    "SEC inclusion is based on filing date, not an intraday publication-time cutoff.",
+    "Market-provider corporate-action adjustment policies apply; this is not a certified point-in-time backtest dataset.",
+    "Culture, peer estimates, social media and broader news may still be unavailable; never fabricate them."
+  ]
+}

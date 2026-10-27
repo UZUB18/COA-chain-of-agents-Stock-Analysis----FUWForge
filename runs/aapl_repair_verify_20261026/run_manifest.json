@@ -1,0 +1,136 @@
+{
+  "schema_version": "run_manifest_v1",
+  "run_id": "run_aapl_20261026_221255",
+  "status": "completed",
+  "complete": true,
+  "ticker": "AAPL",
+  "analysis_date": "2026-10-26",
+  "halt_reason": null,
+  "roles": {
+    "A1": "sha256:8e97edb4bc991f0e511af39134617074ab1a96a2e2a57bbb9fb8b3afe8899a4a",
+    "A2": "sha256:20a63c8408e8c9fa28bb7f10a37d796bfb8faeddfc39c4e2a4042cc99938aa79",
+    "A3": "sha256:30c9188a50c4cfa2f317826b79b9fe0180fef6e8c3791c332d09845fdb85ca33",
+    "A4": "sha256:d073eca305b1283a2b52d0318c493a6192d7f6062746c92d532b4a1ccb2fc20c",
+    "A5": "sha256:877441d3007a59134348a804974cce3c8abfc755c5c2252e86afc986a273b30e",
+    "A6": "sha256:a990af58205bd22550d256b856ba244cc45173b8777ad5b1bfb4fc52371a3802",
+    "A6B": "sha256:81491de82ac7fab8f5a3c86ed0df7812501a0dc4774116a8e9b8071916641906",
+    "A6R": "sha256:87d002956e4d0ef370bca236d9162564f8d66520ad01eb9cd85d963d44cc4aa4",
+    "A7": "sha256:08ac038e01d4faa11b27b21290d23d0b04bc40ccf33485c86b0f57e7bc9eb21e"
+  },
+  "graph": {
+    "A1": [],
+    "A2": [
+      "A1"
+    ],
+    "A3": [
+      "A1"
+    ],
+    "A4": [
+      "A1"
+    ],
+    "A5": [
+      "A1"
+    ],
+    "A6": [
+      "A1",
+      "A2",
+      "A3",
+      "A4",
+      "A5",
+      "A6B",
+      "A6R"
+    ],
+    "A6B": [
+      "A1",
+      "A2",
+      "A3",
+      "A4",
+      "A5"
+    ],
+    "A6R": [
+      "A1",
+      "A2",
+      "A3",
+      "A4",
+      "A5",
+      "A6B"
+    ],
+    "A7": [
+      "A1",
+      "A2",
+      "A3",
+      "A4",
+      "A5",
+      "A6",
+      "A6B",
+      "A6R"
+    ]
+  },
+  "outputs": {
+    "report": {
+      "path": "AAPL_2026-10-26_report.md",
+      "sha256": "sha256:7fe5722786fa8d865dd58a776cae2c03df457e17b9a5f82272df7c599cc9b2ac",
+      "bytes": 50667
+    },
+    "artifacts": {
+      "path": "AAPL_2026-10-26_artifacts.json",
+      "sha256": "sha256:b7ab72b9fb1c1294ae914da28ef5b474c495035927ba08b2626698dea3058637",
+      "bytes": 153987
+    },
+    "provenance": {
+      "path": "AAPL_2026-10-26_provenance.log",
+      "sha256": "sha256:857eb3083c82bcc19186e0f5c22d701b0e327810f7d7db0733cadd01c75551ef",
+      "bytes": 4191
+    },
+    "summary": {
+      "path": "run_summary.json",
+      "sha256": "sha256:a91508bc9f9d679a15adae5c582ab7ed87a8bbbc6a74e1d235865417c1f011ad",
+      "bytes": 2699
+    }
+  },
+  "evidence": {
+    "pack_checksum": "sha256:efe4781f5f3d67597683d305d39a2199a41c0988d3d45c8300d1f25f5e8a527b",
+    "state": "source_bytes_verified",
+    "bundle_manifest_sha256": null
+  },
+  "calculator_versions": {
+    "beneish_m_score": "2.0.0"
+  },
+  "prompt_sha256": {
+    "A1": "d41e46469ac42e187aa122e269f1a6606ff35abe5824e5992a0c69f65532c504",
+    "A2": "4580b6bf60666c1cb4f799ec82e016081af41e11d3eb7fa87e223fe288ad7168",
+    "A3": "64500deb365b9cf2f6786ad1f831b168e393ffdc61020ec71d0dcee903643a6a",
+    "A4": "0d69e6c77932aa67c1b8341698bca95d71cd48dccf114c0da49132253556240f",
+    "A5": "086039eb29c27f9adf9c21d07677b187d09d04a39e6ce535d99b78c8890bbf29",
+    "A6": "25b4a7a52532594a197d2d944f27f903d9b512d460934f6d1b1034a76732336e",
+    "A6B": "66b8f5dc7ea5d365634bcae621242be2721249d7eac9a0c0824fcbe066660e0b",
+    "A6R": "105e2872f3d826a0c94ee0592e88ae811657fb156164b39b96b5b161e45e3ccb",
+    "A7": "37fe4d08b183b0a3b8a9a7ef369076fb1234e9adec66a30250c0811aaa764d90"
+  },
+  "execution_keys": {
+    "A1": "b566156689346b35a31cc8a71aa77c0a02e5ddb93a5973abc596dca4901861bb",
+    "A2": "8d0906dec1bf19301972068a6f28b764d5e029eb89427d311ccdf3da61c15461",
+    "A3": "4170a2b9b605a3aa3e29887aa57f3849eac6d9f3a75e752001ca8dc82aed4b23",
+    "A4": "b16d98f114d3c2f3c9f37b09674674775190024ea85970a713e3d69aba264600",
+    "A5": "f66312d072d8e123bdbd52fc47283cd6eab76cb632287dc1864a54e2171e6f79",
+    "A6": "7304a3bff4f6954c8207a2f1acf8f1ca53836110ef13d7179796f57f0c7324b6",
+    "A6B": "3e1edb7b03e76365e813fbe8a8099844a6d31c947cb8008402ef66cbb41d0a30",
+    "A6R": "0241d35616d6aa8aeb443657d826559b33e7d5175eca0e2115ffe3378b94adea",
+    "A7": "31a25940df9e082fce842c6823e13acf2e87e21702f3cbeab655ef9f449f2c91"
+  },
+  "provenance": {
+    "path": "AAPL_2026-10-26_provenance.log",
+    "tail": "sha256:4b86d45564d9f4f9a4d61d1046cfd9a225c041cd2223b61816ae612f2e6a17da"
+  },
+  "configuration": {
+    "provider": "gemini",
+    "model": "gemini-3.8-flash",
+    "depth": "Quick",
+    "strict": true,
+    "frozen_checksum": "sha256:663dce8214c9c04ad68b07b964090bb2d1ab8f7b311e6a74219a733157c9c020",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "generated_at": "2026-10-26T22:17:34Z"
+}

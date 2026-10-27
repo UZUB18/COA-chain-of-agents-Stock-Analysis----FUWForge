@@ -1,0 +1,12 @@
+{
+  "provider": "gemini",
+  "model": "gemini-3.8-flash",
+  "stage": "connectivity",
+  "output_dir": "/home/trbuzu/Documents/COA-chain-of-agents-Stock-Analysis----FUWForge/runs/gemini_live_check_20261012_173633",
+  "status": "passed",
+  "response": {
+    "ok": true,
+    "test": "fuwforge_connectivity"
+  },
+  "latency_ms": 1974
+}

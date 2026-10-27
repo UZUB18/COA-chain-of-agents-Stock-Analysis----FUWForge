@@ -15,6 +15,7 @@ from typing import Dict, List
 
 from src.envelope import Envelope
 from src.provenance import verify_chain
+from src.resources import get_schema_path
 from src.utils.checksum import envelope_content_checksum
 from src.validators import EnvelopeValidator, ValidationResult
 
@@ -54,7 +55,7 @@ def verify_run(run_dir: Path, strict: bool = False) -> ValidationResult:
     if not run_dir.is_dir():
         return ValidationResult(valid=False, errors=[f"not a directory: {run_dir}"])
 
-    validator = EnvelopeValidator(PROJECT_ROOT / "schemas" / "envelope_v2_1.json")
+    validator = EnvelopeValidator(get_schema_path("envelope_v2_1.json"))
     checksums: Dict[str, str] = {}
     envelopes: Dict[str, Envelope] = {}
 

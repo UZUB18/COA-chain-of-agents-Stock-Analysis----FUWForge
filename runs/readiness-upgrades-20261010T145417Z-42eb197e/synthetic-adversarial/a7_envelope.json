@@ -1,0 +1,232 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A7",
+    "name": "Final-Assembly"
+  },
+  "timestamp": "2026-10-10T15:01:44Z",
+  "params": {
+    "company": "Synthetic Corp",
+    "ticker": "SYNTH",
+    "analysis_date": "2025-06-01",
+    "depth": "Standard",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "gates": {
+    "passed": true,
+    "notes": []
+  },
+  "sections_md": {
+    "SECTION_0_EXEC_SUMMARY": "# Section 0: Executive Summary \u2014 Synthetic Corp (SYNTH)\n\n**Investment Recommendation**: Buy (Overall Institutional Score: 7.88/10)\n\nSynthetic Corp represents a resilient, high-quality franchise with durable competitive advantages. The business demonstrates expanding free cash flow conversion, investment-grade balance sheet liquidity, and attractive secular growth opportunities.",
+    "SECTION_13_IPO_HISTORY": "# Section 13: Capital History & Share Count Evolution\n\nSynthetic Corp completed its initial public offering in 2018. Over the past 5 years, the company has consistently retired shares via open-market repurchases, keeping net dilution under 0.8% annually.",
+    "SECTION_15_SWOT": "# Section 15: Institutional SWOT Matrix\n\n| Category | Points |\n|---|---|\n| **Strengths** | High recurring software revenue, negative net debt, pricing power |\n| **Weaknesses** | Premium multiple provides modest margin of safety |\n| **Opportunities** | Enterprise cloud penetration, international expansion |\n| **Threats** | Hyperscaler platform consolidation, macro elongation |\n",
+    "SECTION_16_SCORECARD": "# Section 16: Institutional Scorecard (FUW Quality Matrix)\n\n**Overall Score**: 7.88 / 10.0 (Buy)\n\n| Category | Weight | Raw Score | Weighted Score |\n|---|---|---|---|\n| Financials | 25.0% | 8.5 | 2.125 |\n| Moat | 20.0% | 8.0 | 1.600 |\n| Growth | 15.0% | 7.5 | 1.125 |\n| Valuation | 15.0% | 6.8 | 1.020 |\n| MgmtGov | 10.0% | 8.4 | 0.840 |\n| RiskInverse | 10.0% | 8.0 | 0.800 |\n| ESG | 2.5% | 7.2 | 0.180 |\n| Market | 2.5% | 7.6 | 0.190 |\n| **Total** | 100.0% | \u2014 | **7.88** |\n",
+    "SECTION_17_GLOSSARY": "# Section 17: Financial & Analytical Glossary\n\n- **Altman Z-Score**: Predictive metric measuring probability of corporate bankruptcy.\n- **Beneish M-Score**: Mathematical model evaluating likelihood of earnings manipulation.\n- **Free Cash Flow (FCF)**: Cash generated after supporting operations and maintaining capital assets.",
+    "SECTION_18_LAY_SUMMARY": "# Section 18: Lay Summary for Everyday Investors\n\nIn simple terms, Synthetic Corp makes essential software tools that large companies depend on every day. Because customers rarely cancel, the company brings in reliable cash year after year and uses that cash to improve products and buy back shares."
+  },
+  "artifacts": {
+    "Scorecard": {
+      "Financials": {
+        "weight": 0.25,
+        "score": 8.5,
+        "weighted": 2.125
+      },
+      "Moat": {
+        "weight": 0.2,
+        "score": 8.0,
+        "weighted": 1.6
+      },
+      "Growth": {
+        "weight": 0.15,
+        "score": 7.5,
+        "weighted": 1.125
+      },
+      "Valuation": {
+        "weight": 0.15,
+        "score": 6.8,
+        "weighted": 1.02
+      },
+      "MgmtGov": {
+        "weight": 0.1,
+        "score": 8.4,
+        "weighted": 0.84
+      },
+      "RiskInverse": {
+        "weight": 0.1,
+        "score": 8.0,
+        "weighted": 0.8
+      },
+      "ESG": {
+        "weight": 0.025,
+        "score": 7.2,
+        "weighted": 0.18
+      },
+      "Market": {
+        "weight": 0.025,
+        "score": 7.6,
+        "weighted": 0.19
+      },
+      "Overall": {
+        "score": 7.88,
+        "rating_band": "Buy"
+      }
+    },
+    "SWOT": {
+      "Strengths": [
+        "Durable recurring subscription revenues",
+        "Investment-grade balance sheet liquidity",
+        "Proven enterprise pricing power"
+      ],
+      "Weaknesses": [
+        "Premium multiple requires consistent operational execution",
+        "Concentration in North American enterprise market"
+      ],
+      "Opportunities": [
+        "Expansion of automated workflow modules",
+        "Platform cross-selling to existing installed base"
+      ],
+      "Threats": [
+        "Budget consolidation onto single platform suites",
+        "Regulatory scrutiny regarding M&A integrations"
+      ],
+      "Watchlist": [
+        "Gross margin trajectory next quarter",
+        "Enterprise renewal rate velocity"
+      ]
+    },
+    "Glossary": [
+      {
+        "term": "Altman Z-Score",
+        "definition": "Predictive metric measuring probability of corporate bankruptcy."
+      },
+      {
+        "term": "Beneish M-Score",
+        "definition": "Quantitative model assessing likelihood of financial statement manipulation."
+      },
+      {
+        "term": "Free Cash Flow (FCF)",
+        "definition": "Cash generated after supporting operations and maintaining capital assets."
+      }
+    ],
+    "comparison_fields": {
+      "quality_score_10": 7.9,
+      "valuation_score_10": 6.8,
+      "expected_5y_irr_base_pct": 12.5,
+      "downside_case_5y_irr_pct": -3.5,
+      "fcf_yield_ttm_pct": 3.6,
+      "roic_ttm_pct": 28.4,
+      "net_debt_to_ebitda": -0.45,
+      "moat_score_10": 8.0,
+      "reinvestment_runway_score_10": 7.5,
+      "balance_sheet_score_10": 8.5,
+      "fragility_score_10": 2.0,
+      "evidence_quality_score_10": 9.0,
+      "data_completeness_score_10": 9.0
+    },
+    "_execution_lineage": {
+      "consumed_upstream": [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5",
+        "A6",
+        "A6B",
+        "A6R"
+      ],
+      "execution_key": "573134a6aafd46725679f343e51e07f0375f75fd140e7a077b766fcef858d1e8",
+      "upstream": [
+        {
+          "agent": "A1",
+          "content_checksum": "sha256:129ed0aed5c6bec8ea607638583c38740fa575c24561009486bff08e71c0ea9a"
+        },
+        {
+          "agent": "A2",
+          "content_checksum": "sha256:cff064295dac37465b70e88832f7ac8a10b5d08884e5e7942674e9cafabfbab8"
+        },
+        {
+          "agent": "A3",
+          "content_checksum": "sha256:964110fcb19447c6e7e20930eb9001987f5e83b9f705db23f9cd4fa71014b551"
+        },
+        {
+          "agent": "A4",
+          "content_checksum": "sha256:3d21ee2d06c971a0efc6a0c7a73cfd154e46439167d6850806cc471468927aba"
+        },
+        {
+          "agent": "A5",
+          "content_checksum": "sha256:da436c62e4aa4f937e09050ccb4f4feb18b23ea2412353536b795c3001d635ff"
+        },
+        {
+          "agent": "A6",
+          "content_checksum": "sha256:500cdf3d771abc808e9e7d395f0e1e0b88b73f67600c45eafdfbd47f30590324"
+        },
+        {
+          "agent": "A6B",
+          "content_checksum": "sha256:4f35a4d6308a99e3bf0dab444f5778e700748796dc5ba0527643def4dcf1f1a1"
+        },
+        {
+          "agent": "A6R",
+          "content_checksum": "sha256:d4fd276d8df4b48207d3044c1ce158a45f8fa9c0ee8030d1fd4433b909b37ae6"
+        }
+      ],
+      "prompt_sha256": "0d052966dc9530155c5c507ca1c6a386aca1394f7228b3431ed29849459b6b4f",
+      "request_sha256": "1fc5cbaf92468452610dec26bc41938bbbc35769f82f344985725784e2d2666b",
+      "evidence_sha256": "ecbbf96e92f18154727271eeaf7572398e111e98aa28044e0255b9ea2f2883dd",
+      "provider": "mock",
+      "model": "make_mock_agent_cls.<locals>.ConfiguredMockAgent"
+    }
+  },
+  "sources": [
+    {
+      "type": "Assembly",
+      "url": "internal:a7",
+      "doc_date": "2025-01-31",
+      "accessed": "2026-10-10T15:01:44Z"
+    }
+  ],
+  "warnings": [],
+  "metrics": {
+    "data_checksum": "sha256:dc97a0b2d1334ea3bf64858941c95d3f1d3eed7c69f9438883034ded4eacc4aa",
+    "latency_ms": 160,
+    "tokens": 620,
+    "retries": 0
+  },
+  "confidence": 0.97,
+  "content_checksum": "sha256:2958fdd7716e27a481e1db5f91291870e420070858114f6b2f4492e89d058254",
+  "upstream": [
+    {
+      "agent": "A1",
+      "content_checksum": "sha256:129ed0aed5c6bec8ea607638583c38740fa575c24561009486bff08e71c0ea9a"
+    },
+    {
+      "agent": "A2",
+      "content_checksum": "sha256:cff064295dac37465b70e88832f7ac8a10b5d08884e5e7942674e9cafabfbab8"
+    },
+    {
+      "agent": "A3",
+      "content_checksum": "sha256:bd1884ba5bf8f24f2c63c45a2afbbc84f37a7bb5aaa46c494ed1c39f1c43b8ed"
+    },
+    {
+      "agent": "A4",
+      "content_checksum": "sha256:3d21ee2d06c971a0efc6a0c7a73cfd154e46439167d6850806cc471468927aba"
+    },
+    {
+      "agent": "A5",
+      "content_checksum": "sha256:da436c62e4aa4f937e09050ccb4f4feb18b23ea2412353536b795c3001d635ff"
+    },
+    {
+      "agent": "A6",
+      "content_checksum": "sha256:678d65884dede2740893e5f770a0acaa239fa0930a1d348776309cc1b0f3c4d9"
+    },
+    {
+      "agent": "A6B",
+      "content_checksum": "sha256:e768a327963b7e82ad1ebd9f63b2d9b6ac2df7142b7ef444c12025143198db56"
+    },
+    {
+      "agent": "A6R",
+      "content_checksum": "sha256:78039b9e2d02f29ebea4ed52ce82409dae415cf90cb4954168734ce6b5b3abd2"
+    }
+  ]
+}

@@ -305,19 +305,61 @@ def _context_excerpt(text: str, budget: int) -> str:
         r"(?:CEO\s+pay\s+ratio|pay\s+ratio|compensation\s+peer\s+group)",
         r"(?:independent\s+registered\s+public\s+accounting|auditor\s+tenure)",
     ]
+    numeric = re.compile(r"\b\d[\d,]{2,}")
+    #: A window narrow enough not to bleed into the *next* statement, which made
+    #: a prose reference look as dense as the table it referred to.
+    window = 2500
+
+    def _looks_like_statement_heading(offset: int) -> bool:
+        """True when the match starts a statement rather than sitting mid-sentence.
+
+        A note that says "…as the cash flows of the related items" contains the
+        same words as the statement heading and plenty of nearby numbers. What it
+        does not have is the heading's position and shape: a statement title
+        begins a line and is followed by its period and column captions.
+        """
+        line_start = text.rfind("\n", 0, offset) + 1
+        if text[line_start:offset].strip():
+            return False
+        following = text[offset:offset + 80]
+        if not re.match(r"[A-Z]", following):
+            return False
+        # A heading is followed by a period caption, a year, or a table label.
+        tail = following.split("\n", 1)[1] if "\n" in following else ""
+        return bool(
+            re.match(r"\s*(?:year|years|period|quarter|three|nine|six|as of|december|january|february|march|april|may|june|july|august|september|october|november)", tail, re.I)
+        )
+
     selected = []
     for pattern in financial:
-        matches = list(re.finditer(pattern, text, re.I))
-        if matches:
-            # TOC occurrences have page numbers, not dense multi-year statement values.
-            match = max(matches, key=lambda m: len(re.findall(r"\b\d[\d,]{2,}", text[m.start():m.start() + 5000])))
-            selected.append(match.start())
+        best = None
+        for match in re.finditer(pattern, text, re.I):
+            start = match.start()
+            density = len(numeric.findall(text[start:start + window]))
+            if density == 0:
+                continue
+            heading = _looks_like_statement_heading(start)
+            score = (1 if heading else 0, density)
+            if best is None or score > best[0]:
+                best = (score, start, density)
+        if best is not None:
+            selected.append((best[1], best[2]))
     if selected:
         head = budget // 10
         financial_budget = budget * 8 // 10
-        width = financial_budget // len(selected)
+        # Order by position and weight each statement by its numeric density, not
+        # equally. An equal split gives every statement the same character
+        # allowance, but a cash-flow statement carries several times the numbers
+        # of a balance sheet and is correspondingly longer. Equal shares truncated
+        # the cash flow mid-table — the operating section survived and investing
+        # and financing activities did not — which is what made a real statement
+        # look as though it had not been retrieved.
+        selected.sort()
+        densities = [density + 1 for _start, density in selected]
+        total_density = sum(densities)
         pieces = [text[:head]]
-        for start in selected:
+        for (start, _density), weight in zip(selected, densities):
+            width = max(1, financial_budget * weight // total_density)
             pieces.append(f"[STATEMENT EXCERPT AT TEXT OFFSET {start}]\n" + text[start:start + width])
         for pattern in supplementary[:1]:
             match = re.search(pattern, text, re.I)
@@ -338,6 +380,73 @@ def _context_excerpt(text: str, budget: int) -> str:
         return "\n[DOCUMENT EXCERPT: intervening text omitted]\n".join(pieces)
     half = budget // 2
     return text[:half] + "\n[DOCUMENT EXCERPT TRUNCATED: middle omitted]\n" + text[-half:]
+
+
+# Put the financial statements/forensic inputs ahead of incidental disclosures.
+# Round-robin across concepts prevents a long history of one tag from consuming
+# the entire context. This is a prompt projection, not a truncated fact ledger.
+_PROMPT_CORE_CONCEPTS = (
+    "Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet",
+    "Assets", "Liabilities", "StockholdersEquity", "NetIncomeLoss", "GrossProfit",
+    "CostOfRevenue", "CostOfGoodsAndServicesSold", "OperatingIncomeLoss",
+    "NetCashProvidedByUsedInOperatingActivities", "OperatingCashFlow",
+    "AccountsReceivableNetCurrent", "AccountsReceivableNet", "AccountsReceivable",
+    "AssetsCurrent", "LiabilitiesCurrent", "CashAndCashEquivalentsAtCarryingValue",
+    "PropertyPlantAndEquipmentNet", "DepreciationDepletionAndAmortization",
+    "SellingGeneralAndAdministrativeExpense", "LongTermDebtCurrent", "LongTermDebtNoncurrent",
+    "PaymentsToAcquirePropertyPlantAndEquipment", "CapitalExpenditures",
+    "EntityCommonStockSharesOutstanding", "CommonStockSharesOutstanding",
+    "WeightedAverageNumberOfDilutedSharesOutstanding", "EarningsPerShareDiluted",
+)
+
+
+def _select_prompt_facts(facts, limit: int = 100):
+    """Deterministic current-reported selection, preserving concept/period breadth."""
+    superseded = {fact.supersedes for fact in facts if fact.supersedes}
+    active = [fact for fact in facts if fact.id not in superseded]
+    buckets = {}
+    for fact in active:
+        key = (fact.concept, fact.unit, str(fact.accounting_basis))
+        buckets.setdefault(key, []).append(fact)
+
+    def recency(fact):
+        annual = False
+        if fact.period_start and fact.period_end:
+            try:
+                annual = 330 <= (date.fromisoformat(fact.period_end) - date.fromisoformat(fact.period_start)).days <= 400
+            except ValueError:
+                pass  # Invalid fact dates are rejected on intake/binding, never repaired here.
+        return annual, fact.instant or fact.period_end or "", fact.availability_time, fact.id
+
+    priority = {concept: index for index, concept in enumerate(_PROMPT_CORE_CONCEPTS)}
+    keys = sorted(buckets, key=lambda key: (priority.get(key[0], len(priority)), key))
+    for key, bucket in buckets.items():
+        bucket.sort(key=recency, reverse=True)
+        seen_periods = set()
+        unique = []
+        for fact in bucket:
+            if fact.period_key() not in seen_periods:
+                unique.append(fact)
+                seen_periods.add(fact.period_key())
+        buckets[key] = unique
+    selected = []
+    positions = dict.fromkeys(keys, 0)
+    # Keep current/prior financial periods even in a many-hundred-concept pack.
+    for _ in range(2):
+        for key in keys:
+            if key[0] in priority and positions[key] < len(buckets[key]) and len(selected) < limit:
+                selected.append(buckets[key][positions[key]])
+                positions[key] += 1
+    while len(selected) < limit:
+        added = False
+        for key in keys:
+            if positions[key] < len(buckets[key]) and len(selected) < limit:
+                selected.append(buckets[key][positions[key]])
+                positions[key] += 1
+                added = True
+        if not added:
+            break
+    return selected, len(active)
 
 
 class EvidencePack:
@@ -535,7 +644,10 @@ class EvidencePack:
             shutil.copyfile(source, target)
         path = output_dir / "evidence.json"
         path.write_text(json.dumps(self.data, indent=2) + "\n", encoding="utf-8")
-        return EvidencePack(path, ticker=self.data["ticker"], analysis_date=max(d["doc_date"] for d in self.documents))
+        # Copying evidence must preserve the research cutoff. Using the newest
+        # document date here can hide later-but-still-eligible typed facts and
+        # makes a resumed run see a different prompt from the initial run.
+        return EvidencePack(path, ticker=self.data["ticker"], analysis_date=self.analysis_date)
 
     def sources(self) -> List[Dict[str, Any]]:
         return [{key: value for key, value in document.items() if key not in ("raw_file", "text_file")} for document in self.documents]
@@ -562,6 +674,7 @@ class EvidencePack:
         if self.facts:
             usable = self.get_facts(as_of=self.analysis_date, allow_forecasts=False)
             if usable:
+                selected, active_count = _select_prompt_facts(usable)
                 fact_payload = [
                     {
                         "id": f.id,
@@ -574,12 +687,13 @@ class EvidencePack:
                         "basis": str(f.accounting_basis.value if hasattr(f.accounting_basis, "value") else f.accounting_basis),
                         **({"supersedes": f.supersedes} if f.supersedes else {}),
                     }
-                    for f in usable[:100]
+                    for f in selected
                 ]
                 fact_block = (
                     f"### Date-Bounded Typed Fact Ledger (Authoritative Reported Facts as of {self.analysis_date})\n"
-                    f"Facts count: {len(usable)} (showing top {len(fact_payload)}).\n"
-                    f"Note: Forward forecasts/guidance are excluded from reported facts.\n\n"
+                    f"Facts count: {active_count} current eligible records (showing {len(fact_payload)}).\n"
+                    "Note: Superseded records and forecasts/guidance are excluded. Core financial concepts "
+                    "and recent annual periods are prioritized; the complete ledger remains available for binding.\n\n"
                     + json.dumps(fact_payload, indent=2)
                 )
                 chunks.append(html.escape(fact_block, quote=False))

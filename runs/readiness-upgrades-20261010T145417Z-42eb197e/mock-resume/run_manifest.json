@@ -1,0 +1,136 @@
+{
+  "schema_version": "run_manifest_v1",
+  "run_id": "run_mockres_20261010_150144",
+  "status": "completed",
+  "complete": true,
+  "ticker": "MOCKRES",
+  "analysis_date": "2025-06-01",
+  "halt_reason": null,
+  "roles": {
+    "A1": "sha256:4deaffa142b4f70b0b71e00ddde082267e1e8e4ed56deffa33434a723071ee37",
+    "A2": "sha256:44dca7dacead13915657ac9b6a6e34f57f9540fed9c17b6f0f9c3cb4d2845b26",
+    "A3": "sha256:99e5092ae53d8e6eef96babae4725e4326cee6e3f54ffabea44e74ff17b0fd25",
+    "A4": "sha256:09d2c59f698769d8772540075e98b168f3ce443c6353d085ff02d49c75b64aa1",
+    "A5": "sha256:10101a4ac902be4c4dbdbe5e856f15548413751da7450ce9d82c33b882a73e91",
+    "A6": "sha256:acf6721e0a7943ff5c6aebc099b2faecae889a1aa8535de0467ab501c4196184",
+    "A6B": "sha256:a5aedd9c5922c3bf05cf223dc2588836de3f6458a108a2dc4c8f49d73cfd5693",
+    "A6R": "sha256:664f9966f8d568c9cbe2654158b7dc11ecae1f0761b568bc888cef873d6f64aa",
+    "A7": "sha256:9d9903e775d48dc470261c048a92e28c28d8cf1df94e60d0f8d4694ce7eb12a9"
+  },
+  "graph": {
+    "A1": [],
+    "A2": [
+      "A1"
+    ],
+    "A3": [
+      "A1"
+    ],
+    "A4": [
+      "A1"
+    ],
+    "A5": [
+      "A1"
+    ],
+    "A6": [
+      "A1",
+      "A2",
+      "A3",
+      "A4",
+      "A5",
+      "A6B",
+      "A6R"
+    ],
+    "A6B": [
+      "A1",
+      "A2",
+      "A3",
+      "A4",
+      "A5"
+    ],
+    "A6R": [
+      "A1",
+      "A2",
+      "A3",
+      "A4",
+      "A5",
+      "A6B"
+    ],
+    "A7": [
+      "A1",
+      "A2",
+      "A3",
+      "A4",
+      "A5",
+      "A6",
+      "A6B",
+      "A6R"
+    ]
+  },
+  "outputs": {
+    "report": {
+      "path": "MOCKRES_2025-06-01_report.md",
+      "sha256": "sha256:9e57fad9fa0380f9bd77f886a8c6799bb1e4ae0f569b10415b2c86bc1b534776",
+      "bytes": 5512
+    },
+    "artifacts": {
+      "path": "MOCKRES_2025-06-01_artifacts.json",
+      "sha256": "sha256:dbf7f7babd9e9e74bd6561aac5c861951b87f8493da85d31ce32db7a2281001b",
+      "bytes": 41987
+    },
+    "provenance": {
+      "path": "MOCKRES_2025-06-01_provenance.log",
+      "sha256": "sha256:3b62c191a34c3635834bbe591d16ffaace806793c16147d4f683fc911db605f5",
+      "bytes": 14528
+    },
+    "summary": {
+      "path": "run_summary.json",
+      "sha256": "sha256:a0d67d12e5dab16ec881390f3c7762bf403897f53d7a15d752153cfd0c6e770e",
+      "bytes": 2731
+    }
+  },
+  "evidence": {
+    "pack_checksum": null,
+    "state": "source_bytes_unavailable",
+    "bundle_manifest_sha256": null
+  },
+  "calculator_versions": {
+    "beneish_m_score": "2.0.0"
+  },
+  "prompt_sha256": {
+    "A1": "8a5c7041882baab6f74e7c49be9da113a7aea59c0aa76f436b44aa5d653c5e66",
+    "A2": "3df78aa0ba5b32f0d5c92180148799aad3935b12d187285a85514a011b22ca20",
+    "A3": "a6c898eaf7bbd6a8018fb191be815fe2b53bbb888d0a6f396cc84695e89bb19c",
+    "A4": "dafed016439932f8e0c76d4833d54db0385833262ef513ef91e28be30e34d51a",
+    "A5": "cba98af3ee55734c7063c18774d3aba4aadb1527488d5f819e32e4d4e9a21e9e",
+    "A6": "27f77da19441e25f4122200e77de1230e4b9d14ba28b722e4f933286e92bacaf",
+    "A6B": "aab5baf681757205117c627ad25c73b1624ea0244a7c78802ec32a870ec37e00",
+    "A6R": "4bdccd92d8f0044501a2ee7feb14176ba0302d8bfc5a214e8ad566e458465a75",
+    "A7": "fef2b39ec541094111dec6bda8f5b020abcdfd7b10974eae2324694204802c4b"
+  },
+  "execution_keys": {
+    "A1": "4fab91b951535db82113dd2904bda4ba027f41dffd93cd7e590f09db9a3a28b9",
+    "A2": "d932d69e49af36f96f597647bb966a9606fcc98739a47b898a1945ed781d0d10",
+    "A3": "70208e2daf138ece5e3c94935208bd01caec83b1b5a207247788de7fdf5c0b7b",
+    "A4": "1778e1e73ce07508dda1c322b9ed4bbb5d102fd0c1e10188e3dc9a2042f6324c",
+    "A5": "c82e72f1ed178ed79036d788841d79440d41e140dc8cfe999d7f8abb939b06d4",
+    "A6": "7786ed29582702ebac914e2bfd37808940af740d626c19951a80b2459e650620",
+    "A6B": "fe046c761be538c90e9214082b7fed8385a42df0eb6cadd6e248a0ec0c84932c",
+    "A6R": "37499c4a9a9d4154420b7554b60de96d286157852472c18b44a4899fe19ac48e",
+    "A7": "a459b7eea24b1a761f57c18aaad2aa4f60009cfe4c886af76a5d22c9872c6c65"
+  },
+  "provenance": {
+    "path": "MOCKRES_2025-06-01_provenance.log",
+    "tail": "sha256:9757b325f7748941db0080cda3e013181b3c7134e429a3a444592c4066aff974"
+  },
+  "configuration": {
+    "provider": "mock",
+    "model": "not-applicable",
+    "depth": "Quick",
+    "strict": false,
+    "frozen_checksum": "sha256:f1d3ba1cfa24d75e568ecd77996579c53ff5adc1a8128c3ce6e7b9f026a4b041",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "generated_at": "2026-10-10T15:01:44Z"
+}

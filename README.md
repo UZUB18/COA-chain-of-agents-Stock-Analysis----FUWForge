@@ -45,8 +45,8 @@ Built on the filings-first methodology from Fired Up Wealth's COA framework, ada
 
 Most research pipelines are academic thought experiments or black-box SaaS tools. FUWForge is neither:
 
-- **Deterministic by design**: Same inputs, same outputs. Every time.
-- **Contract-enforced**: `src/contracts.py` encodes each agent's artifacts, section coverage, scorecard math, and bull/bear linkage. Violations trigger a model repair retry, then halt the run.
+- **Replayable calculations**: Recorded inputs and formulas can be checked again. Model-generated prose and judgments can vary between calls.
+- **Contract-enforced**: `src/contracts.py` encodes each agent's artifacts, section coverage, scorecard math, and bull/bear linkage. A fully recorded invalid model response can receive one additional repair call; uncertain provider outcomes are not retried automatically.
 - **Adversarially hardened**: A6 exists solely to attack the thesis built by A1–A5.
 - **Filings-first discipline**: Primary sources over aggregated data; provenance over convenience.
 - **Audit-native**: Every envelope carries a content checksum and the checksums of the upstream envelopes it consumed; `controller verify-run` re-verifies the whole run.
@@ -140,9 +140,15 @@ cp .env.example .env && chmod 600 .env
 |---|---|
 | `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) | Google AI Studio key for `--provider gemini` |
 | `GEMINI_MODEL` | Default Gemini model; `--model` and `FUWFORGE_MODEL` override it |
+| `OPENCODE_GO_API_KEY` | OpenCode Go key; falls back to the local OpenCode auth file |
+| `TYPESAFE_API_KEY` | TypeSafe key for the Jev monitor; `auto` uses Jev when configured |
 | `SEC_USER_AGENT` | `Organization your-real-email`, required for SEC filing collection |
 
 Shell environment variables override `.env`. Never commit real keys — `.env` is git-ignored and `.env.example` is the only env file tracked. Use [`python-dotenv`](https://pypi.org/project/python-dotenv/) semantics: the file is read from the project root, no export needed.
+
+For `--provider openai`, set `OPENAI_API_KEY` in the shell to use the official
+OpenAI API. For another OpenAI-compatible service, set both `OPENAI_BASE_URL` and
+`OPENAI_COMPATIBLE_API_KEY` in the shell.
 
 ### Tests
 
@@ -171,14 +177,14 @@ The SHA-256 of every cached document lives in the committed `evidence.json` and 
 For production runs where you need throughput without sacrificing determinism.
 
 1. Fill `templates/inputs_blank.yaml` with ticker, focus, analysis date, depth mode, and optional scorecard weight overrides.
-2. Execute the run: `python -m src.controller run runs/<run_id> --input inputs.yaml --provider mock` (swap `mock` for `agy`, `opencode`, `openrouter`, `openai`, or `gemini` when endpoints are configured). Add `--strict` to fail on injected defaults.
+2. Execute the run: `python -m src.controller run runs/<run_id> --input inputs.yaml --provider mock` (swap `mock` for `agy`, `opencode`, `openai`, or `gemini` when endpoints are configured). Add `--strict` to fail on injected defaults.
 3. Each agent writes its envelope, validates schema/contract/checksum, and hands off. A halted run still writes `run_summary.json` with the reason.
 4. Verify the whole run: `python -m src.controller verify-run runs/<run_id>` (schemas, content checksums, upstream lineage, provenance chain).
 5. Rank or compare completed runs: `python -m src.controller screen runs/*`, `python -m src.controller diff runs/<a> runs/<b>`.
 
 ### Google AI Studio / Gemini API
 
-Use `--provider gemini` for direct [Gemini Developer API](https://ai.google.dev/gemini-api/docs) access. This is separate from the `agy` CLI and from Gemini routed through OpenRouter; requests go directly to Google.
+Use `--provider gemini` for direct [Gemini Developer API](https://ai.google.dev/gemini-api/docs) access. This is separate from the `agy` CLI; requests go directly to Google.
 
 1. Create an API key in [Google AI Studio](https://aistudio.google.com/apikey) for the project with your billing/eligible credits.
 2. Set `GEMINI_API_KEY` in the shell that runs FUWForge (`GOOGLE_API_KEY` is also accepted), or copy `.env.example` to `.env` in the project root and put your key there. Gemini automatically reads that project's `.env`, without changing other providers or the process environment. Explicit arguments and shell environment variables override local values. Keep keys out of prompts, run inputs and Git; `.env` is ignored. On Linux/macOS, restrict it with `chmod 600 .env`. Install dependencies with `pip install -r requirements.txt` (or `uv sync --extra test`).
@@ -197,9 +203,13 @@ python -m src.controller monitor runs/gemini_trial --doc news.txt \
   --provider gemini --model gemini-3.8-flash
 ```
 
-The default is `gemini-3.8-flash`. To try Pro for deeper analysis, pass `--model gemini-3.1-pro-preview` if available to your project. Use direct API model IDs from the [Google model catalog](https://ai.google.dev/gemini-api/docs/models), not OpenRouter names such as `google/...`; `models/` prefixes are accepted. `GEMINI_MODEL` sets the Gemini default for both commands; explicit `--model` takes precedence. For analysis runs, the existing `FUWFORGE_MODEL` override also takes precedence over `GEMINI_MODEL`.
+The default is `gemini-3.8-flash`. To try Pro for deeper analysis, pass `--model gemini-3.1-pro-preview` if available to your project. Use direct API model IDs from the [Google model catalog](https://ai.google.dev/gemini-api/docs/models), not provider-qualified names such as `google/...`; `models/` prefixes are accepted. `GEMINI_MODEL` sets the Gemini default for both commands; explicit `--model` takes precedence. For analysis runs, the existing `FUWFORGE_MODEL` override also takes precedence over `GEMINI_MODEL`.
 
 The backend uses the model's default generation temperature and sends a per-agent canonical JSON schema to Gemini. All model prompts also include the schema and complete accepted upstream artifacts. Blocked, empty, truncated and malformed outer responses are rejected; nested fragments are never accepted as replacement envelopes. Known alternative artifact layouts are mapped without replacing supplied measurements. Real-provider analysis CLI runs (`run`) default to strict mode: they reject missing required measurements and uncached citations instead of filling them with plausible values. `--allow-defaults` is an explicit legacy diagnostic opt-in; `--strict` takes precedence. Explicit missing-data gates halt without inventing numbers. Legacy lenient mode remains for compatibility, but its report warns about runner placeholders and unverified claims. Programmatic callers should also pass `strict=True`.
+
+Gemini token counts come from provider usage metadata, including recorded repair attempts. A null count means at least one response did not include usage; it is not zero. Reused receipts retain their original counts, and these counts do not state a dollar cost.
+
+OpenCode Go does not automatically switch models after a failed call. Select a different model explicitly with `--model` if needed.
 
 ### Gemini web research (enabled by default for Gemini runs)
 
@@ -347,6 +357,8 @@ python -m src.controller run runs/<run_id> --resume
 ```
 
 A receipt is reused only when it is `validated`, its stored envelope matches its recorded checksum, and the request identity (provider, model, prompt, evidence, upstream) is unchanged. Reuse preserves the exact sealed bytes. **Resume does not re-snapshot evidence**: an existing evidence directory is reloaded and re-verified, and resuming against *different* evidence is refused rather than silently invalidating prior receipts.
+
+Prompt changes, including formatting changes in an upgrade, can invalidate older receipts and cause new provider calls on resume.
 
 Local idempotency is not exactly-once external billing. If a provider call's outcome is uncertain, the receipt is marked `unknown_completion` and the run stops for an explicit operator choice (`--recovery-choice retry|abandon`); retrying may re-bill. Durable execution also disables blind in-process retries, so an uncertain call is never silently repeated.
 

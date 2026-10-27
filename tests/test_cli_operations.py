@@ -149,6 +149,12 @@ def test_seal_and_verify_controller_envelopes():
         assert _cli(["verify-run", str(tmp)]).returncode == 0
         assert _cli(["verify-run", str(tmp), "--strict"]).returncode != 0
 
+        strict_json = _cli(["verify-run", str(tmp), "--strict", "--json"])
+        assert strict_json.returncode != 0
+        audit = json.loads(strict_json.stdout)
+        assert audit["overall_state"] == "failed"
+        assert audit["errors"]
+
         seal = _cli(["seal", str(tmp)])
         assert seal.returncode == 0, seal.stderr
         assert _cli(["verify-run", str(tmp), "--strict"]).returncode == 0

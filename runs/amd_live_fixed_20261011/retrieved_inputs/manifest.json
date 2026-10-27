@@ -1,0 +1,67 @@
+{
+  "ticker": "AMD",
+  "documents": [
+    {
+      "title": "AMD 10-K/A filed 2026-02-04",
+      "type": "SECFiling",
+      "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000021/amd-20251227.htm",
+      "doc_date": "2026-02-04",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "AMD 10-K filed 2026-02-04",
+      "type": "SECFiling",
+      "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000018/amd-20251227.htm",
+      "doc_date": "2026-02-04",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "AMD 10-K filed 2025-02-05",
+      "type": "SECFiling",
+      "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248825000012/amd-20241228.htm",
+      "doc_date": "2025-02-05",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "AMD 10-Q filed 2026-08-05",
+      "type": "SECFiling",
+      "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000123/amd-20260627.htm",
+      "doc_date": "2026-08-05",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "AMD DEFA14A filed 2026-03-27",
+      "type": "SECFiling",
+      "url": "https://www.sec.gov/Archives/edgar/data/2488/000119312526129084/d81910ddefa14a.htm",
+      "doc_date": "2026-03-27",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "AMD 8-K filed 2026-09-28",
+      "type": "SECMaterialEvent",
+      "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000182/amd-20260926.htm",
+      "doc_date": "2026-09-28",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "AMD 8-K filed 2026-08-19",
+      "type": "SECMaterialEvent",
+      "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000163/amd-20260817.htm",
+      "doc_date": "2026-08-19",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "AMD daily price history through 2026-10-11",
+      "type": "MarketHistory",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/AMD?period1=1744156800&period2=1791763200&interval=1d",
+      "doc_date": "2026-10-11",
+      "date_basis": "requested_market_history_cutoff",
+      "transform": {
+        "kind": "yahoo_daily",
+        "ticker": "AMD",
+        "symbol": "AMD",
+        "analysis_date": "2026-10-11"
+      }
+    }
+  ]
+}

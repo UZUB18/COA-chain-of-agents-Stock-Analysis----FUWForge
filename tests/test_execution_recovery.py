@@ -1,0 +1,390 @@
+"""Local recovery of an already-received provider response.
+
+The gap these tests cover: a run that received a completion and then failed
+*locally* (malformed JSON, a normalization error, a contract violation) has
+already paid for that completion. Resuming it left only two options — dispatch
+again, paying twice for one answer, or abandon the run — even though the bytes
+were sitting in the receipt.
+
+Recovery re-runs the local pipeline over the stored text and accepts it only if
+it validates. It never calls the provider, and it never relaxes a check: a
+response that was genuinely bad stays bad.
+
+Every test here asserts the backend was not called. A recovery path that quietly
+dispatched would be worse than no recovery path at all.
+"""
+
+from __future__ import annotations
+
+import json
+import hashlib
+import sqlite3
+import sys
+from pathlib import Path
+
+import pytest
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.agents.base import AgentContext
+from src.agents.registry import model_registry
+from src.execution_store import ExecutionStore
+from src.orchestrator import FUWForgeOrchestrator
+
+EVIDENCE_HASH = "sha256:" + "e" * 64
+PROMPT_HASH = "sha256:" + "1" * 64
+
+
+@pytest.mark.parametrize("responses, expected_calls, expected_state", [
+    (["not json", "valid"], 2, "returned"),
+    ([TimeoutError("first timeout")], 1, "unknown_completion"),
+    (["not json", TimeoutError("repair timeout")], 2, "unknown_completion"),
+    (["not json", "still not json", "valid"], 2, "failed"),
+])
+def test_durable_repair_retries_only_received_invalid_responses(tmp_path, responses, expected_calls, expected_state):
+    from src.orchestrator import OrchestratorParams
+    from src.provenance import ProvenanceLog
+
+    class Backend:
+        model = "recording"
+
+        def __init__(self):
+            self.calls = []
+
+        def generate(self, prompt):
+            self.calls.append(prompt)
+            value = responses[len(self.calls) - 1]
+            if isinstance(value, Exception):
+                raise value
+            return json.dumps(_a1_payload()) if value == "valid" else value
+
+    backend = Backend()
+    runner = FUWForgeOrchestrator(PROJECT_ROOT, registry=model_registry(backend, provider="recording", max_retries=3))
+    store = ExecutionStore(tmp_path / "ledger.db")
+    kwargs = dict(agent_id="A1", params=OrchestratorParams("Test", "TEST", "2026-10-11", "Quick", [], "default"),
+                  depth_config={}, focus_overrides={}, frozen_checksum="sha256:frozen", run_id="repair",
+                  output_root=tmp_path, provenance=ProvenanceLog(tmp_path / "prov.log"), mode="automated", store=store)
+    if expected_state == "returned":
+        execution = runner._run_agent(**kwargs)
+        assert execution.attempts == 2
+    else:
+        with pytest.raises(RuntimeError):
+            runner._run_agent(**kwargs)
+    assert len(backend.calls) == expected_calls
+    receipts = store.get_by_agent("A1")
+    main = next(receipt for receipt in receipts if receipt.state == expected_state
+                and (expected_state != "failed" or receipt.raw_response == {"raw": "still not json"}))
+    if expected_calls == 2:
+        history = [receipt for receipt in receipts if receipt.execution_key != main.execution_key]
+        assert len(history) == 1
+        assert history[0].state == "failed"
+        assert history[0].raw_response == {"raw": "not json"}
+        assert history[0].metadata["repair_of"] == main.execution_key
+        assert main.metadata["repair_prompt_sha256"] == hashlib.sha256(backend.calls[1].encode()).hexdigest()
+        assert "CRITICAL ERROR" in backend.calls[1]
+    else:
+        assert len(receipts) == 1
+    if expected_state == "unknown_completion":
+        assert main.requires_recovery()
+
+
+def test_durable_repair_after_contract_validation_failure(tmp_path):
+    from src.agents.model import ModelAgent
+
+    invalid = _a1_payload()
+    invalid["artifacts"].pop("market_cap_check")
+
+    class Backend:
+        def __init__(self):
+            self.calls = 0
+
+        def generate(self, prompt):
+            self.calls += 1
+            return json.dumps(invalid if self.calls == 1 else _a1_payload())
+
+    store = ExecutionStore(tmp_path / "ledger.db")
+    key = store.begin(agent_id="A1", provider="recording", model="test", prompt_sha256=PROMPT_HASH,
+                      evidence_sha256=EVIDENCE_HASH, upstream=())
+    context = _context(tmp_path, with_evidence=True)
+    context.on_provider_return = lambda raw: store.mark_returned(key, {"raw": raw})
+    context.on_repair_start = lambda error, prompt_hash: store.begin_repair(key, error, prompt_hash)
+    backend = Backend()
+    output = ModelAgent("A1", "Harvester", backend, strict=True, max_retries=1).run(context)
+    assert backend.calls == 2
+    assert output.envelope.artifacts["market_cap_check"]["price"] == 608.10
+    assert len(store.get_by_agent("A1")) == 2
+
+
+def test_repair_start_is_recorded_before_dispatch_and_requires_recovery_after_crash(tmp_path):
+    store, key = _store_with_receipt(tmp_path, "bad response")
+    store.begin_repair(key, "invalid envelope", PROMPT_HASH)
+    assert store.get(key).state == "running"
+    assert store.get(key).raw_response is None
+    store.reconcile_unvalidated_on_resume()
+    assert store.get(key).requires_recovery()
+    history = [receipt for receipt in store.get_by_agent("A1") if receipt.execution_key != key]
+    assert len(history) == 1 and history[0].raw_response == {"raw": "bad response"}
+
+
+def test_repair_transition_rolls_back_if_recording_fails(tmp_path):
+    store, key = _store_with_receipt(tmp_path, "bad response")
+    store._conn.execute("""CREATE TRIGGER fail_repair BEFORE UPDATE ON execution_receipts
+        WHEN OLD.state = 'returned' AND NEW.state = 'running'
+        BEGIN SELECT RAISE(ABORT, 'storage failure'); END""")
+    with pytest.raises(sqlite3.IntegrityError):
+        store.begin_repair(key, "invalid envelope", PROMPT_HASH)
+    assert store.get(key).state == "returned"
+    assert store.get(key).raw_response == {"raw": "bad response"}
+    assert len(store.get_by_agent("A1")) == 1
+
+
+def test_repeated_identical_rejections_keep_separate_usage_receipts(tmp_path):
+    store, key = _store_with_receipt(tmp_path, "same invalid response")
+    for _ in range(2):
+        store.mark_returned(key, {"raw": "same invalid response"}, usage={"totalTokenCount": 10})
+        store.begin_repair(key, "invalid envelope", PROMPT_HASH)
+    history = [receipt for receipt in store.get_by_agent("A1") if receipt.execution_key != key]
+    assert len(history) == 2
+    assert sum(receipt.usage["totalTokenCount"] for receipt in history) == 20
+
+
+class _RecordingBackend:
+    """A backend that fails the test if anything asks it for a completion."""
+
+    model = "never-called"
+
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, prompt: str) -> str:  # pragma: no cover - only on violation
+        self.calls += 1
+        raise AssertionError("recovery must not dispatch to the provider")
+
+    def generate_envelope(self, prompt: str, schema):  # pragma: no cover
+        self.calls += 1
+        raise AssertionError("recovery must not dispatch to the provider")
+
+
+def _a1_payload() -> dict:
+    """A contract-valid A1 envelope, in the shape a provider would return."""
+    return {
+        "schema_version": "2.1",
+        "agent": {"id": "A1", "name": "Harvester-&-Validator"},
+        "gates": {"passed": True, "notes": []},
+        "sections_md": {"RAW_DATA_PACK": "# Harvest"},
+        "artifacts": {
+            "price_timestamp_eet": "2026-10-09T16:00:00Z",
+            "shares_basic": 1632475042.0,
+            "shares_diluted": 1659000000.0,
+            "market_cap_check": {"price": 608.10, "shares": 1632475042.0, "cap": 992688035728.0},
+        },
+        "sources": [],
+        "warnings": [],
+        "metrics": {"data_checksum": "sha256:abc"},
+        "confidence": 0.9,
+    }
+
+
+def _context(tmp_path, *, with_evidence: bool = False) -> AgentContext:
+    documents = (
+        [
+            {
+                "type": "SEC 10-K",
+                "url": "https://www.sec.gov/Archives/edgar/data/0000002488/amd-10k.htm",
+                "doc_date": "2026-02-04",
+                "accessed": "2026-10-11T00:00:00Z",
+                "verification": "retrieved",
+            }
+        ]
+        if with_evidence
+        else []
+    )
+    return AgentContext(
+        run_id="recovery",
+        params={
+            "company": "Advanced Micro Devices, Inc.",
+            "ticker": "AMD",
+            "analysis_date": "2026-10-11",
+            "depth": "Quick",
+            "focus": [],
+            "weights": "default",
+        },
+        depth_config={},
+        focus_overrides={},
+        frozen_checksum="sha256:frozen",
+        workdir=tmp_path,
+        provenance_path=tmp_path / "prov.log",
+        source_documents=documents,
+        source_text="",
+        evidence_checksum=EVIDENCE_HASH,
+    )
+
+
+def _store_with_receipt(tmp_path, stored_text: str, *, state: str = "returned"):
+    """Persist a receipt whose provider response is on disk but unaccepted."""
+    store = ExecutionStore(tmp_path / "ledger.db")
+    key = store.begin(
+        agent_id="A1",
+        provider="recording",
+        model="never-called",
+        prompt_sha256=PROMPT_HASH,
+        evidence_sha256=EVIDENCE_HASH,
+        upstream=(),
+        execution_key="key-a1",
+    )
+    store.mark_returned(key, {"raw": stored_text})
+    if state == "failed":
+        store.mark_failed(key, "provider returned but local normalization/validation failed")
+    return store, key
+
+
+def _orchestrator(*, strict: bool = False):
+    """An orchestrator whose registry resolves A1 to a never-called backend.
+
+    ``provider="mock"`` only gets past construction; the registry is then
+    replaced, so any real dispatch would raise instead of reaching a network.
+    Strictness is a parameter because strict A3/A1 paths additionally require a
+    retrieved evidence pack, which is orthogonal to whether recovery ran.
+    """
+    backend = _RecordingBackend()
+    orchestrator = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="never-called")
+    orchestrator.registry = model_registry(backend, provider="recording", strict=strict)
+    return orchestrator, backend
+
+
+def test_a_locally_failed_response_is_recovered_without_a_provider_call(tmp_path):
+    """
+    The motivating case: the provider answered, local normalization failed, and
+    the run died. On resume the stored bytes must be re-processed locally.
+    """
+    store, key = _store_with_receipt(tmp_path, json.dumps(_a1_payload()))
+    orchestrator, backend = _orchestrator()
+    context = _context(tmp_path)
+
+    execution = orchestrator._recover_saved_response(
+        "A1", store.get(key), context, store, key, {"provider": "recording"}, (), {}
+    )
+
+    assert execution is not None
+    assert backend.calls == 0
+    assert execution.reused is False
+    assert execution.raw_response["recovered_locally"] is True
+    assert execution.raw_response["prior_state"] == "returned"
+    assert execution.envelope.artifacts["market_cap_check"]["price"] == 608.10
+    # Recovery does not claim the receipt was validated; acceptance does that.
+    assert store.get(key).state == "returned"
+
+
+def test_recovered_repair_preserves_both_provider_usage_records(tmp_path):
+    store, key = _store_with_receipt(tmp_path, "invalid")
+    store.mark_returned(key, {"raw": "invalid"}, usage={"totalTokenCount": 10})
+    store.begin_repair(key, "invalid envelope", PROMPT_HASH)
+    store.mark_returned(key, {"raw": json.dumps(_a1_payload())}, usage={"totalTokenCount": 20})
+    orchestrator, backend = _orchestrator()
+    execution = orchestrator._recover_saved_response(
+        "A1", store.get(key), _context(tmp_path), store, key, {"provider": "recording"}, (), {}
+    )
+    assert backend.calls == 0
+    assert execution.raw_response["usage"]["total_tokens"] == 30
+    assert store.get(key).usage["total_tokens"] == 30
+
+
+def test_a_genuinely_bad_response_is_not_recovered(tmp_path):
+    """Malformed provider text stays a failure; recovery is not leniency."""
+    store, key = _store_with_receipt(tmp_path, "not json at all")
+    orchestrator, backend = _orchestrator()
+
+    execution = orchestrator._recover_saved_response(
+        "A1", store.get(key), _context(tmp_path), store, key, {}, (), {}
+    )
+
+    assert execution is None
+    assert backend.calls == 0
+    assert store.get(key).state == "failed"
+    assert "could not be recovered locally" in store.get(key).error
+
+
+def test_a_contract_violating_response_is_not_recovered(tmp_path):
+    """
+    Recovery applies the run's own contract. In strict mode a required artifact
+    the normalizer cannot legitimately supply is still a rejection — recovery
+    must not become a way to launder a response past the contract.
+    """
+    payload = _a1_payload()
+    payload["artifacts"].pop("market_cap_check")
+    store, key = _store_with_receipt(tmp_path, json.dumps(payload))
+    orchestrator, backend = _orchestrator(strict=True)
+
+    execution = orchestrator._recover_saved_response(
+        "A1",
+        store.get(key),
+        _context(tmp_path, with_evidence=True),
+        store,
+        key,
+        {},
+        (),
+        {},
+    )
+
+    assert execution is None
+    assert backend.calls == 0
+    assert store.get(key).state == "failed"
+
+
+def test_a_receipt_without_provider_text_is_left_alone(tmp_path):
+    """
+    A receipt that carries an envelope rather than provider text (controller-mode
+    writes, legacy rows) has nothing to re-normalize, and must not be reported as
+    a recovery attempt.
+    """
+    store, key = _store_with_receipt(tmp_path, json.dumps(_a1_payload()))
+    store.mark_returned(key, {"envelope": _a1_payload()})
+    orchestrator, backend = _orchestrator()
+
+    execution = orchestrator._recover_saved_response(
+        "A1", store.get(key), _context(tmp_path), store, key, {}, (), {}
+    )
+
+    assert execution is None
+    assert backend.calls == 0
+    assert store.get(key).state == "returned"
+
+
+def test_recovered_text_is_normalized_not_passed_through(tmp_path):
+    """
+    Recovery runs the real local pipeline. A1's normalizer fills defaults and
+    records what it injected, so a pass-through would be visible here.
+    """
+    payload = _a1_payload()
+    payload["artifacts"].pop("price_timestamp_eet")
+    store, key = _store_with_receipt(tmp_path, json.dumps(payload))
+    orchestrator, _backend = _orchestrator()
+
+    execution = orchestrator._recover_saved_response(
+        "A1", store.get(key), _context(tmp_path), store, key, {}, (), {}
+    )
+
+    assert execution is not None
+    # The normalizer restored the required artifact, which a raw pass-through
+    # could not have done.
+    assert execution.envelope.artifacts.get("price_timestamp_eet")
+
+
+def test_an_abandoned_receipt_is_never_recovered(tmp_path):
+    """
+    Abandon is an explicit operator decision. It is honoured before recovery is
+    considered, so recovery can never resurrect work the operator discarded.
+    """
+    store, key = _store_with_receipt(tmp_path, json.dumps(_a1_payload()))
+    store.mark_unknown_completion(key, reason="interrupted")
+    store.resolve_recovery(key, "abandon")
+    orchestrator, backend = _orchestrator()
+
+    receipt = store.get(key)
+    assert receipt.recovery_choice == "abandon"
+    assert not receipt.is_safely_reusable()
+    # The orchestrator's resume block raises on ABANDON before recovery is
+    # considered, so recovery can never resurrect discarded work.
+    assert backend.calls == 0

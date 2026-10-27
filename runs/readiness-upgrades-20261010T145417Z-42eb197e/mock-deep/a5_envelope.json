@@ -1,0 +1,86 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A5",
+    "name": "News-Sentiment-Flows"
+  },
+  "timestamp": "2026-10-10T14:54:58Z",
+  "params": {
+    "company": "Mock Deep Inc",
+    "ticker": "MOCKD",
+    "analysis_date": "2025-06-01",
+    "depth": "Deep",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "gates": {
+    "passed": true,
+    "notes": []
+  },
+  "sections_md": {
+    "SECTION_8_NEWS_SENTIMENT": "# Section 8: News Sentiment Analysis\n\nQualitative headline flow over the trailing 90 days remains 64% positive, focused on new enterprise product rollouts and key executive additions.",
+    "SECTION_9_FLOW_LITIGATION": "# Section 9: Insider Flows, Institutional Positioning & Litigation\n\nForm 4 filings reflect moderate net insider purchases. Institutional sponsorship increased +1.6% QoQ. No active material litigation cases pending."
+  },
+  "artifacts": {
+    "SentimentSplit": {
+      "pos": 0.64,
+      "neu": 0.26,
+      "neg": 0.1,
+      "lookback_days": 90
+    },
+    "SocialVsFundDivergence": "Aligned",
+    "MajorLitigation": [],
+    "AuditorChangeYN": "No",
+    "InsiderNet12m": {
+      "shares": 42000,
+      "value": 6300000.0,
+      "direction": "NetBuy"
+    },
+    "InstitutionalOwnershipTrend": {
+      "direction": "Up",
+      "delta_pct": 1.6
+    },
+    "RegulatoryWatchlist": [],
+    "_execution_lineage": {
+      "consumed_upstream": [
+        "A1"
+      ],
+      "execution_key": "5813fd66638f67039a9a53a43453ae7c9a34e741464a215a0b3d6747ff9ccc41",
+      "upstream": [
+        {
+          "agent": "A1",
+          "content_checksum": "sha256:741bd6d173f8987b4683ea5121757a56c31476856cd41b8fe3f8de117b30b2f8"
+        }
+      ],
+      "prompt_sha256": "d9817b12791c5f4e58a93ffe5db88faac076191efcb9f3714f88176eace6b321",
+      "request_sha256": "dba03b61251ab51daf2581d3918204be773f841a30202bef4c52da1c0fe80e4c",
+      "evidence_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "provider": "mock",
+      "model": "make_mock_agent_cls.<locals>.ConfiguredMockAgent"
+    }
+  },
+  "sources": [
+    {
+      "type": "News Wire & SEC Form 4",
+      "url": "https://fuwforge.internal/feeds/sentiment",
+      "doc_date": "2025-01-31",
+      "accessed": "2026-10-10T14:54:58Z"
+    }
+  ],
+  "warnings": [],
+  "metrics": {
+    "data_checksum": "sha256:653d0437967116efc83f3d36c15156dd4ed31265f25ecbe2874ae4d3bfbc1de3",
+    "latency_ms": 110,
+    "tokens": 430,
+    "retries": 0
+  },
+  "confidence": 0.93,
+  "content_checksum": "sha256:e755820616916db876897952f17311d980f9e380c5e0d4cd4d39bcae0e986ea1",
+  "upstream": [
+    {
+      "agent": "A1",
+      "content_checksum": "sha256:741bd6d173f8987b4683ea5121757a56c31476856cd41b8fe3f8de117b30b2f8"
+    }
+  ]
+}

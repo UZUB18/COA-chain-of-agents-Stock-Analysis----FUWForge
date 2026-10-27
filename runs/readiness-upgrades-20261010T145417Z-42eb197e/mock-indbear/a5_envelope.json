@@ -1,0 +1,86 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A5",
+    "name": "News-Sentiment-Flows"
+  },
+  "timestamp": "2026-10-10T14:55:11Z",
+  "params": {
+    "company": "Mock IndBear Inc",
+    "ticker": "MOCKIB",
+    "analysis_date": "2025-06-01",
+    "depth": "Standard",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "gates": {
+    "passed": true,
+    "notes": []
+  },
+  "sections_md": {
+    "SECTION_8_NEWS_SENTIMENT": "# Section 8: News Sentiment Analysis\n\nQualitative headline flow over the trailing 90 days remains 64% positive, focused on new enterprise product rollouts and key executive additions.",
+    "SECTION_9_FLOW_LITIGATION": "# Section 9: Insider Flows, Institutional Positioning & Litigation\n\nForm 4 filings reflect moderate net insider purchases. Institutional sponsorship increased +1.6% QoQ. No active material litigation cases pending."
+  },
+  "artifacts": {
+    "SentimentSplit": {
+      "pos": 0.64,
+      "neu": 0.26,
+      "neg": 0.1,
+      "lookback_days": 90
+    },
+    "SocialVsFundDivergence": "Aligned",
+    "MajorLitigation": [],
+    "AuditorChangeYN": "No",
+    "InsiderNet12m": {
+      "shares": 42000,
+      "value": 6300000.0,
+      "direction": "NetBuy"
+    },
+    "InstitutionalOwnershipTrend": {
+      "direction": "Up",
+      "delta_pct": 1.6
+    },
+    "RegulatoryWatchlist": [],
+    "_execution_lineage": {
+      "consumed_upstream": [
+        "A1"
+      ],
+      "execution_key": "e0f18a0513dccfe49063b98de53ea16d97e067496292e398eef8c5404dcfcecb",
+      "upstream": [
+        {
+          "agent": "A1",
+          "content_checksum": "sha256:f96c4d6e845cc3cc2f54baa5896e60feeca4e18cbf4df789e5d3d3f152d2c6b5"
+        }
+      ],
+      "prompt_sha256": "f4c045f420c1ec2b6e0ba341b42a4df8f484155d660dc7e2edfe90e248ca04eb",
+      "request_sha256": "bac30756e00bb3443a1ee9bc0906670e226a8c89183bc0522d7cb610cb429da5",
+      "evidence_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "provider": "mock",
+      "model": "make_mock_agent_cls.<locals>.ConfiguredMockAgent"
+    }
+  },
+  "sources": [
+    {
+      "type": "News Wire & SEC Form 4",
+      "url": "https://fuwforge.internal/feeds/sentiment",
+      "doc_date": "2025-01-31",
+      "accessed": "2026-10-10T14:55:11Z"
+    }
+  ],
+  "warnings": [],
+  "metrics": {
+    "data_checksum": "sha256:8b818c1a9719af34127b0dec8c073febdb9d511b9e790167e533aacf84ca7e0f",
+    "latency_ms": 110,
+    "tokens": 430,
+    "retries": 0
+  },
+  "confidence": 0.93,
+  "content_checksum": "sha256:3b23de66db43e8c7401e64add2b82c0555067d33dea21f5896750e152ade865f",
+  "upstream": [
+    {
+      "agent": "A1",
+      "content_checksum": "sha256:f96c4d6e845cc3cc2f54baa5896e60feeca4e18cbf4df789e5d3d3f152d2c6b5"
+    }
+  ]
+}

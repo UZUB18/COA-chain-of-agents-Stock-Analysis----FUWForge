@@ -22,12 +22,13 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Union
 
 from src.envelope import Envelope
-from src.run_semantic_audit import semantic_audit
+from src.resources import get_schema_path
+from src.run_semantic_audit import _load_fact_ledger, semantic_audit
 from src.utils.beneish import CALCULATOR_VERSION as BENEISH_CALCULATOR_VERSION
 from src.utils.checksum import checksum_file
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SCHEMA_PATH = PROJECT_ROOT / "schemas" / "research_packet_v1.json"
+SCHEMA_PATH = get_schema_path("research_packet_v1.json")
 
 PACKET_SCHEMA_VERSION = "research_packet_v1"
 DISCLAIMER_TEXT = (
@@ -69,6 +70,222 @@ def file_sha256(path: Union[str, Path]) -> str:
     return checksum_file(Path(path))
 
 
+def _load_run_envelopes(run_dir: Path) -> Dict[str, Envelope]:
+    """Load all envelopes in a run directory."""
+    envelope_files = sorted(run_dir.glob("*_envelope.json"))
+    envelopes: Dict[str, Envelope] = {}
+    for ef in envelope_files:
+        try:
+            data = json.loads(ef.read_text(encoding="utf-8"))
+            agent_id = str((data.get("agent") or {}).get("id") or ef.stem.replace("_envelope", "").upper())
+            envelopes[agent_id] = Envelope.from_dict(data)
+        except Exception:
+            continue
+    return envelopes
+
+
+def _load_run_manifest(run_dir: Path) -> Dict[str, Any]:
+    """Load run manifest if present."""
+    manifest_path = run_dir / "run_manifest.json"
+    if manifest_path.is_file():
+        try:
+            return json.loads(manifest_path.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+    return {}
+
+
+def _is_finite_number(val: Any) -> bool:
+    """Check if val is an int or float that represents a finite number."""
+    if isinstance(val, bool) or not isinstance(val, (int, float)):
+        return False
+    try:
+        f = float(val)
+        return math.isfinite(f)
+    except (OverflowError, ValueError, TypeError):
+        return False
+
+
+def _project_fact(
+    f: Any,
+    *,
+    default_ticker: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """
+    Canonically project a typed Fact or fact dictionary to research_packet_v1 schema.
+
+    Maps schema aliases (instant -> period_instant, availability_time -> filing_date,
+    filing_accession -> accession), strips forbidden raw source keys from dimensions/metadata/
+    source_location, normalizes enums and accounting basis, and guarantees consistent field types.
+    """
+    if hasattr(f, "to_dict"):
+        f_dict = f.to_dict()
+    elif isinstance(f, dict):
+        f_dict = dict(f)
+    else:
+        return None
+
+    # Correct fact projection schema aliases:
+    # Schema uses: period_instant, filing_date, accession.
+    # Real Fact uses: instant, availability_time, filing_accession.
+    period_instant = f_dict.get("period_instant") or f_dict.get("instant")
+    filing_date = f_dict.get("filing_date") or f_dict.get("availability_time")
+    accession = f_dict.get("accession") or f_dict.get("filing_accession")
+
+    # Normalize accounting basis
+    basis = f_dict.get("accounting_basis")
+    if basis is not None and hasattr(basis, "value"):
+        basis = basis.value
+    elif basis is not None:
+        basis = str(basis)
+
+    # Normalize kind
+    kind_val = f_dict.get("kind")
+    if kind_val is not None and hasattr(kind_val, "value"):
+        kind_val = kind_val.value
+    elif kind_val is not None:
+        kind_val = str(kind_val)
+
+    source_loc = f_dict.get("source_location")
+    if isinstance(source_loc, dict):
+        source_loc = {k: v for k, v in source_loc.items() if k not in FORBIDDEN_SOURCE_KEYS}
+    elif not isinstance(source_loc, str):
+        source_loc = None
+
+    dims = f_dict.get("dimensions")
+    if not isinstance(dims, dict):
+        dims = None
+    else:
+        dims = {k: v for k, v in dims.items() if k not in FORBIDDEN_SOURCE_KEYS}
+
+    meta = f_dict.get("metadata")
+    if not isinstance(meta, dict):
+        meta = None
+    else:
+        meta = {k: v for k, v in meta.items() if k not in FORBIDDEN_SOURCE_KEYS}
+
+    val = f_dict.get("value")
+    if val is not None and not isinstance(val, bool):
+        try:
+            f_val = float(val)
+            if math.isfinite(f_val):
+                val = f_val
+        except (OverflowError, ValueError, TypeError):
+            pass
+
+    company = f_dict.get("company")
+    if not company and default_ticker:
+        company = default_ticker
+
+    return {
+        "id": str(f_dict.get("id")),
+        "company": str(company) if company is not None else None,
+        "concept": str(f_dict.get("concept")),
+        "value": val,
+        "unit": str(f_dict["unit"]) if f_dict.get("unit") is not None else None,
+        "currency": str(f_dict["currency"]) if f_dict.get("currency") is not None else None,
+        "period_start": str(f_dict["period_start"]) if f_dict.get("period_start") is not None else None,
+        "period_end": str(f_dict["period_end"]) if f_dict.get("period_end") is not None else None,
+        "period_instant": str(period_instant) if period_instant is not None else None,
+        "filing_date": str(filing_date) if filing_date is not None else None,
+        "accession": str(accession) if accession is not None else None,
+        "source_location": source_loc,
+        "accounting_basis": basis,
+        "kind": kind_val,
+        "supersedes": str(f_dict["supersedes"]) if f_dict.get("supersedes") is not None else None,
+        "missing_reason": str(f_dict["missing_reason"]) if f_dict.get("missing_reason") is not None else None,
+        "extractor_version": str(f_dict["extractor_version"]) if f_dict.get("extractor_version") is not None else None,
+        "dimensions": dims,
+        "metadata": meta,
+    }
+
+
+def _compare_projected_facts(
+    fid: str,
+    pkt_fact: Dict[str, Any],
+    canonical_fact: Dict[str, Any],
+) -> List[str]:
+    """
+    Compare every projected field of a packet fact against the canonical projection
+    of the reconstructed ledger fact.
+    """
+    diffs: List[str] = []
+
+    # Extra fields not in canonical projection
+    extra_keys = set(pkt_fact.keys()) - set(canonical_fact.keys())
+    if extra_keys:
+        diffs.append(
+            f"Fact '{fid}' contains unexpected extra fields: {', '.join(sorted(extra_keys))}"
+        )
+
+    # Value comparison with exact finite numeric equality and None checking
+    pkt_val = pkt_fact.get("value")
+    can_val = canonical_fact.get("value")
+    if pkt_val is None and can_val is None:
+        pass
+    elif pkt_val is None or can_val is None:
+        diffs.append(
+            f"Fact '{fid}' value mismatch: packet has {pkt_val!r}, reconstructed ledger has {can_val!r}"
+        )
+    elif isinstance(pkt_val, bool) or not isinstance(pkt_val, (int, float)):
+        diffs.append(
+            f"Fact '{fid}' value must be numeric float, got {type(pkt_val).__name__}"
+        )
+    elif isinstance(can_val, bool) or not isinstance(can_val, (int, float)):
+        diffs.append(
+            f"Fact '{fid}' canonical value must be numeric float, got {type(can_val).__name__}"
+        )
+    elif not _is_finite_number(pkt_val):
+        diffs.append(
+            f"Fact '{fid}' value must be finite (not NaN or Inf)"
+        )
+        if pkt_val != can_val:
+            diffs.append(
+                f"Fact '{fid}' value mismatch: packet has {pkt_val!r}, reconstructed ledger has {can_val!r}"
+            )
+    elif not _is_finite_number(can_val):
+        diffs.append(
+            f"Fact '{fid}' canonical value must be finite (not NaN or Inf)"
+        )
+        if pkt_val != can_val:
+            diffs.append(
+                f"Fact '{fid}' value mismatch: packet has {pkt_val!r}, reconstructed ledger has {can_val!r}"
+            )
+    elif pkt_val != can_val:
+        diffs.append(
+            f"Fact '{fid}' value mismatch: packet has {pkt_val!r}, reconstructed ledger has {can_val!r}"
+        )
+
+    comparable_fields = (
+        "company",
+        "concept",
+        "unit",
+        "currency",
+        "period_start",
+        "period_end",
+        "period_instant",
+        "filing_date",
+        "accession",
+        "source_location",
+        "accounting_basis",
+        "kind",
+        "supersedes",
+        "missing_reason",
+        "extractor_version",
+        "dimensions",
+        "metadata",
+    )
+    for field in comparable_fields:
+        pkt_field_val = pkt_fact.get(field)
+        can_field_val = canonical_fact.get(field)
+        if pkt_field_val != can_field_val:
+            diffs.append(
+                f"Fact '{fid}' {field} mismatch: packet has {pkt_field_val!r}, reconstructed ledger has {can_field_val!r}"
+            )
+
+    return diffs
+
+
 def build_packet(
     run_dir: Union[str, Path],
     *,
@@ -85,22 +302,8 @@ def build_packet(
         raise FileNotFoundError(f"Run directory not found: {run_dir}")
 
     envelope_files = sorted(run_dir.glob("*_envelope.json"))
-    envelopes: Dict[str, Envelope] = {}
-    for ef in envelope_files:
-        try:
-            data = json.loads(ef.read_text(encoding="utf-8"))
-            agent_id = str((data.get("agent") or {}).get("id") or ef.stem.replace("_envelope", "").upper())
-            envelopes[agent_id] = Envelope.from_dict(data)
-        except Exception:
-            continue
-
-    manifest_path = run_dir / "run_manifest.json"
-    manifest: Dict[str, Any] = {}
-    if manifest_path.is_file():
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except Exception:
-            manifest = {}
+    envelopes = _load_run_envelopes(run_dir)
+    manifest = _load_run_manifest(run_dir)
 
     summary_path = run_dir / "run_summary.json"
     summary: Dict[str, Any] = {}
@@ -112,21 +315,53 @@ def build_packet(
 
     # Extract company identity
     params: Dict[str, Any] = {}
-    if "A1" in envelopes:
+    if "A1" in envelopes and envelopes["A1"].params:
         params = envelopes["A1"].params or {}
     elif envelopes:
-        params = next(iter(envelopes.values())).params or {}
+        for env in envelopes.values():
+            if env.params:
+                params = env.params
+                break
     elif manifest:
         params = {"ticker": manifest.get("ticker"), "analysis_date": manifest.get("analysis_date")}
 
-    ticker = str(params.get("ticker") or manifest.get("ticker") or "UNKNOWN").upper()
-    company_name = str(params.get("company") or summary.get("company") or ticker)
-    analysis_date = str(params.get("analysis_date") or manifest.get("analysis_date") or _today_date())
+    ticker = params.get("ticker") or manifest.get("ticker") or summary.get("params", {}).get("ticker") or summary.get("ticker")
+    if not ticker and (run_dir / "evidence" / "evidence.json").is_file():
+        try:
+            ev_raw = json.loads((run_dir / "evidence" / "evidence.json").read_text(encoding="utf-8"))
+            ticker = ev_raw.get("ticker")
+        except Exception:
+            pass
+    ticker = str(ticker or "UNKNOWN").strip().upper()
+
+    company_name = str(
+        params.get("company")
+        or manifest.get("company")
+        or summary.get("params", {}).get("company")
+        or summary.get("company")
+        or ticker
+    )
+
+    analysis_date = (
+        params.get("analysis_date")
+        or manifest.get("analysis_date")
+        or summary.get("params", {}).get("analysis_date")
+        or summary.get("analysis_date")
+    )
+    if not analysis_date and (run_dir / "evidence" / "evidence.json").is_file():
+        try:
+            ev_raw = json.loads((run_dir / "evidence" / "evidence.json").read_text(encoding="utf-8"))
+            doc_dates = [d.get("doc_date") for d in ev_raw.get("documents", []) if isinstance(d, dict) and d.get("doc_date")]
+            if doc_dates:
+                analysis_date = max(doc_dates)
+        except Exception:
+            pass
+    analysis_date = str(analysis_date or _today_date()).strip()
 
     run_id = str(
         manifest.get("run_id")
         or summary.get("run_id")
-        or (next(iter(envelopes.values())).metrics or {}).get("run_id", "")
+        or ((next(iter(envelopes.values())).metrics or {}).get("run_id", "") if envelopes else "")
         or run_dir.name
     )
 
@@ -141,58 +376,29 @@ def build_packet(
         ))
     )
 
-    # Extract typed facts if ledger exists
-    facts_list: List[Dict[str, Any]] = []
-    facts_path: Optional[Path] = None
-    if (run_dir / "facts").is_dir():
-        facts_path = run_dir / "facts"
-    elif (run_dir / "facts.json").is_file():
-        facts_path = run_dir / "facts.json"
-    elif (run_dir / "fact_ledger.json").is_file():
-        facts_path = run_dir / "fact_ledger.json"
+    # Reconstruct typed facts from verified evidence snapshot, run files, and envelopes
+    ledger_problems: List[str] = []
+    fact_ledger = _load_fact_ledger(
+        run_dir,
+        envelopes,
+        problems=ledger_problems,
+        manifest=manifest,
+        ticker=ticker if ticker != "UNKNOWN" else None,
+        analysis_date=analysis_date,
+    )
+    if ledger_problems:
+        raise ValueError(
+            "Fact ledger verification failed:\n- " + "\n- ".join(ledger_problems)
+        )
 
-    if facts_path:
-        from src.facts import load_fact_ledger
+    facts_list: List[Any] = list(fact_ledger.values())
 
-        try:
-            loaded = load_fact_ledger(facts_path)
-            facts_list = [f.to_dict() for f in loaded]
-        except Exception:
-            facts_list = []
-
-    if not facts_list:
-        for env in envelopes.values():
-            art_facts = env.artifacts.get("facts") or env.artifacts.get("fact_ledger")
-            if isinstance(art_facts, list):
-                for f in art_facts:
-                    if isinstance(f, dict) and "id" in f:
-                        facts_list.append(dict(f))
-
-    # Bound facts: strip any raw text/unbounded data
+    # Bound facts: strip any raw text/unbounded data and map schema aliases
     bounded_facts: List[Dict[str, Any]] = []
     for f in facts_list:
-        if not isinstance(f, dict):
-            continue
-        bf = {
-            "id": str(f.get("id")),
-            "company": str(f.get("company") or ticker),
-            "concept": str(f.get("concept")),
-            "value": f.get("value"),
-            "unit": f.get("unit"),
-            "currency": f.get("currency"),
-            "period_start": f.get("period_start"),
-            "period_end": f.get("period_end"),
-            "period_instant": f.get("period_instant"),
-            "filing_date": f.get("filing_date"),
-            "accession": f.get("accession"),
-            "source_location": f.get("source_location") if isinstance(f.get("source_location"), dict) else None,
-            "accounting_basis": f.get("accounting_basis"),
-            "kind": f.get("kind"),
-            "supersedes": f.get("supersedes"),
-            "missing_reason": f.get("missing_reason"),
-            "extractor_version": f.get("extractor_version"),
-        }
-        bounded_facts.append(bf)
+        bf = _project_fact(f, default_ticker=ticker)
+        if bf is not None:
+            bounded_facts.append(bf)
 
     # Extract calculation witnesses
     calculations: List[Dict[str, Any]] = []
@@ -260,16 +466,16 @@ def build_packet(
                                 "id": doc_id,
                                 "title": doc.get("title"),
                                 "url": doc.get("url"),
-                                "date": doc.get("filing_date") or doc.get("date"),
-                                "filing_date": doc.get("filing_date"),
-                                "form_type": doc.get("form"),
+                                "date": doc.get("filing_date") or doc.get("doc_date") or doc.get("date"),
+                                "filing_date": doc.get("filing_date") or doc.get("doc_date"),
+                                "form_type": doc.get("form") or doc.get("type"),
                                 "accession": doc.get("accession"),
-                                "checksum": doc.get("body_sha256"),
+                                "checksum": doc.get("content_sha256") or doc.get("body_sha256"),
                                 "verification": "retrieved",
                             }
                         )
-        except Exception:
-            pass
+        except Exception as exc:
+            raise ValueError(f"Evidence documents in evidence.json could not be loaded: {exc}") from exc
 
     # Extract claims
     claims: List[Dict[str, Any]] = []
@@ -443,6 +649,15 @@ def build_packet(
 
     # Compile limitations
     limitations: List[str] = [DISCLAIMER_TEXT]
+    # A packet leaves the run directory and is read outside it. If the run was
+    # produced by the fixture provider, the packet itself must say so: the
+    # exported file otherwise carries no trace of the backend that wrote it.
+    configuration = manifest.get("configuration") or {}
+    if str(configuration.get("provider") or summary.get("provider") or "").strip().lower() == "mock":
+        limitations.append(
+            "Provenance: generated by the mock provider from built-in fixtures. "
+            "Every figure is synthetic; this packet is a pipeline smoke test, not research."
+        )
     if not audit_report.complete:
         limitations.append(
             "Run is incomplete; results reflect a partial agent graph and must not be treated as a full report."
@@ -503,15 +718,14 @@ def validate_packet(
     """
     Validate a research packet against schemas/research_packet_v1.json and semantic rules.
 
-    Checks:
-    - Schema version matches PACKET_SCHEMA_VERSION
-    - Structural conformance against JSON schema
-    - Company identity (matches A1 params / expected parameters)
-    - Fact references in claims: every fact ID referenced must exist in packet.facts
-    - Explicit audit state is present and consistent
-    - Limitations list is present and non-empty
-    - Unapproved status is preserved (cannot claim dashboard approval)
-    - Boundedness (no raw transcripts or full filing bodies)
+    When `run_dir` is omitted, validation is structural-only: it verifies schema conformance,
+    internal claim fact/calculation references, boundedness, and approval status, but does not
+    verify source truth without run directory context.
+
+    When `run_dir` is provided, facts are verified against the reconstructed fact ledger
+    from verified evidence snapshots, run files, and envelopes. Any unknown, missing,
+    or altered facts (including value, unit, period, availability, accession, company, concept,
+    and basis) are rejected.
     """
     errors: List[str] = []
 
@@ -526,11 +740,12 @@ def validate_packet(
         )
 
     # 2. JSON Schema validation
-    if SCHEMA_PATH.is_file():
+    schema_file = SCHEMA_PATH if SCHEMA_PATH.is_file() else get_schema_path("research_packet_v1.json")
+    if schema_file.is_file():
         try:
             import jsonschema
 
-            schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+            schema = json.loads(schema_file.read_text(encoding="utf-8"))
             validator = jsonschema.Draft202012Validator(schema)
             for err in validator.iter_errors(packet):
                 path_str = "/".join(str(p) for p in err.path) or "<root>"
@@ -553,21 +768,75 @@ def validate_packet(
         # Compare with run_dir A1 params if provided
         if run_dir:
             run_dir = Path(run_dir)
-            a1_path = run_dir / "a1_envelope.json"
-            if a1_path.is_file():
-                try:
-                    a1_data = json.loads(a1_path.read_text(encoding="utf-8"))
-                    a1_params = a1_data.get("params") or {}
-                    if a1_params.get("ticker") and pkt_ticker != a1_params.get("ticker"):
-                        errors.append(
-                            f"Company ticker mismatch: packet has {pkt_ticker!r}, but run A1 specifies {a1_params.get('ticker')!r}"
-                        )
-                    if a1_params.get("company") and pkt_name != a1_params.get("company"):
-                        errors.append(
-                            f"Company name mismatch: packet has {pkt_name!r}, but run A1 specifies {a1_params.get('company')!r}"
-                        )
-                except Exception:
-                    pass
+            if not run_dir.exists() or not run_dir.is_dir():
+                errors.append(f"Run directory not found: {run_dir}")
+            else:
+                env_map = _load_run_envelopes(run_dir)
+                manifest = _load_run_manifest(run_dir)
+
+                a1_params: Dict[str, Any] = {}
+                if "A1" in env_map and env_map["A1"].params:
+                    a1_params = env_map["A1"].params or {}
+                else:
+                    a1_path = run_dir / "a1_envelope.json"
+                    if a1_path.is_file():
+                        try:
+                            a1_data = json.loads(a1_path.read_text(encoding="utf-8"))
+                            a1_params = a1_data.get("params") or {}
+                        except Exception:
+                            pass
+                if a1_params.get("ticker") and pkt_ticker != a1_params.get("ticker"):
+                    errors.append(
+                        f"Company ticker mismatch: packet has {pkt_ticker!r}, but run A1 specifies {a1_params.get('ticker')!r}"
+                    )
+                if a1_params.get("company") and pkt_name != a1_params.get("company"):
+                    errors.append(
+                        f"Company name mismatch: packet has {pkt_name!r}, but run A1 specifies {a1_params.get('company')!r}"
+                    )
+
+                # Validate fact ledger against run_dir
+                val_problems: List[str] = []
+                fact_ledger = _load_fact_ledger(
+                    run_dir,
+                    envelopes=env_map,
+                    problems=val_problems,
+                    manifest=manifest,
+                    ticker=pkt_ticker,
+                    analysis_date=packet.get("analysis_date"),
+                )
+                for prob in val_problems:
+                    errors.append(f"Fact ledger verification failed: {prob}")
+
+                canonical_facts: Dict[str, Dict[str, Any]] = {}
+                for f in fact_ledger.values():
+                    proj = _project_fact(f, default_ticker=pkt_ticker)
+                    if proj and proj.get("id"):
+                        canonical_facts[str(proj["id"])] = proj
+
+                pkt_fact_map: Dict[str, Dict[str, Any]] = {}
+                for fact in packet.get("facts", []):
+                    if isinstance(fact, dict) and fact.get("id"):
+                        fid = str(fact["id"])
+                        if fid in pkt_fact_map:
+                            errors.append(
+                                f"Duplicate or conflicting fact ID '{fid}' in packet facts ledger"
+                            )
+                        pkt_fact_map[fid] = fact
+
+                pkt_ids = set(pkt_fact_map.keys())
+                can_ids = set(canonical_facts.keys())
+
+                for fid in sorted(pkt_ids - can_ids):
+                    errors.append(
+                        f"Packet contains unknown fact '{fid}' not present in reconstructed fact ledger"
+                    )
+                for fid in sorted(can_ids - pkt_ids):
+                    errors.append(
+                        f"Packet is missing fact '{fid}' present in reconstructed fact ledger"
+                    )
+                for fid in sorted(pkt_ids & can_ids):
+                    field_diffs = _compare_projected_facts(fid, pkt_fact_map[fid], canonical_facts[fid])
+                    errors.extend(field_diffs)
 
         # Compare with expected params if provided
         if expected_ticker and pkt_ticker != expected_ticker:
@@ -588,11 +857,23 @@ def validate_packet(
                     )
 
     # 4. Fact ID and calculation ID references in claims
-    known_fact_ids = {
-        f.get("id")
-        for f in packet.get("facts", [])
-        if isinstance(f, dict) and f.get("id")
-    }
+    seen_facts: Dict[str, Dict[str, Any]] = {}
+    known_fact_ids: Set[str] = set()
+    for fact in packet.get("facts", []):
+        if not isinstance(fact, dict):
+            errors.append(f"Fact entry must be a dictionary, got {type(fact).__name__}")
+            continue
+        fid = fact.get("id")
+        if not fid:
+            errors.append("Fact entry missing required 'id'")
+            continue
+        if fid in seen_facts:
+            errors.append(
+                f"Duplicate or conflicting fact ID '{fid}' in packet facts ledger"
+            )
+        else:
+            seen_facts[fid] = fact
+            known_fact_ids.add(fid)
     known_calc_ids = set()
     for c in packet.get("calculations", []):
         if isinstance(c, dict):
@@ -667,7 +948,7 @@ def validate_packet(
             if f_val is not None:
                 if isinstance(f_val, bool) or not isinstance(f_val, (int, float)):
                     errors.append(f"Fact '{fact.get('id')}' value must be a numeric float or null, got {type(f_val).__name__}")
-                elif not isinstance(f_val, bool) and isinstance(f_val, (int, float)) and not math.isfinite(f_val):
+                elif not _is_finite_number(f_val):
                     errors.append(f"Fact '{fact.get('id')}' value must be finite (not NaN or Inf)")
 
     for claim in packet.get("claims", []):

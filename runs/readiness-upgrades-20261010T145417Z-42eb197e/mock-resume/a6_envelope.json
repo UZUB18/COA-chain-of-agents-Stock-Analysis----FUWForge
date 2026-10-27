@@ -1,0 +1,192 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A6",
+    "name": "CIO-Synthesis"
+  },
+  "timestamp": "2026-10-10T14:55:51Z",
+  "params": {
+    "analysis_date": "2025-06-01",
+    "company": "Mock Resume Inc",
+    "depth": "Quick",
+    "focus": [],
+    "independent_bear": false,
+    "ticker": "MOCKRES",
+    "weights": "default"
+  },
+  "gates": {
+    "notes": [],
+    "passed": true
+  },
+  "sections_md": {
+    "SECTION_14_SYNTHESIS": "# Section 14: Master Synthesis & Scenario Lab\n\n### Danger-Zone Dashboard\nAll core accounting, governance, and liquidity flags remain in the green band.\n\n### 3-Year Forward Scenario Matrix\n| Scenario | FY+1 Revenue | FY+1 EPS | FCF / Share | Probability |\n|---|---|---|---|---|\n| Bull Case | $51.5B (+16%) | $8.20 | $9.10 | 30% |\n| Base Case | $47.8B (+11%) | $7.30 | $8.00 | 55% |\n| Bear Case | $42.5B (+2%) | $5.90 | $6.40 | 15% |\n"
+  },
+  "artifacts": {
+    "Catalysts": [
+      "Next-generation enterprise platform launch",
+      "Analyst day investor presentation and long-term margin target updates",
+      "International datacenter footprint deployment"
+    ],
+    "DangerZoneDashboard": [
+      {
+        "category": "Accounting anomalies",
+        "flag": "\ud83d\udfe2",
+        "note": "Clean accruals and cash conversion",
+        "sources": [
+          "A3.BeneishM",
+          "A3.OCF_vs_NI_Flag"
+        ]
+      },
+      {
+        "category": "Customer concentration",
+        "flag": "\ud83d\udfe2",
+        "note": "No single customer exceeds 10%",
+        "sources": [
+          "A2.TopCustomerPct"
+        ]
+      },
+      {
+        "category": "Litigation & regulatory",
+        "flag": "\ud83d\udfe2",
+        "note": "No pending class actions",
+        "sources": [
+          "A5.MajorLitigation"
+        ]
+      },
+      {
+        "category": "Hype vs reality",
+        "flag": "\ud83d\udfe2",
+        "note": "Valuation supported by cash flow fundamentals",
+        "sources": [
+          "A3.HypeFlag"
+        ]
+      },
+      {
+        "category": "Balance sheet shock buffer",
+        "flag": "\ud83d\udfe2",
+        "note": "Altman Z safe zone cushion",
+        "sources": [
+          "A3.AltmanZ"
+        ]
+      }
+    ],
+    "Headwinds": [
+      "Foreign exchange headwinds in EMEA region",
+      "Elevated enterprise IT scrutiny for non-essential software"
+    ],
+    "ScenarioTable": {
+      "Base": {
+        "Drivers": "Steady 11% growth, guided operating leverage",
+        "EPS": "$7.30",
+        "FCFPerShare": "$8.00",
+        "Revenue": "$47.8B (+11%)"
+      },
+      "Bear": {
+        "Drivers": "Extended deal approvals, modest pricing concessions",
+        "EPS": "$5.90",
+        "FCFPerShare": "$6.40",
+        "Revenue": "$42.5B (+2%)"
+      },
+      "Bull": {
+        "Drivers": "Cloud market share gains, enterprise expansion",
+        "EPS": "$8.20",
+        "FCFPerShare": "$9.10",
+        "Revenue": "$51.5B (+16%)"
+      }
+    },
+    "_execution_lineage": {
+      "consumed_upstream": [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5",
+        "A6B",
+        "A6R"
+      ],
+      "evidence_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "execution_key": "7786ed29582702ebac914e2bfd37808940af740d626c19951a80b2459e650620",
+      "model": "make_mock_agent_cls.<locals>.ConfiguredMockAgent",
+      "prompt_sha256": "27f77da19441e25f4122200e77de1230e4b9d14ba28b722e4f933286e92bacaf",
+      "provider": "mock",
+      "request_sha256": "b83ce4ff5a61bd82563007da4c8336fd801f4968d559cac53694b6fc92e736d7",
+      "upstream": [
+        {
+          "agent": "A1",
+          "content_checksum": "sha256:4deaffa142b4f70b0b71e00ddde082267e1e8e4ed56deffa33434a723071ee37"
+        },
+        {
+          "agent": "A2",
+          "content_checksum": "sha256:44dca7dacead13915657ac9b6a6e34f57f9540fed9c17b6f0f9c3cb4d2845b26"
+        },
+        {
+          "agent": "A3",
+          "content_checksum": "sha256:99e5092ae53d8e6eef96babae4725e4326cee6e3f54ffabea44e74ff17b0fd25"
+        },
+        {
+          "agent": "A4",
+          "content_checksum": "sha256:09d2c59f698769d8772540075e98b168f3ce443c6353d085ff02d49c75b64aa1"
+        },
+        {
+          "agent": "A5",
+          "content_checksum": "sha256:10101a4ac902be4c4dbdbe5e856f15548413751da7450ce9d82c33b882a73e91"
+        },
+        {
+          "agent": "A6B",
+          "content_checksum": "sha256:a5aedd9c5922c3bf05cf223dc2588836de3f6458a108a2dc4c8f49d73cfd5693"
+        },
+        {
+          "agent": "A6R",
+          "content_checksum": "sha256:664f9966f8d568c9cbe2654158b7dc11ecae1f0761b568bc888cef873d6f64aa"
+        }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "accessed": "2026-10-10T14:55:51Z",
+      "doc_date": "2025-01-31",
+      "type": "Synthesis",
+      "url": "internal:a6"
+    }
+  ],
+  "warnings": [],
+  "metrics": {
+    "data_checksum": "sha256:f1d3ba1cfa24d75e568ecd77996579c53ff5adc1a8128c3ce6e7b9f026a4b041",
+    "latency_ms": 140,
+    "retries": 0,
+    "tokens": 530
+  },
+  "confidence": 0.96,
+  "content_checksum": "sha256:acf6721e0a7943ff5c6aebc099b2faecae889a1aa8535de0467ab501c4196184",
+  "upstream": [
+    {
+      "agent": "A1",
+      "content_checksum": "sha256:4deaffa142b4f70b0b71e00ddde082267e1e8e4ed56deffa33434a723071ee37"
+    },
+    {
+      "agent": "A2",
+      "content_checksum": "sha256:44dca7dacead13915657ac9b6a6e34f57f9540fed9c17b6f0f9c3cb4d2845b26"
+    },
+    {
+      "agent": "A3",
+      "content_checksum": "sha256:99e5092ae53d8e6eef96babae4725e4326cee6e3f54ffabea44e74ff17b0fd25"
+    },
+    {
+      "agent": "A4",
+      "content_checksum": "sha256:09d2c59f698769d8772540075e98b168f3ce443c6353d085ff02d49c75b64aa1"
+    },
+    {
+      "agent": "A5",
+      "content_checksum": "sha256:10101a4ac902be4c4dbdbe5e856f15548413751da7450ce9d82c33b882a73e91"
+    },
+    {
+      "agent": "A6B",
+      "content_checksum": "sha256:a5aedd9c5922c3bf05cf223dc2588836de3f6458a108a2dc4c8f49d73cfd5693"
+    },
+    {
+      "agent": "A6R",
+      "content_checksum": "sha256:664f9966f8d568c9cbe2654158b7dc11ecae1f0761b568bc888cef873d6f64aa"
+    }
+  ]
+}

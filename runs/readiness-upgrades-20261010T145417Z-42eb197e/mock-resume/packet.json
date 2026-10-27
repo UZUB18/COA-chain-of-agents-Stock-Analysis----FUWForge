@@ -1,0 +1,573 @@
+{
+  "analysis_date": "2025-06-01",
+  "approval_status": "pending_human_review",
+  "audit": {
+    "complete": true,
+    "coverage": {
+      "inputs_bound": 0,
+      "inputs_unverified": 8,
+      "inputs_verified": 0,
+      "witnesses_attempted": 1,
+      "witnesses_replayed": 1
+    },
+    "errors": [],
+    "failed_levels": [],
+    "halted": false,
+    "inputs_bound": 0,
+    "inputs_unverified": 8,
+    "inputs_verified": 0,
+    "levels": {
+      "calculation_replay": "passed",
+      "completeness": "passed",
+      "envelope_integrity": "passed",
+      "final_artifacts": "passed",
+      "graph_and_contracts": "passed",
+      "source_reconstruction": "not_applicable"
+    },
+    "overall_state": "verified",
+    "unavailable": [
+      "A3 BeneishM witness input 'aqi' (1.0) cites no source fact; its value is unverified against any typed fact",
+      "A3 BeneishM witness input 'depi' (1.0) cites no source fact; its value is unverified against any typed fact",
+      "A3 BeneishM witness input 'dsri' (1.0) cites no source fact; its value is unverified against any typed fact",
+      "A3 BeneishM witness input 'gmi' (1.0) cites no source fact; its value is unverified against any typed fact",
+      "A3 BeneishM witness input 'lvgi' (1.0) cites no source fact; its value is unverified against any typed fact",
+      "A3 BeneishM witness input 'sgai' (1.0) cites no source fact; its value is unverified against any typed fact",
+      "A3 BeneishM witness input 'sgi' (1.0) cites no source fact; its value is unverified against any typed fact",
+      "A3 BeneishM witness input 'tata' (0.0) cites no source fact; its value is unverified against any typed fact"
+    ],
+    "warnings": [],
+    "witnesses_attempted": 1,
+    "witnesses_replayed": 1
+  },
+  "calculations": [
+    {
+      "calculator_id": "beneish_m_score",
+      "formula_id": "beneish_m_score",
+      "formula_version": "2.0.0",
+      "input_fact_ids": {},
+      "inputs": {
+        "aqi": 1.0,
+        "depi": 1.0,
+        "dsri": 1.0,
+        "gmi": 1.0,
+        "lvgi": 1.0,
+        "sgai": 1.0,
+        "sgi": 1.0,
+        "tata": 0.0
+      },
+      "notes": "Unrounded score; display rounding is a separate presentation step.",
+      "parameters": {
+        "formula_source": "ECB Occasional Paper 385, Equation 2, p.10 (eight-variable Beneish M-Score)",
+        "screening_threshold": -1.78,
+        "threshold_policy": "ecb-385-eq2-conventional"
+      },
+      "provenance": "deterministic",
+      "result": -2.4799999999999995,
+      "units": {
+        "aqi": "ratio",
+        "depi": "ratio",
+        "dsri": "ratio",
+        "gmi": "ratio",
+        "lvgi": "ratio",
+        "sgai": "ratio",
+        "sgi": "ratio",
+        "tata": "ratio"
+      }
+    }
+  ],
+  "claims": [
+    {
+      "agent_id": "A6B",
+      "calculation_ids": [],
+      "category": "bull_thesis",
+      "details": null,
+      "evidence": [
+        "A2.PEER_LIST",
+        "A3.AltmanZ"
+      ],
+      "fact_ids": [],
+      "id": "B1",
+      "impact": "Topline revenue CAGR +15%",
+      "probability": null,
+      "severity": null,
+      "statement": "Enterprise Cloud Expansion",
+      "thesis": "Enterprise Cloud Expansion"
+    },
+    {
+      "agent_id": "A6B",
+      "calculation_ids": [],
+      "category": "bull_thesis",
+      "details": null,
+      "evidence": [
+        "A3.OCF_vs_NI_Flag"
+      ],
+      "fact_ids": [],
+      "id": "B2",
+      "impact": "Operating margin +200 bps",
+      "probability": null,
+      "severity": null,
+      "statement": "Operating Margin Leverage",
+      "thesis": "Operating Margin Leverage"
+    },
+    {
+      "agent_id": "A6B",
+      "calculation_ids": [],
+      "category": "bull_thesis",
+      "details": null,
+      "evidence": [
+        "A5.SentimentSplit"
+      ],
+      "fact_ids": [],
+      "id": "B3",
+      "impact": "FCF per share +12% annualized",
+      "probability": null,
+      "severity": null,
+      "statement": "Capital Return Acceleration",
+      "thesis": "Capital Return Acceleration"
+    },
+    {
+      "agent_id": "A6R",
+      "calculation_ids": [],
+      "category": "bear_rebuttal",
+      "details": {
+        "bull_id": "B1"
+      },
+      "evidence": [],
+      "fact_ids": [],
+      "id": "bear_rebuttal_B1",
+      "impact": null,
+      "probability": "Med",
+      "severity": "Med",
+      "statement": "Macro enterprise IT budget scrutiny could delay expansion cycles.",
+      "thesis": null
+    },
+    {
+      "agent_id": "A6R",
+      "calculation_ids": [],
+      "category": "bear_rebuttal",
+      "details": {
+        "bull_id": "B2"
+      },
+      "evidence": [],
+      "fact_ids": [],
+      "id": "bear_rebuttal_B2",
+      "impact": null,
+      "probability": "Low",
+      "severity": "High",
+      "statement": "AI compute capex and engineer hiring costs could compress gross margins.",
+      "thesis": null
+    },
+    {
+      "agent_id": "A6R",
+      "calculation_ids": [],
+      "category": "bear_rebuttal",
+      "details": {
+        "bull_id": "B3"
+      },
+      "evidence": [],
+      "fact_ids": [],
+      "id": "bear_rebuttal_B3",
+      "impact": null,
+      "probability": "Med",
+      "severity": "Med",
+      "statement": "Multiple de-rating could offset share repurchases if revenue guidance softens.",
+      "thesis": null
+    },
+    {
+      "agent_id": "A6",
+      "calculation_ids": [],
+      "category": "danger_zone",
+      "details": {
+        "category": "Accounting anomalies",
+        "flag": "🟢",
+        "note": "Clean accruals and cash conversion",
+        "sources": [
+          "A3.BeneishM",
+          "A3.OCF_vs_NI_Flag"
+        ]
+      },
+      "evidence": [],
+      "fact_ids": [],
+      "id": "danger_Accounting anomalies",
+      "impact": null,
+      "probability": null,
+      "severity": "🟢",
+      "statement": "Accounting anomalies: 🟢 - Clean accruals and cash conversion",
+      "thesis": null
+    },
+    {
+      "agent_id": "A6",
+      "calculation_ids": [],
+      "category": "danger_zone",
+      "details": {
+        "category": "Customer concentration",
+        "flag": "🟢",
+        "note": "No single customer exceeds 10%",
+        "sources": [
+          "A2.TopCustomerPct"
+        ]
+      },
+      "evidence": [],
+      "fact_ids": [],
+      "id": "danger_Customer concentration",
+      "impact": null,
+      "probability": null,
+      "severity": "🟢",
+      "statement": "Customer concentration: 🟢 - No single customer exceeds 10%",
+      "thesis": null
+    },
+    {
+      "agent_id": "A6",
+      "calculation_ids": [],
+      "category": "danger_zone",
+      "details": {
+        "category": "Litigation & regulatory",
+        "flag": "🟢",
+        "note": "No pending class actions",
+        "sources": [
+          "A5.MajorLitigation"
+        ]
+      },
+      "evidence": [],
+      "fact_ids": [],
+      "id": "danger_Litigation & regulatory",
+      "impact": null,
+      "probability": null,
+      "severity": "🟢",
+      "statement": "Litigation & regulatory: 🟢 - No pending class actions",
+      "thesis": null
+    },
+    {
+      "agent_id": "A6",
+      "calculation_ids": [],
+      "category": "danger_zone",
+      "details": {
+        "category": "Hype vs reality",
+        "flag": "🟢",
+        "note": "Valuation supported by cash flow fundamentals",
+        "sources": [
+          "A3.HypeFlag"
+        ]
+      },
+      "evidence": [],
+      "fact_ids": [],
+      "id": "danger_Hype vs reality",
+      "impact": null,
+      "probability": null,
+      "severity": "🟢",
+      "statement": "Hype vs reality: 🟢 - Valuation supported by cash flow fundamentals",
+      "thesis": null
+    },
+    {
+      "agent_id": "A6",
+      "calculation_ids": [],
+      "category": "danger_zone",
+      "details": {
+        "category": "Balance sheet shock buffer",
+        "flag": "🟢",
+        "note": "Altman Z safe zone cushion",
+        "sources": [
+          "A3.AltmanZ"
+        ]
+      },
+      "evidence": [],
+      "fact_ids": [],
+      "id": "danger_Balance sheet shock buffer",
+      "impact": null,
+      "probability": null,
+      "severity": "🟢",
+      "statement": "Balance sheet shock buffer: 🟢 - Altman Z safe zone cushion",
+      "thesis": null
+    },
+    {
+      "agent_id": "A6",
+      "calculation_ids": [],
+      "category": "catalyst",
+      "details": null,
+      "evidence": [],
+      "fact_ids": [],
+      "id": "catalyst_1",
+      "impact": null,
+      "probability": null,
+      "severity": null,
+      "statement": "Next-generation enterprise platform launch",
+      "thesis": null
+    },
+    {
+      "agent_id": "A6",
+      "calculation_ids": [],
+      "category": "catalyst",
+      "details": null,
+      "evidence": [],
+      "fact_ids": [],
+      "id": "catalyst_2",
+      "impact": null,
+      "probability": null,
+      "severity": null,
+      "statement": "Analyst day investor presentation and long-term margin target updates",
+      "thesis": null
+    },
+    {
+      "agent_id": "A6",
+      "calculation_ids": [],
+      "category": "catalyst",
+      "details": null,
+      "evidence": [],
+      "fact_ids": [],
+      "id": "catalyst_3",
+      "impact": null,
+      "probability": null,
+      "severity": null,
+      "statement": "International datacenter footprint deployment",
+      "thesis": null
+    },
+    {
+      "agent_id": "A6",
+      "calculation_ids": [],
+      "category": "headwind",
+      "details": null,
+      "evidence": [],
+      "fact_ids": [],
+      "id": "headwind_1",
+      "impact": null,
+      "probability": null,
+      "severity": null,
+      "statement": "Foreign exchange headwinds in EMEA region",
+      "thesis": null
+    },
+    {
+      "agent_id": "A6",
+      "calculation_ids": [],
+      "category": "headwind",
+      "details": null,
+      "evidence": [],
+      "fact_ids": [],
+      "id": "headwind_2",
+      "impact": null,
+      "probability": null,
+      "severity": null,
+      "statement": "Elevated enterprise IT scrutiny for non-essential software",
+      "thesis": null
+    },
+    {
+      "agent_id": "A7",
+      "calculation_ids": [],
+      "category": "scorecard",
+      "details": {
+        "ESG": {
+          "score": 7.2,
+          "weight": 0.025,
+          "weighted": 0.18
+        },
+        "Financials": {
+          "score": 8.5,
+          "weight": 0.25,
+          "weighted": 2.125
+        },
+        "Growth": {
+          "score": 7.5,
+          "weight": 0.15,
+          "weighted": 1.125
+        },
+        "Market": {
+          "score": 7.6,
+          "weight": 0.025,
+          "weighted": 0.19
+        },
+        "MgmtGov": {
+          "score": 8.4,
+          "weight": 0.1,
+          "weighted": 0.84
+        },
+        "Moat": {
+          "score": 8.0,
+          "weight": 0.2,
+          "weighted": 1.6
+        },
+        "Overall": {
+          "rating_band": "Buy",
+          "score": 7.88
+        },
+        "RiskInverse": {
+          "score": 8.0,
+          "weight": 0.1,
+          "weighted": 0.8
+        },
+        "Valuation": {
+          "score": 6.8,
+          "weight": 0.15,
+          "weighted": 1.02
+        }
+      },
+      "evidence": [],
+      "fact_ids": [],
+      "id": "scorecard_total",
+      "impact": null,
+      "probability": null,
+      "severity": null,
+      "statement": "Overall score: N/A",
+      "thesis": null
+    },
+    {
+      "agent_id": "A7",
+      "calculation_ids": [],
+      "category": "comparison_fields",
+      "details": {
+        "balance_sheet_score_10": 8.5,
+        "data_completeness_score_10": 9.0,
+        "downside_case_5y_irr_pct": -3.5,
+        "evidence_quality_score_10": 9.0,
+        "expected_5y_irr_base_pct": 12.5,
+        "fcf_yield_ttm_pct": 3.6,
+        "fragility_score_10": 2.0,
+        "moat_score_10": 8.0,
+        "net_debt_to_ebitda": -0.45,
+        "quality_score_10": 7.9,
+        "reinvestment_runway_score_10": 7.5,
+        "roic_ttm_pct": 28.4,
+        "valuation_score_10": 6.8
+      },
+      "evidence": [],
+      "fact_ids": [],
+      "id": "comparison_fields",
+      "impact": null,
+      "probability": null,
+      "severity": null,
+      "statement": "Quality score 7.9, moat 8.0",
+      "thesis": null
+    }
+  ],
+  "company": {
+    "name": "Mock Resume Inc",
+    "ticker": "MOCKRES"
+  },
+  "disclaimer": "Unapproved research artifact pending human review; does not constitute dashboard approval or investment recommendation.",
+  "facts": [],
+  "generated_at": "2026-10-10T15:01:44Z",
+  "limitations": [
+    "Unapproved research artifact pending human review; does not constitute dashboard approval or investment recommendation.",
+    "No typed financial fact ledger was attached to this run."
+  ],
+  "run_id": "run_mockres_20261010_150144",
+  "schema_version": "research_packet_v1",
+  "sources": [
+    {
+      "accession": null,
+      "checksum": null,
+      "date": null,
+      "filing_date": null,
+      "form_type": null,
+      "id": "https://www.sec.gov/edgar/data/10k",
+      "title": null,
+      "url": "https://www.sec.gov/edgar/data/10k",
+      "verification": null
+    },
+    {
+      "accession": null,
+      "checksum": null,
+      "date": null,
+      "filing_date": null,
+      "form_type": null,
+      "id": "https://nasdaq.com/feed",
+      "title": null,
+      "url": "https://nasdaq.com/feed",
+      "verification": null
+    },
+    {
+      "accession": null,
+      "checksum": null,
+      "date": null,
+      "filing_date": null,
+      "form_type": null,
+      "id": "https://ir.company.com/deck",
+      "title": null,
+      "url": "https://ir.company.com/deck",
+      "verification": null
+    },
+    {
+      "accession": null,
+      "checksum": null,
+      "date": null,
+      "filing_date": null,
+      "form_type": null,
+      "id": "https://fuwforge.internal/quant/a3",
+      "title": null,
+      "url": "https://fuwforge.internal/quant/a3",
+      "verification": null
+    },
+    {
+      "accession": null,
+      "checksum": null,
+      "date": null,
+      "filing_date": null,
+      "form_type": null,
+      "id": "https://sec.gov/Archives/edgar/data/def14a",
+      "title": null,
+      "url": "https://sec.gov/Archives/edgar/data/def14a",
+      "verification": null
+    },
+    {
+      "accession": null,
+      "checksum": null,
+      "date": null,
+      "filing_date": null,
+      "form_type": null,
+      "id": "https://fuwforge.internal/feeds/sentiment",
+      "title": null,
+      "url": "https://fuwforge.internal/feeds/sentiment",
+      "verification": null
+    },
+    {
+      "accession": null,
+      "checksum": null,
+      "date": null,
+      "filing_date": null,
+      "form_type": null,
+      "id": "internal:a6",
+      "title": null,
+      "url": "internal:a6",
+      "verification": null
+    },
+    {
+      "accession": null,
+      "checksum": null,
+      "date": null,
+      "filing_date": null,
+      "form_type": null,
+      "id": "internal:a6b",
+      "title": null,
+      "url": "internal:a6b",
+      "verification": null
+    },
+    {
+      "accession": null,
+      "checksum": null,
+      "date": null,
+      "filing_date": null,
+      "form_type": null,
+      "id": "internal:a6r",
+      "title": null,
+      "url": "internal:a6r",
+      "verification": null
+    },
+    {
+      "accession": null,
+      "checksum": null,
+      "date": null,
+      "filing_date": null,
+      "form_type": null,
+      "id": "internal:a7",
+      "title": null,
+      "url": "internal:a7",
+      "verification": null
+    }
+  ],
+  "status": "completed",
+  "versions": {
+    "beneish_m_score": "2.0.0",
+    "envelope_schema_version": "2.1",
+    "fact_schema_version": "financial_fact_v1",
+    "packet_schema_version": "research_packet_v1",
+    "run_manifest_version": "run_manifest_v1"
+  }
+}

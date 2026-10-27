@@ -121,6 +121,42 @@ def test_complete_run_exports_and_validates_cleanly():
         assert "export_sha256" not in exported_data
 
 
+def test_packet_states_when_the_backend_was_the_mock_provider():
+    """
+    Regression: an exported packet carried no trace of the backend.
+
+    The packet is the artifact that leaves the run directory for a human
+    reviewer, and it said nothing about the mock provider: zero occurrences of
+    "mock", "synthetic" or "provider", and no depth. A fixture-generated packet
+    was therefore indistinguishable from a live one. The limitation is
+    schema-safe (``limitations`` is a list of strings).
+    """
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        run_dir = Path(tmp_dir) / "run"
+        _build_mock_run(run_dir, ticker="MOCKPKT", company="Fixture Corp")
+        packet = build_packet(run_dir)
+        joined = " ".join(packet["limitations"]).lower()
+        assert "mock provider" in joined
+        assert "not research" in joined
+        assert not validate_packet(packet, run_dir=run_dir)
+
+
+def test_packet_omits_the_mock_limitation_for_a_live_backend():
+    """Falsification partner: the limitation is backend-driven, not constant."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        run_dir = Path(tmp_dir) / "run"
+        _build_mock_run(run_dir, ticker="LIVEPKT", company="Live Corp")
+        manifest_path = run_dir / "run_manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["configuration"]["provider"] = "gemini"
+        manifest["configuration"]["model"] = "gemini-test-model"
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+        packet = build_packet(run_dir)
+        joined = " ".join(packet["limitations"]).lower()
+        assert "mock provider" not in joined
+
+
 def test_incomplete_run_is_exportable_with_accurate_audit_state():
     with tempfile.TemporaryDirectory() as tmp_dir:
         run_dir = Path(tmp_dir) / "run"
@@ -235,7 +271,7 @@ def test_missing_fact_id_reference_in_claim_is_rejected():
         errors = validate_packet(packet, run_dir=run_dir)
         assert any("fact_non_existent_12345" in e for e in errors)
 
-        # Adding the fact resolves the error
+        # Adding a fact resolves only structural claim references, not provenance.
         packet["facts"].append(
             {
                 "id": "fact_non_existent_12345",
@@ -244,8 +280,13 @@ def test_missing_fact_id_reference_in_claim_is_rejected():
                 "value": 1000000.0,
             }
         )
-        errors_resolved = validate_packet(packet, run_dir=run_dir)
-        assert not any("fact_non_existent_12345" in e for e in errors_resolved)
+        contextual_errors = validate_packet(packet, run_dir=run_dir)
+        assert any(
+            "unknown fact 'fact_non_existent_12345'" in e
+            for e in contextual_errors
+        )
+        structural_errors = validate_packet(packet)
+        assert not any("fact_non_existent_12345" in e for e in structural_errors)
 
 
 def test_fact_company_mismatch_is_rejected():

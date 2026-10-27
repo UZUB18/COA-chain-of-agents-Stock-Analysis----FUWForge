@@ -54,21 +54,89 @@ ALL_SUPPORTED_FORMS = (
 def _filing_rows(columns: Dict[str, Any], as_of: date) -> List[Dict[str, str]]:
     rows = []
     forms = columns.get("form") or []
+    report_dates = columns.get("reportDate") or []
     for index, form in enumerate(forms):
         if form not in ALL_SUPPORTED_FORMS:
             continue
         row = {key: str((columns.get(key) or [])[index]) for key in ("form", "filingDate", "accessionNumber", "primaryDocument")}
+        # ``reportDate`` is the period the filing covers. It is the only field
+        # that identifies which fiscal year a document belongs to; two filings
+        # of the same form in one year otherwise look like two different years.
+        row["reportDate"] = str(report_dates[index]) if index < len(report_dates) and report_dates[index] else ""
         if date.fromisoformat(row["filingDate"]) <= as_of:
             rows.append(row)
     return rows
 
 
+def _fiscal_anchor(row: Dict[str, str]) -> str:
+    """The reporting period a filing belongs to, used to group by fiscal year."""
+    return str(row.get("reportDate") or row.get("filingDate") or "")
+
+
 def _select_filings(rows, years):
+    """Choose the filings a run will read, one per fiscal period.
+
+    Two selection defects are fixed here, both of which let a document that
+    should not compete consume a slot:
+
+    1. **Same-day filing order decided which proxy won.** A ``DEFA14A``
+       (additional soliciting materials) and the ``DEF 14A`` (the definitive
+       proxy statement) are routinely filed the same day. Sorting only by date
+       left the winner to whatever order the SEC listing happened to use, so the
+       run could read the supplementary filing instead of the statement. The
+       definitive form now wins explicitly.
+    2. **An amendment consumed a year.** ``10-K`` and ``10-K/A`` for the same
+       fiscal year are two documents describing one year. Taking the first N
+       annual documents therefore covered fewer than N fiscal years — three
+       annual filings for two years — which silently narrowed the comparison
+       window the depth setting asked for.
+
+    Grouping is by reporting period, not by form or date. Within a group the
+    amendment is preferred over the original (it is the corrected statement),
+    and otherwise the most recent filing wins.
+    """
     unique = {row["accessionNumber"]: row for row in rows}
     rows = sorted(unique.values(), key=lambda row: row["filingDate"], reverse=True)
-    annuals = [row for row in rows if row["form"] in SUPPORTED_ANNUAL_FORMS][:years]
-    quarters = [row for row in rows if row["form"] in SUPPORTED_QUARTER_FORMS][:1]
-    proxies = [row for row in rows if row["form"] in SUPPORTED_PROXY_FORMS][:1]
+
+    def _per_fiscal_period(candidates, *, prefer_amendment: bool):
+        best: Dict[str, Dict[str, str]] = {}
+        for row in candidates:
+            anchor = _fiscal_anchor(row)
+            current = best.get(anchor)
+            if current is None:
+                best[anchor] = row
+                continue
+            if prefer_amendment:
+                row_is_amendment = row["form"].endswith("/A")
+                current_is_amendment = current["form"].endswith("/A")
+                if row_is_amendment != current_is_amendment:
+                    best[anchor] = row if row_is_amendment else current
+                    continue
+            if row["filingDate"] > current["filingDate"]:
+                best[anchor] = row
+        return sorted(best.values(), key=lambda row: row["filingDate"], reverse=True)
+
+    annuals = _per_fiscal_period(
+        [row for row in rows if row["form"] in SUPPORTED_ANNUAL_FORMS],
+        prefer_amendment=True,
+    )[:years]
+    quarters = _per_fiscal_period(
+        [row for row in rows if row["form"] in SUPPORTED_QUARTER_FORMS],
+        prefer_amendment=True,
+    )[:1]
+    # Rank the proxy forms before collapsing, so a DEFA14A can never displace the
+    # definitive statement filed the same day. DEFA14A is still eligible when it
+    # is the only proxy document for a period. ``SUPPORTED_PROXY_FORMS`` lists the
+    # definitive form first, so the sort key is the plain rank (ascending), with
+    # the filing date as a tiebreaker.
+    proxy_rank = {form: index for index, form in enumerate(SUPPORTED_PROXY_FORMS)}
+    proxies = _per_fiscal_period(
+        sorted(
+            (row for row in rows if row["form"] in SUPPORTED_PROXY_FORMS),
+            key=lambda row: (proxy_rank[row["form"]], row["filingDate"], row["accessionNumber"]),
+        ),
+        prefer_amendment=False,
+    )[:1]
     material_events = [row for row in rows if row["form"] in SUPPORTED_MATERIAL_FORMS][:2]
     return annuals, quarters, proxies, material_events
 

@@ -1,0 +1,2119 @@
+{
+  "A1": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A1",
+      "name": "Harvester-&-Validator"
+    },
+    "timestamp": "2026-10-11T17:34:22Z",
+    "params": {
+      "company": "Advanced Micro Devices, Inc.",
+      "ticker": "AMD",
+      "analysis_date": "2026-10-11",
+      "depth": "Quick",
+      "focus": [],
+      "weights": "default",
+      "independent_bear": false
+    },
+    "gates": {
+      "passed": true,
+      "notes": [
+        "All required financial statements (FY 2023, FY 2024, FY 2025 Form 10-K/A, and Q2 2026 Form 10-Q) successfully harvested and reconciled against primary SEC filings.",
+        "Market price series retrieved up to Friday, 2026-10-09 (effective close before Sunday analysis date 2026-10-11).",
+        "No critical accounting opacity, going-concern warnings, or toxic dilution structures detected."
+      ]
+    },
+    "sections_md": {
+      "RAW_DATA_PACK": "### AMD Financial Harvest & Baseline Verification (As of 2026-10-11)\n\n#### 1. Market & Capitalization Profile\n* **Ticker / Exchange**: AMD / The Nasdaq Global Select Market [Fact]\n* **Last Trade Date**: 2026-10-09 [Fact]\n* **Last Closing Price**: $608.10 [Fact]\n* **Common Shares Outstanding**: 1,632,475,042 (as of July 29, 2026, per Form 10-Q cover page) [Fact]\n* **Market Capitalization**: $992.69 Billion ($992,688,035,728) [Derived]\n* **Q2 2026 Diluted Weighted-Average Shares**: 1,659,000,000 [Fact]\n* **Technical Indicators (as of 2026-10-09)**: SMA_50 = $528.92, SMA_200 = $385.32, RSI_14 = 57.19 [Derived]\n\n---\n\n#### 2. Annual Consolidated Statement of Operations (USD Millions, except per-share amounts)\n\n| Line Item | FY 2023 (Dec 30, 2023) [Fact] | FY 2024 (Dec 28, 2024) [Fact] | FY 2025 (Dec 27, 2025) [Fact] |\n| :--- | :--- | :--- | :--- |\n| **Net revenue** | $22,680 | $25,785 | $34,639 |\n| Cost of sales | $11,278 | $12,114 | $16,456 |\n| Amortization of acquisition intangibles (Cost) | $942 | $946 | $1,031 |\n| **Total cost of sales** | $12,220 | $13,060 | $17,487 |\n| **Gross profit** | $10,460 | $12,725 | $17,152 |\n| Gross margin % | 46.1% [Derived] | 49.3% [Derived] | 49.5% [Derived] |\n| Research and development | $5,872 | $6,456 | $8,091 |\n| Marketing, general and administrative | $2,318 | $2,735 | $4,144 |\n| Amortization of acquisition intangibles (OpEx) | $1,869 | $1,448 | $1,223 |\n| Restructuring charges | $0 | $186 | $0 |\n| **Total operating expenses** | $10,059 | $10,825 | $13,458 |\n| **Operating income** | $401 | $1,900 | $3,694 |\n| Interest expense | $(106) | $(92) | $(131) |\n| Other income (expense), net | $197 | $181 | $577 |\n| Income before tax and equity income | $492 | $1,989 | $4,140 |\n| Income tax provision (benefit) | $(346) | $381 | $(103) |\n| Equity income in investee | $16 | $33 | $26 |\n| Income from continuing operations | $854 | $1,641 | $4,269 |\n| Discontinued operations, net of tax | $0 | $0 | $66 |\n| **Net income** | $854 | $1,641 | $4,335 |\n| Diluted EPS (Continuing Operations) | $0.53 | $1.00 | $2.61 |\n| Diluted EPS (Total Net Income) | $0.53 | $1.00 | $2.65 |\n| Weighted-average diluted shares | 1,625 | 1,637 | 1,636 |\n\n---\n\n#### 3. Interim Financial Performance (USD Millions, Form 10-Q)\n\n| Line Item | Q2 2025 (Three Mos Ended Jun 28, 2025) [Fact] | Q2 2026 (Three Mos Ended Jun 27, 2026) [Fact] | H1 2025 (Six Mos Ended Jun 28, 2025) [Fact] | H1 2026 (Six Mos Ended Jun 27, 2026) [Fact] |\n| :--- | :--- | :--- | :--- | :--- |\n| **Net revenue** | $7,685 | $11,536 | $15,123 | $21,789 |\n| Gross profit | $3,059 | $6,203 | $6,795 | $11,619 |\n| Operating income (loss) | $(134) | $1,990 | $672 | $3,466 |\n| Net income | $872 | $2,297 | $1,581 | $3,680 |\n| Diluted EPS | $0.54 | $1.38 | $0.97 | $2.22 |\n| Basic shares (M) | 1,623 | 1,632 | 1,621 | 1,631 |\n| Diluted shares (M) | 1,630 | 1,659 | 1,628 | 1,655 |\n\n---\n\n#### 4. Balance Sheet Snapshot (USD Millions)\n\n| Balance Sheet Item | FY 2024 (Dec 28, 2024) [Fact] | FY 2025 (Dec 27, 2025) [Fact] | Q2 2026 (Jun 27, 2026) [Fact] |\n| :--- | :--- | :--- | :--- |\n| Cash and cash equivalents | $3,787 | $5,539 | $5,086 |\n| Short-term investments | $1,345 | $5,013 | $8,025 |\n| Accounts receivable, net | $6,192 | $6,315 | $7,281 |\n| Inventories | $5,734 | $7,920 | $8,468 |\n| **Total current assets** | $19,049 | $26,947 | $31,522 |\n| Goodwill | $24,839 | $25,126 | $25,126 |\n| Acquisition-related intangibles, net | $18,930 | $16,705 | $15,610 [Derived] |\n| **Total assets** | $69,226 | $76,926 | $84,464 |\n| Accounts payable | $2,466 | $2,929 | $5,359 |\n| Accrued liabilities | $4,260 | $5,250 | $5,546 |\n| Current portion of long-term debt | $0 | $874 | $874 [Derived] |\n| **Total current liabilities** | $7,281 | $9,455 | $12,181 [Derived] |\n| Long-term debt, net | $1,721 | $2,348 | $2,348 [Derived] |\n| **Total stockholders' equity** | $57,568 | $62,999 | $66,742 [Derived] |\n\n---\n\n#### 5. Material Corporate Events & Governance (8-K / Proxy Disclosures)\n* **Merger Agreement (2026-09-26 / 8-K filed 2026-09-28)**: Entered into an Agreement and Plan of Merger to acquire World Labs Technologies, Inc. for ~$8.2 billion in AMD common stock, priced via 10-day VWAP prior to closing [Fact].\n* **Board Changes (2026-08-17 / 8-K filed 2026-08-19)**: Retirement of Audit & Finance Chair Joe Householder; appointment of independent director Tim Ryan; KC McClure named new Audit & Finance Committee Chair [Fact]."
+    },
+    "artifacts": {
+      "price_timestamp_eet": "2026-10-09T23:00:00+03:00",
+      "shares_basic": 1632475042,
+      "shares_diluted": 1659000000,
+      "market_cap_check": {
+        "price": 608.0999755859375,
+        "shares": 1632475042,
+        "cap": 992688035728.41
+      },
+      "_execution_lineage": {
+        "consumed_upstream": [],
+        "execution_key": "6edd73d48a33b75b928e89e23b6171f2d31bb6cbb923d665400e5201eae08596",
+        "upstream": [],
+        "prompt_sha256": "bbe60c44902b587e9541a01ec393d3873b0a84ae6a7d304a40a91382116516f4",
+        "request_sha256": "49230d149c0c32da2882b094402126a4785e57d04995fbd259df4d2dc9b64056",
+        "evidence_sha256": "7af8a8c5e0d1ea851e1a516904fcb5ec501b4b628d55196d6bc7119b84cc1a2b",
+        "provider": "gemini",
+        "model": "gemini-3.8-flash"
+      }
+    },
+    "sources": [
+      {
+        "id": "D001",
+        "type": "SECFiling",
+        "title": "AMD 10-K/A filed 2026-02-04",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000021/amd-20251227.htm",
+        "doc_date": "2026-02-04",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:43Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:bc47ee3fb24b0462679262fb05135f9d7eb022c2d48923869f7adc84e93942a9",
+        "text_sha256": "sha256:1af41baf582a29376774e3ad0d91f6f52f032499865d673e77248894325932cc",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D002",
+        "type": "SECFiling",
+        "title": "AMD 10-K filed 2026-02-04",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000018/amd-20251227.htm",
+        "doc_date": "2026-02-04",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:43Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:34ebef6e1b4d3e6060b60838eae2478c2b9ec98874683b7ae339cae2d85f8478",
+        "text_sha256": "sha256:68aa614f350df2b3861faaf9575db11e83eb34126781b46610b4d1a73cf55b92",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D003",
+        "type": "SECFiling",
+        "title": "AMD 10-K filed 2025-02-05",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248825000012/amd-20241228.htm",
+        "doc_date": "2025-02-05",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:44Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:20964e50c465a2d15e2af94d90739a6dcca63788387b0990438fea48c28e1a78",
+        "text_sha256": "sha256:09310cedf8257fb9a51780b2fa490a66e948c16ca69450a50b97d0295e964731",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D004",
+        "type": "SECFiling",
+        "title": "AMD 10-Q filed 2026-08-05",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000123/amd-20260627.htm",
+        "doc_date": "2026-08-05",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:44Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:ced44c03cf2db5fc7245b4d01e7adb4d59e9bd6c1ee8999547841a770a7f1fb6",
+        "text_sha256": "sha256:3870d07ead59dbf73ab68a45fc922c732d350faed095b2ef35a86bd3c317e92b",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D005",
+        "type": "SECFiling",
+        "title": "AMD DEFA14A filed 2026-03-27",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000119312526129084/d81910ddefa14a.htm",
+        "doc_date": "2026-03-27",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:4cbccad56b8c13d98c855f16b754ebd83203f450978afcdc137cb3add1e4c45a",
+        "text_sha256": "sha256:b9242a66aca3eb2aaed40aeb8f9e60559cd2e845af0e10374863440701d72f29",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D006",
+        "type": "SECMaterialEvent",
+        "title": "AMD 8-K filed 2026-09-28",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000182/amd-20260926.htm",
+        "doc_date": "2026-09-28",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:f5b36d6f88e6bbee556180a69eab5118f30cdc082f3347b9a9191e07f5dc0f2d",
+        "text_sha256": "sha256:2edd76c7c329aa1f05123256de8a42223a55b5e61d37b6d7551671a6b2bd399a",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D007",
+        "type": "SECMaterialEvent",
+        "title": "AMD 8-K filed 2026-08-19",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000163/amd-20260817.htm",
+        "doc_date": "2026-08-19",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:c8738bbece75f90d2af81507d8d003e1cc889f0e11680ace02fdf7e9dfe5d1de",
+        "text_sha256": "sha256:a00fca3189e7d65a933c9527e8da9e5ef26a210c1c442b50b97b0203b2df08ff",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D008",
+        "type": "MarketHistory",
+        "title": "AMD daily price history through 2026-10-11",
+        "url": "https://query1.finance.yahoo.com/v8/finance/chart/AMD?period1=1744156800&period2=1791763200&interval=1d",
+        "doc_date": "2026-10-11",
+        "date_basis": "requested_market_history_cutoff",
+        "accessed": "2026-10-11T17:33:46Z",
+        "content_type": "application/json;charset=utf-8",
+        "content_sha256": "sha256:318eea8cc4059c1929e61a7f3495c14033fce50e5684b52e6a5054b4fbe2d7b2",
+        "text_sha256": "sha256:11ad508d9474fa491a90b1cc94071d63e11650b555d9cf48419e87c848298234",
+        "verification": "retrieved",
+        "transform": {
+          "kind": "yahoo_daily",
+          "ticker": "AMD",
+          "symbol": "AMD",
+          "analysis_date": "2026-10-11"
+        }
+      }
+    ],
+    "warnings": [],
+    "metrics": {
+      "data_checksum": "sha256:0612e6da421e9f3edaa167cba7e587f636ac9dc0cbd3b27c267c02ce788ea20f",
+      "evidence_checksum": "sha256:a3778238edbe85ec4171228948ff76190c5580b405451ff13bcffe8bd1d5c7d2",
+      "source_grounding": "retrieved"
+    },
+    "confidence": 0.98,
+    "content_checksum": "sha256:7d9db8e3bd0a534adb0b7b0c5540e358fa3a58a39d58d01cb740d75880e1963a",
+    "upstream": []
+  },
+  "A2": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A2",
+      "name": "Business-Market-Peers"
+    },
+    "timestamp": "2026-10-11T17:34:51Z",
+    "params": {
+      "company": "Advanced Micro Devices, Inc.",
+      "ticker": "AMD",
+      "analysis_date": "2026-10-11",
+      "depth": "Quick",
+      "focus": [],
+      "weights": "default",
+      "independent_bear": false
+    },
+    "gates": {
+      "passed": true,
+      "notes": [
+        "Core company business model, competitive posture, and market peer structure evaluated against primary Form 10-K, Form 10-K/A, and Form 10-Q filings.",
+        "Exact individual customer and foundry supplier percentage disclosures are omitted in the retrieved excerpt text and recorded in missing data exceptions."
+      ]
+    },
+    "sections_md": {
+      "SECTION_1_COMPANY_PROFILE": "### 1. Corporate Identity and Core Mission\n* **Company Overview**: Advanced Micro Devices, Inc. (NASDAQ: AMD) is a global semiconductor leader specializing in high-performance computing, graphics, and visualization technologies [Fact]. Headquartered in Santa Clara, California [Fact], AMD designs microprocessors, graphics processing units (GPUs), data center accelerators, field-programmable gate arrays (FPGAs), adaptive system-on-chips (SoCs), and embedded processors [Fact].\n* **Scale and Reach**: AMD operations span global commercial, hyperscale cloud, enterprise, and client device markets [Interpretation]. As of July 29, 2026, AMD had 1,632,475,042 common shares outstanding [Fact], translating to a market capitalization of $992.69B at the October 9, 2026 closing price of $608.10 [Derived].\n* **Leadership & Governance**: Led by Chair and CEO Dr. Lisa T. Su [Fact]. Governance refresh highlights include the planned acquisition of World Labs Technologies for approximately $8.2B in common stock announced in September 2026 [Fact], and the transition of Audit and Finance Committee leadership to KC McClure following the retirement of Joe Householder in August 2026 [Fact].",
+      "SECTION_2_BUSINESS_MODEL": "### 1. Revenue Architecture & Operational Segments\n* **Core Segments**: AMD monetizes its IP through four major segments: Data Center (EPYC server CPUs, Instinct AI accelerators, Pensando DPUs), Client (Ryzen desktop and mobile processors), Gaming (Radeon discrete GPUs and semi-custom console SoCs), and Embedded (adaptive SoCs and FPGA platforms from the Xilinx integration) [Interpretation].\n* **Top-Line Trajectory**: Net revenue expanded from $22,680M in FY 2023 to $25,785M in FY 2024, surging to $34,639M in FY 2025 (+34.3% YoY) [Fact]. In the first six months of FY 2026 ended June 27, 2026, net revenue reached $21,789M compared to $15,123M in 1H 2025 (+44.1% YoY) [Fact], driven by accelerated shipments of AMD Instinct MI-series datacenter AI solutions and EPYC CPUs [Interpretation].\n* **Profitability & Cost Profile**: Gross margin was 46.1% in FY 2023, 49.3% in FY 2024, and 49.5% in FY 2025 (50% per rounded Form 10-K/A MD&A) [Fact]. Gross margin expansion in FY 2025 was partially offset by approximately $440M of net inventory and related charges tied to U.S. export controls on Instinct MI308 accelerators [Fact]. R&D investment grew 25.3% to $8,091M in FY 2025 [Fact] and hit $4,925M in 1H 2026 [Fact], reflecting aggressive resource allocation to AI software (ROCm) and architectural scaling [Interpretation].\n* **Operating Leverage & Cash Flow**: Operating income rose from $401M in FY 2023 to $1,900M in FY 2024 and $3,694M in FY 2025 [Fact]. 1H 2026 operating income reached $3,466M compared to $672M in 1H 2025 [Fact], demonstrating strong operating margin expansion [Derived]. Cash and cash equivalents and short-term investments totaled $13,111M as of June 27, 2026 ($5,086M cash + $8,025M short-term investments) [Fact].",
+      "SECTION_3_MARKET_AND_PEERS": "### 1. Competitive Landscape & Peer Benchmarking\n* **Primary Peer Group**: Key industry peers include NVIDIA Corporation (NVDA), Intel Corporation (INTC), Qualcomm Inc. (QCOM), and Broadcom Inc. (AVGO) [Fact].\n* **Market Dynamics vs. NVDA**: In datacenter AI compute, NVIDIA maintains market dominance through CUDA ecosystem lock-in, high-bandwidth interconnects (NVLink), and full-stack hardware/software integration [Interpretation]. AMD has emerged as the premier merchant silicon alternative with the Instinct MI300/MI308 family and expanding hyperscaler adoption, but faces persistent ecosystem switching costs [Interpretation].\n* **Market Dynamics vs. INTC**: In server and client x86 processing, AMD EPYC and Ryzen processors continue to capitalize on superior multi-chiplet manufacturing and power efficiency, winning sustained x86 share against Intel's Xeon and Core lines [Interpretation].\n* **Economic Moat & Trend**: AMD's economic moat is rated as 'Expanding' [Judgment], underpinned by proprietary x86 architectural licensing, high-barrier chiplet packaging IP, scale advantages in high-performance computing, and deep hyperscaler co-design relationships [Interpretation].",
+      "MISSING_DATA_TABLE": "## Explicit unavailable research inputs\n| Field | Evidence coverage / reason |\n| --- | --- |\n| TopCustomerPct | Specific customer concentration percentage is not explicitly broken out in the provided filing excerpts. |\n| TopSupplierPct | Specific foundry manufacturing concentration percentage for key supplier (TSMC) is not quantified in the provided filing excerpts. |"
+    },
+    "artifacts": {
+      "PEER_LIST": [
+        "NVDA",
+        "INTC",
+        "QCOM",
+        "AVGO"
+      ],
+      "MoatTrend": "Expanding",
+      "TopCustomerPct": null,
+      "TopSupplierPct": null,
+      "_execution_lineage": {
+        "consumed_upstream": [
+          "A1"
+        ],
+        "execution_key": "c71c0ebcf4df3fdeffc2785c3613bb3de6786f956b3ef431f2448ddb7aa26215",
+        "upstream": [
+          {
+            "agent": "A1",
+            "content_checksum": "sha256:7d9db8e3bd0a534adb0b7b0c5540e358fa3a58a39d58d01cb740d75880e1963a"
+          }
+        ],
+        "prompt_sha256": "448b59efa026039b5429644a217b1fd0ebabd77fcf2d03c88a131133e09b593e",
+        "request_sha256": "9a60cf3ec4e10acb689a7de30ba316c92843ba8bd51652b53a397d941f62e1e1",
+        "evidence_sha256": "7af8a8c5e0d1ea851e1a516904fcb5ec501b4b628d55196d6bc7119b84cc1a2b",
+        "provider": "gemini",
+        "model": "gemini-3.8-flash"
+      }
+    },
+    "sources": [
+      {
+        "id": "D001",
+        "type": "SECFiling",
+        "title": "AMD 10-K/A filed 2026-02-04",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000021/amd-20251227.htm",
+        "doc_date": "2026-02-04",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:43Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:bc47ee3fb24b0462679262fb05135f9d7eb022c2d48923869f7adc84e93942a9",
+        "text_sha256": "sha256:1af41baf582a29376774e3ad0d91f6f52f032499865d673e77248894325932cc",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D002",
+        "type": "SECFiling",
+        "title": "AMD 10-K filed 2026-02-04",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000018/amd-20251227.htm",
+        "doc_date": "2026-02-04",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:43Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:34ebef6e1b4d3e6060b60838eae2478c2b9ec98874683b7ae339cae2d85f8478",
+        "text_sha256": "sha256:68aa614f350df2b3861faaf9575db11e83eb34126781b46610b4d1a73cf55b92",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D003",
+        "type": "SECFiling",
+        "title": "AMD 10-K filed 2025-02-05",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248825000012/amd-20241228.htm",
+        "doc_date": "2025-02-05",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:44Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:20964e50c465a2d15e2af94d90739a6dcca63788387b0990438fea48c28e1a78",
+        "text_sha256": "sha256:09310cedf8257fb9a51780b2fa490a66e948c16ca69450a50b97d0295e964731",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D004",
+        "type": "SECFiling",
+        "title": "AMD 10-Q filed 2026-08-05",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000123/amd-20260627.htm",
+        "doc_date": "2026-08-05",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:44Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:ced44c03cf2db5fc7245b4d01e7adb4d59e9bd6c1ee8999547841a770a7f1fb6",
+        "text_sha256": "sha256:3870d07ead59dbf73ab68a45fc922c732d350faed095b2ef35a86bd3c317e92b",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D005",
+        "type": "SECFiling",
+        "title": "AMD DEFA14A filed 2026-03-27",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000119312526129084/d81910ddefa14a.htm",
+        "doc_date": "2026-03-27",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:4cbccad56b8c13d98c855f16b754ebd83203f450978afcdc137cb3add1e4c45a",
+        "text_sha256": "sha256:b9242a66aca3eb2aaed40aeb8f9e60559cd2e845af0e10374863440701d72f29",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D006",
+        "type": "SECMaterialEvent",
+        "title": "AMD 8-K filed 2026-09-28",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000182/amd-20260926.htm",
+        "doc_date": "2026-09-28",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:f5b36d6f88e6bbee556180a69eab5118f30cdc082f3347b9a9191e07f5dc0f2d",
+        "text_sha256": "sha256:2edd76c7c329aa1f05123256de8a42223a55b5e61d37b6d7551671a6b2bd399a",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D007",
+        "type": "SECMaterialEvent",
+        "title": "AMD 8-K filed 2026-08-19",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000163/amd-20260817.htm",
+        "doc_date": "2026-08-19",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:c8738bbece75f90d2af81507d8d003e1cc889f0e11680ace02fdf7e9dfe5d1de",
+        "text_sha256": "sha256:a00fca3189e7d65a933c9527e8da9e5ef26a210c1c442b50b97b0203b2df08ff",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D008",
+        "type": "MarketHistory",
+        "title": "AMD daily price history through 2026-10-11",
+        "url": "https://query1.finance.yahoo.com/v8/finance/chart/AMD?period1=1744156800&period2=1791763200&interval=1d",
+        "doc_date": "2026-10-11",
+        "date_basis": "requested_market_history_cutoff",
+        "accessed": "2026-10-11T17:33:46Z",
+        "content_type": "application/json;charset=utf-8",
+        "content_sha256": "sha256:318eea8cc4059c1929e61a7f3495c14033fce50e5684b52e6a5054b4fbe2d7b2",
+        "text_sha256": "sha256:11ad508d9474fa491a90b1cc94071d63e11650b555d9cf48419e87c848298234",
+        "verification": "retrieved",
+        "transform": {
+          "kind": "yahoo_daily",
+          "ticker": "AMD",
+          "symbol": "AMD",
+          "analysis_date": "2026-10-11"
+        }
+      }
+    ],
+    "warnings": [
+      "Explicit research coverage gaps: TopCustomerPct, TopSupplierPct",
+      "Explicit unavailable research inputs: TopCustomerPct, TopSupplierPct"
+    ],
+    "metrics": {
+      "data_checksum": "sha256:0612e6da421e9f3edaa167cba7e587f636ac9dc0cbd3b27c267c02ce788ea20f",
+      "missing_data": {
+        "TopCustomerPct": "Specific customer concentration percentage is not explicitly broken out in the provided filing excerpts.",
+        "TopSupplierPct": "Specific foundry manufacturing concentration percentage for key supplier (TSMC) is not quantified in the provided filing excerpts."
+      },
+      "evidence_checksum": "sha256:a3778238edbe85ec4171228948ff76190c5580b405451ff13bcffe8bd1d5c7d2",
+      "source_grounding": "retrieved"
+    },
+    "confidence": 0.92,
+    "content_checksum": "sha256:ef3ed502b0e996d692875a9caaf83f3e18ab1a5b827ad513bccd35cf211dc6ed",
+    "upstream": [
+      {
+        "agent": "A1",
+        "content_checksum": "sha256:7d9db8e3bd0a534adb0b7b0c5540e358fa3a58a39d58d01cb740d75880e1963a"
+      }
+    ]
+  },
+  "A3": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A3",
+      "name": "Quant-Valuation-Technicals"
+    },
+    "timestamp": "2026-10-11T17:35:46Z",
+    "params": {
+      "company": "Advanced Micro Devices, Inc.",
+      "ticker": "AMD",
+      "analysis_date": "2026-10-11",
+      "depth": "Quick",
+      "focus": [],
+      "weights": "default",
+      "independent_bear": false
+    },
+    "gates": {
+      "passed": true,
+      "notes": [
+        "Altman Z-Score calculated deterministically from audited FY 2025 balance sheet and market capitalization as of 2026-10-09.",
+        "Beneish M-Score flagged unfeasible (score set to null) due to omission of the FY 2025 Consolidated Statement of Cash Flows in retrieved filings, precluding factual derivation of DEPI and TATA.",
+        "Technical indicator set (SMA_50, SMA_200, RSI_14) successfully validated against date-bounded market trade history through 2026-10-09.",
+        "Peer valuation multiples and forward consensus estimates absent from primary filing intake; allowlisted nulls recorded with explicit disclosure."
+      ]
+    },
+    "sections_md": {
+      "SECTION_4_FINANCIAL_FORENSICS": "### 4. Financial Forensics & Earnings Quality\n\n#### 4.1 Altman Z-Score Analysis\n* **Score**: 43.77 [Derived]\n* **Classification**: Safe Zone [Judgment]\n* **Component Breakdown (FY 2025 Base)**:\n  - $X_1$ (Working Capital / Total Assets): $\\frac{\\$26,947\\text{M} - \\$9,455\\text{M}}{\\$76,926\\text{M}} = 0.2274$ [Derived]\n  - $X_2$ (Retained Earnings / Total Assets): $\\frac{\\$6,699\\text{M}}{\\$76,926\\text{M}} = 0.0871$ [Derived]\n  - $X_3$ (EBIT / Total Assets): $\\frac{\\$3,694\\text{M}}{\\$76,926\\text{M}} = 0.0480$ [Derived]\n  - $X_4$ (Market Value of Equity / Total Liabilities): $\\frac{\\$992,688\\text{M}}{\\$13,927\\text{M}} = 71.2779$ [Derived]\n  - $X_5$ (Net Revenue / Total Assets): $\\frac{\\$34,639\\text{M}}{\\$76,926\\text{M}} = 0.4503$ [Derived]\n  - Formula: $Z = 1.2(0.2274) + 1.4(0.0871) + 3.3(0.0480) + 0.6(71.2779) + 0.999(0.4503) = 43.77$ [Derived].\n  - Even utilizing book value of equity ($X_4 = \\frac{\\$62,999\\text{M}}{\\$13,927\\text{M}} = 4.5235$), the resulting Altman Z'' score is 3.72 [Derived], comfortably exceeding the 2.99 safe-zone threshold. Balance-sheet solvency risk is exceptionally low.\n\n#### 4.2 Beneish M-Score Feasibility\n* **Status**: Feasible = False; Score = null [Fact]\n* **Classification**: Undetermined (Omitted Cash Flow & Depreciation Inputs) [Judgment]\n* **Audit Findings**: Primary SEC excerpts for FY 2025 omitted the complete Consolidated Statement of Cash Flows. While revenue ($34,639M vs $25,785M), receivables ($6,315M vs $6,192M), and gross margins (49.5% vs 49.3%) confirm healthy trailing DSRI (0.7592) and GMI (0.9966) dynamics, the absence of line-item depreciation of property/plant/equipment and full-year operating cash flows precludes mathematically sound derivation of DEPI and TATA. Pursuant to FUWForge epistemic standards, unverified metrics are not fabricated.\n\n#### 4.3 Cash Flow vs. Net Income Convergence\n* **Flag**: Aligned [Fact]\n* **Trajectory**: Over the audited multi-year history, Operating Cash Flow consistently exceeded GAAP Net Income (FY 2024: $3,041M OCF vs $1,641M Net Income; FY 2023: $1,667M OCF vs $854M Net Income) [Fact]. The primary reconciliation items stem from non-cash amortization of acquisition intangibles ($2,254M in FY 2025, $2,393M in FY 2024) and stock-based compensation ($1,638M in FY 2025, $1,407M in FY 2024) [Fact]. Core operating earnings conversion exhibits high accounting integrity.",
+      "SECTION_5_VALUATION": "### 5. Valuation Profile & Multiple Assessment\n\n#### 5.1 Capitalization & TTM Multiples\n* **Last Closing Price (2026-10-09)**: $608.10 [Fact]\n* **Common Shares Outstanding**: 1,632,475,042 (as of 2026-07-29) [Fact]\n* **Market Capitalization**: $992.69 Billion ($992,688,035,728) [Derived]\n* **Diluted EPS TTM Calculation**:\n  - H1 2026 Diluted EPS: $2.22 [Fact]\n  - H1 2025 Diluted EPS: $0.97 [Fact]\n  - FY 2025 Diluted EPS: $2.65 [Fact]\n  - Trailing Twelve Month Diluted EPS: $\\$2.65 - \\$0.97 + \\$2.22 = \\$3.90$ [Derived]\n* **P/E (TTM)**: $\\frac{\\$608.10}{\\$3.90} = 155.92\\text{x}$ [Derived]\n\n#### 5.2 Growth Adjusted Multiples (PEG)\n* **TTM Diluted EPS YoY Growth**: $\\frac{\\$2.22 - \\$0.97}{\\$0.97} = +128.87\\%$ [Derived]\n* **PEG (TTM)**: $\\frac{155.92}{128.87} = 1.21$ [Derived]\n* **PEG (Forward)**: null [Fact] (No authoritative consensus broker forecasts included in statutory filings)\n* **Hype Assessment**: Hype Risk [Judgment]. AMD's stock has surged over 525% from its April 2025 lows ($96.84) to $608.10, expanding its market capitalization to near $1 Trillion. While top-line growth is accelerating (H1 2026 revenue up 44% YoY to $21.79B), an earnings multiple of ~156x TTM earnings demands sustained hyper-growth in Data Center AI GPU market share against entrenched competitors. Any deceleration in capital expenditure deployment presents material multiple-contraction vulnerability.\n\n#### 5.3 Peer Multiple Matrix\n* Peer comparables (NVDA, INTC, AVGO) are omitted due to lack of verified contemporaneous external peer data within the intake package [Fact].",
+      "SECTION_12_TECHNICALS": "### 12. Technical Indicators & Price Action\n\n#### 12.1 Moving Average Structure\n* **50-Day Simple Moving Average (SMA_50)**: $528.92 [Fact]\n* **200-Day Simple Moving Average (SMA_200)**: $385.32 [Fact]\n* **Current Closing Price**: $608.10 (as of 2026-10-09) [Fact]\n* **Trend Alignment**: Bullish Golden Cross regime. Price trades 15.0% above its 50-day moving average and 57.8% above its rising 200-day moving average, signaling strong institutional accumulation throughout mid-2026 [Derived].\n\n#### 12.2 Momentum & Oscillators\n* **14-Day RSI (Wilder)**: 57.19 [Fact]\n* **Interpretation**: RSI has cooled into neutral-to-constructive territory following a test of resistance above $650.00 on 2026-10-06 (session high $658.52). The asset is not currently in an overbought (>70) or oversold (<30) state, suggesting consolidating price discovery near the $600-$630 support corridor [Interpretation].",
+      "MISSING_DATA_TABLE": "## Explicit unavailable research inputs\n| Field | Evidence coverage / reason |\n| --- | --- |\n| BeneishM.score | Full FY 2025 Consolidated Statement of Cash Flows was omitted from SEC filing excerpts, preventing factual verification of DEPI and TATA accrual ratios. |\n| PEG_Fwd | Consensus forward earnings estimates and growth rates are not present in retrieved SEC filings or price history. |\n| PeerTable | No peer financial reports or valuation multiples provided in retrieved documents. |"
+    },
+    "artifacts": {
+      "AltmanZ": {
+        "score": 43.77,
+        "classification": "Safe Zone"
+      },
+      "BeneishM": {
+        "indices": null,
+        "score": null,
+        "classification": "Undetermined due to missing FY 2025 Cash Flow statement",
+        "feasible": false,
+        "unavailable_reason": "Consolidated Statement of Cash Flows for FY 2025 omitted in retrieved filing text; DEPI and TATA cannot be derived factually without fabrication."
+      },
+      "OCF_vs_NI_Flag": "Aligned",
+      "PEG_TTM": 1.21,
+      "PEG_Fwd": null,
+      "HypeFlag": "Hype Risk",
+      "PeerTable": null,
+      "TechnicalSet": {
+        "SMA_50": 528.92,
+        "SMA_200": 385.32,
+        "RSI_14": 57.19
+      },
+      "_execution_lineage": {
+        "consumed_upstream": [
+          "A1"
+        ],
+        "execution_key": "cd11f1edc0d107841d059bd569a5fd979efdf17fed57d8957af2175ed2fc62b5",
+        "upstream": [
+          {
+            "agent": "A1",
+            "content_checksum": "sha256:7d9db8e3bd0a534adb0b7b0c5540e358fa3a58a39d58d01cb740d75880e1963a"
+          }
+        ],
+        "prompt_sha256": "293088ec52cada53ba1ddd6767df65d2cc8a822816dffa108bb106cf1bc6427f",
+        "request_sha256": "10335e97d86e31b04eef8887aca4310ae1e7c7b0c30a0583b8ccfca9b4b067f8",
+        "evidence_sha256": "7af8a8c5e0d1ea851e1a516904fcb5ec501b4b628d55196d6bc7119b84cc1a2b",
+        "provider": "gemini",
+        "model": "gemini-3.8-flash"
+      }
+    },
+    "sources": [
+      {
+        "id": "D001",
+        "type": "SECFiling",
+        "title": "AMD 10-K/A filed 2026-02-04",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000021/amd-20251227.htm",
+        "doc_date": "2026-02-04",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:43Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:bc47ee3fb24b0462679262fb05135f9d7eb022c2d48923869f7adc84e93942a9",
+        "text_sha256": "sha256:1af41baf582a29376774e3ad0d91f6f52f032499865d673e77248894325932cc",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D002",
+        "type": "SECFiling",
+        "title": "AMD 10-K filed 2026-02-04",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000018/amd-20251227.htm",
+        "doc_date": "2026-02-04",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:43Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:34ebef6e1b4d3e6060b60838eae2478c2b9ec98874683b7ae339cae2d85f8478",
+        "text_sha256": "sha256:68aa614f350df2b3861faaf9575db11e83eb34126781b46610b4d1a73cf55b92",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D003",
+        "type": "SECFiling",
+        "title": "AMD 10-K filed 2025-02-05",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248825000012/amd-20241228.htm",
+        "doc_date": "2025-02-05",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:44Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:20964e50c465a2d15e2af94d90739a6dcca63788387b0990438fea48c28e1a78",
+        "text_sha256": "sha256:09310cedf8257fb9a51780b2fa490a66e948c16ca69450a50b97d0295e964731",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D004",
+        "type": "SECFiling",
+        "title": "AMD 10-Q filed 2026-08-05",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000123/amd-20260627.htm",
+        "doc_date": "2026-08-05",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:44Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:ced44c03cf2db5fc7245b4d01e7adb4d59e9bd6c1ee8999547841a770a7f1fb6",
+        "text_sha256": "sha256:3870d07ead59dbf73ab68a45fc922c732d350faed095b2ef35a86bd3c317e92b",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D005",
+        "type": "SECFiling",
+        "title": "AMD DEFA14A filed 2026-03-27",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000119312526129084/d81910ddefa14a.htm",
+        "doc_date": "2026-03-27",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:4cbccad56b8c13d98c855f16b754ebd83203f450978afcdc137cb3add1e4c45a",
+        "text_sha256": "sha256:b9242a66aca3eb2aaed40aeb8f9e60559cd2e845af0e10374863440701d72f29",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D006",
+        "type": "SECMaterialEvent",
+        "title": "AMD 8-K filed 2026-09-28",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000182/amd-20260926.htm",
+        "doc_date": "2026-09-28",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:f5b36d6f88e6bbee556180a69eab5118f30cdc082f3347b9a9191e07f5dc0f2d",
+        "text_sha256": "sha256:2edd76c7c329aa1f05123256de8a42223a55b5e61d37b6d7551671a6b2bd399a",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D007",
+        "type": "SECMaterialEvent",
+        "title": "AMD 8-K filed 2026-08-19",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000163/amd-20260817.htm",
+        "doc_date": "2026-08-19",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:c8738bbece75f90d2af81507d8d003e1cc889f0e11680ace02fdf7e9dfe5d1de",
+        "text_sha256": "sha256:a00fca3189e7d65a933c9527e8da9e5ef26a210c1c442b50b97b0203b2df08ff",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D008",
+        "type": "MarketHistory",
+        "title": "AMD daily price history through 2026-10-11",
+        "url": "https://query1.finance.yahoo.com/v8/finance/chart/AMD?period1=1744156800&period2=1791763200&interval=1d",
+        "doc_date": "2026-10-11",
+        "date_basis": "requested_market_history_cutoff",
+        "accessed": "2026-10-11T17:33:46Z",
+        "content_type": "application/json;charset=utf-8",
+        "content_sha256": "sha256:318eea8cc4059c1929e61a7f3495c14033fce50e5684b52e6a5054b4fbe2d7b2",
+        "text_sha256": "sha256:11ad508d9474fa491a90b1cc94071d63e11650b555d9cf48419e87c848298234",
+        "verification": "retrieved",
+        "transform": {
+          "kind": "yahoo_daily",
+          "ticker": "AMD",
+          "symbol": "AMD",
+          "analysis_date": "2026-10-11"
+        }
+      }
+    ],
+    "warnings": [
+      "Full FY 2025 Statement of Cash Flows was not included in primary document excerpts; Beneish M-Score marked unfeasible to prevent fabricated accrual estimates.",
+      "Forward valuation multiples and peer table omitted due to lack of forward consensus estimates and peer dataset in primary intake.",
+      "Explicit research coverage gaps: BeneishM.score, PEG_Fwd, PeerTable",
+      "Explicit unavailable research inputs: BeneishM.score, PEG_Fwd, PeerTable"
+    ],
+    "metrics": {
+      "data_checksum": "sha256:0612e6da421e9f3edaa167cba7e587f636ac9dc0cbd3b27c267c02ce788ea20f",
+      "missing_data": {
+        "BeneishM.score": "Full FY 2025 Consolidated Statement of Cash Flows was omitted from SEC filing excerpts, preventing factual verification of DEPI and TATA accrual ratios.",
+        "PEG_Fwd": "Consensus forward earnings estimates and growth rates are not present in retrieved SEC filings or price history.",
+        "PeerTable": "No peer financial reports or valuation multiples provided in retrieved documents."
+      },
+      "evidence_checksum": "sha256:a3778238edbe85ec4171228948ff76190c5580b405451ff13bcffe8bd1d5c7d2",
+      "source_grounding": "retrieved"
+    },
+    "confidence": 0.88,
+    "content_checksum": "sha256:abc226b6cb1657e6f08072c5d69cb6de5592e1537d2d2245df647527533c261f",
+    "upstream": [
+      {
+        "agent": "A1",
+        "content_checksum": "sha256:7d9db8e3bd0a534adb0b7b0c5540e358fa3a58a39d58d01cb740d75880e1963a"
+      }
+    ]
+  },
+  "A4": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A4",
+      "name": "Leadership-Governance-ESG"
+    },
+    "timestamp": "2026-10-11T17:35:01Z",
+    "params": {
+      "company": "Advanced Micro Devices, Inc.",
+      "ticker": "AMD",
+      "analysis_date": "2026-10-11",
+      "depth": "Quick",
+      "focus": [],
+      "weights": "default",
+      "independent_bear": false
+    },
+    "gates": {
+      "passed": true,
+      "notes": [
+        "Board composition and auditor verification confirmed against Form 10-K/A, Form 8-K, and DEFA14A filings.",
+        "Auditor ratified as Ernst & Young LLP (PCAOB ID: 42) with continuous service since 2002 (24 years tenure).",
+        "Noncritical research gaps for external Glassdoor data, specific attrition metrics, and DEF 14A CEO pay ratio documented in metrics.missing_data."
+      ]
+    },
+    "sections_md": {
+      "SECTION_6_LEADERSHIP_GOVERNANCE": "### 6. Leadership & Corporate Governance\n\n#### Executive Leadership & Strategic Vision\n* **Chief Executive Officer**: Dr. Lisa T. Su continues to serve as Chair and Chief Executive Officer [Fact]. Under her tenure, AMD has executed a multi-year turnaround and architectural pivot toward high-performance computing, enterprise data center infrastructure, and generative AI accelerators (Instinct MI300/MI308 series) [Interpretation].\n* **Legal and Executive Secretariat**: Ava Hahn serves as Senior Vice President, General Counsel and Corporate Secretary, executing governance actions including recent M&A agreements [Fact].\n* **Strategic M&A Execution**: On September 26, 2026, AMD entered into an Agreement and Plan of Merger to acquire World Labs Technologies, Inc. for approximately $8.2 billion in common stock, reinforcing its strategic position in advanced AI models and spatial intelligence [Fact].\n\n#### Board Structure & Independence\n* **Board Size & Composition**: As of the 2026 Annual Meeting, the Board was composed of 8 directors: Nora M. Denzel, Michael P. Gregoire, Joseph A. Householder, John W. Marren, KC McClure, Dr. Lisa T. Su, Abhi Y. Talwalkar, and Elizabeth W. Vanderslice [Fact].\n* **Independent Oversight**: Nora M. Denzel serves as Lead Independent Director, providing dedicated non-executive leadership counterbalancing the combined Chair/CEO role [Fact].\n* **Recent Governance Updates**: On August 17, 2026, director Joseph A. Householder gave notice of retirement effective August 19, 2026, after serving since 2014 [Fact]. The Board appointed Mr. Tim Ryan as an independent director effective August 19, 2026 [Fact]. In conjunction with the transition, KC McClure assumed the Chair of the Audit and Finance Committee, Nora M. Denzel joined the Audit and Finance Committee, and KC McClure was appointed to the Nominating and Corporate Governance Committee [Fact].\n\n#### Audit Integrity & Accounting Oversight\n* **Independent Auditor**: Ernst & Young LLP (PCAOB ID: 42) [Fact].\n* **Auditor Tenure**: Ernst & Young LLP has served as AMD's independent registered public accounting firm continuously since 2002 (~24 years) [Fact].\n* **Shareholder Ratification**: The appointment of Ernst & Young LLP was presented for ratification under Item 2 of the 2026 Annual Meeting of Stockholders [Fact].\n* **Internal Controls & Audit Independence**: Audit and Finance Committee oversight transitioned smoothly to KC McClure without operational or accounting disagreements noted in Form 8-K filings [Fact].",
+      "SECTION_7_CULTURE_ESG": "### 7. Culture & ESG Profile\n\n#### Human Capital & Workforce Dynamics\n* **R&D Headcount Growth**: Research and development expenditures rose by 25% in FY 2025 to $8,091 million compared to $6,456 million in FY 2024, driven primarily by higher employee-related costs and targeted headcount expansion to execute AMD's AI roadmap [Fact].\n* **Talent Retention & Attrition**: While AMD does not publish granular corporate-wide attrition percentages in periodic reports, human capital investment remains oriented around high-end semiconductor architecture and software engineering [Interpretation].\n* **Compensation Governance & Equity Alignment**: Shareholder voting under Item 4 approved the amendment and restatement of the AMD 2023 Equity Incentive Plan, while executive compensation packages were submitted for non-binding advisory approval under Item 3 [Fact].\n\n#### Environmental & Product Efficiency Momentum\n* **Environmental Liabilities**: Balance sheet accruals for environmental loss contingencies remained limited at $4.8 million as of year-end 2023, reflecting controlled historical remediation liabilities [Fact].\n* **Product Energy Efficiency**: With the rapid scale of enterprise AI data center compute deployments, energy efficiency per floating-point operation (FLOP) remains the primary sustainability determinant for high-density Instinct accelerator architectures [Interpretation].\n* **ESG Momentum Rating**: **Stable** [Judgment]. AMD maintains disciplined board renewal, an independent audit committee structure, and low environmental legacy claims, balanced against geopolitical supply-chain sensitivities and export control compliance headwinds (such as the $440 million MI308 export inventory charge in FY 2025) [Fact].",
+      "MISSING_DATA_TABLE": "## Explicit unavailable research inputs\n| Field | Evidence coverage / reason |\n| --- | --- |\n| AttritionNote | AMD does not report specific employee attrition rates in Form 10-K or Form 10-Q filings. |\n| CEO_Pay_Ratio | Definitive Proxy Statement (DEF 14A) containing Item 402(u) CEO pay ratio disclosure was not included in external intake; only DEFA14A notice was retrieved. |\n| GlassdoorScore | External third-party workplace ratings (Glassdoor) are not reported in SEC filings. |"
+    },
+    "artifacts": {
+      "CEO_Pay_Ratio": null,
+      "Auditor": "Ernst & Young LLP",
+      "AuditorTenure": "24 years",
+      "GlassdoorScore": null,
+      "AttritionNote": null,
+      "ESG_Momentum": "Stable",
+      "LowSampleSizeCultureData": true,
+      "_execution_lineage": {
+        "consumed_upstream": [
+          "A1"
+        ],
+        "execution_key": "7688b49b3f5db83dbfbd15cff87cbe81c87c8b4c2d605dabc3d951a34d458033",
+        "upstream": [
+          {
+            "agent": "A1",
+            "content_checksum": "sha256:7d9db8e3bd0a534adb0b7b0c5540e358fa3a58a39d58d01cb740d75880e1963a"
+          }
+        ],
+        "prompt_sha256": "2747f23579657d72d0a28bf6c6f99db7b5520b884232161f0538cc555fe37a02",
+        "request_sha256": "f2466e33c23da414e23bee510e770c4adeb18da251d9b4e3f76f6a9fcc27d7c3",
+        "evidence_sha256": "7af8a8c5e0d1ea851e1a516904fcb5ec501b4b628d55196d6bc7119b84cc1a2b",
+        "provider": "gemini",
+        "model": "gemini-3.8-flash"
+      }
+    },
+    "sources": [
+      {
+        "id": "D001",
+        "type": "SECFiling",
+        "title": "AMD 10-K/A filed 2026-02-04",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000021/amd-20251227.htm",
+        "doc_date": "2026-02-04",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:43Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:bc47ee3fb24b0462679262fb05135f9d7eb022c2d48923869f7adc84e93942a9",
+        "text_sha256": "sha256:1af41baf582a29376774e3ad0d91f6f52f032499865d673e77248894325932cc",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D002",
+        "type": "SECFiling",
+        "title": "AMD 10-K filed 2026-02-04",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000018/amd-20251227.htm",
+        "doc_date": "2026-02-04",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:43Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:34ebef6e1b4d3e6060b60838eae2478c2b9ec98874683b7ae339cae2d85f8478",
+        "text_sha256": "sha256:68aa614f350df2b3861faaf9575db11e83eb34126781b46610b4d1a73cf55b92",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D003",
+        "type": "SECFiling",
+        "title": "AMD 10-K filed 2025-02-05",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248825000012/amd-20241228.htm",
+        "doc_date": "2025-02-05",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:44Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:20964e50c465a2d15e2af94d90739a6dcca63788387b0990438fea48c28e1a78",
+        "text_sha256": "sha256:09310cedf8257fb9a51780b2fa490a66e948c16ca69450a50b97d0295e964731",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D004",
+        "type": "SECFiling",
+        "title": "AMD 10-Q filed 2026-08-05",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000123/amd-20260627.htm",
+        "doc_date": "2026-08-05",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:44Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:ced44c03cf2db5fc7245b4d01e7adb4d59e9bd6c1ee8999547841a770a7f1fb6",
+        "text_sha256": "sha256:3870d07ead59dbf73ab68a45fc922c732d350faed095b2ef35a86bd3c317e92b",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D005",
+        "type": "SECFiling",
+        "title": "AMD DEFA14A filed 2026-03-27",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000119312526129084/d81910ddefa14a.htm",
+        "doc_date": "2026-03-27",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:4cbccad56b8c13d98c855f16b754ebd83203f450978afcdc137cb3add1e4c45a",
+        "text_sha256": "sha256:b9242a66aca3eb2aaed40aeb8f9e60559cd2e845af0e10374863440701d72f29",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D006",
+        "type": "SECMaterialEvent",
+        "title": "AMD 8-K filed 2026-09-28",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000182/amd-20260926.htm",
+        "doc_date": "2026-09-28",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:f5b36d6f88e6bbee556180a69eab5118f30cdc082f3347b9a9191e07f5dc0f2d",
+        "text_sha256": "sha256:2edd76c7c329aa1f05123256de8a42223a55b5e61d37b6d7551671a6b2bd399a",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D007",
+        "type": "SECMaterialEvent",
+        "title": "AMD 8-K filed 2026-08-19",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000163/amd-20260817.htm",
+        "doc_date": "2026-08-19",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:c8738bbece75f90d2af81507d8d003e1cc889f0e11680ace02fdf7e9dfe5d1de",
+        "text_sha256": "sha256:a00fca3189e7d65a933c9527e8da9e5ef26a210c1c442b50b97b0203b2df08ff",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D008",
+        "type": "MarketHistory",
+        "title": "AMD daily price history through 2026-10-11",
+        "url": "https://query1.finance.yahoo.com/v8/finance/chart/AMD?period1=1744156800&period2=1791763200&interval=1d",
+        "doc_date": "2026-10-11",
+        "date_basis": "requested_market_history_cutoff",
+        "accessed": "2026-10-11T17:33:46Z",
+        "content_type": "application/json;charset=utf-8",
+        "content_sha256": "sha256:318eea8cc4059c1929e61a7f3495c14033fce50e5684b52e6a5054b4fbe2d7b2",
+        "text_sha256": "sha256:11ad508d9474fa491a90b1cc94071d63e11650b555d9cf48419e87c848298234",
+        "verification": "retrieved",
+        "transform": {
+          "kind": "yahoo_daily",
+          "ticker": "AMD",
+          "symbol": "AMD",
+          "analysis_date": "2026-10-11"
+        }
+      }
+    ],
+    "warnings": [
+      "Explicit research coverage gaps: AttritionNote, CEO_Pay_Ratio, GlassdoorScore",
+      "Explicit unavailable research inputs: AttritionNote, CEO_Pay_Ratio, GlassdoorScore"
+    ],
+    "metrics": {
+      "data_checksum": "sha256:0612e6da421e9f3edaa167cba7e587f636ac9dc0cbd3b27c267c02ce788ea20f",
+      "missing_data": {
+        "CEO_Pay_Ratio": "Definitive Proxy Statement (DEF 14A) containing Item 402(u) CEO pay ratio disclosure was not included in external intake; only DEFA14A notice was retrieved.",
+        "GlassdoorScore": "External third-party workplace ratings (Glassdoor) are not reported in SEC filings.",
+        "AttritionNote": "AMD does not report specific employee attrition rates in Form 10-K or Form 10-Q filings."
+      },
+      "evidence_checksum": "sha256:a3778238edbe85ec4171228948ff76190c5580b405451ff13bcffe8bd1d5c7d2",
+      "source_grounding": "retrieved"
+    },
+    "confidence": 0.85,
+    "content_checksum": "sha256:f6cc7f1043047eb9f59c1f6a199cf59ddbd13ae4264c9f792c0e90fd24ab6d8e",
+    "upstream": [
+      {
+        "agent": "A1",
+        "content_checksum": "sha256:7d9db8e3bd0a534adb0b7b0c5540e358fa3a58a39d58d01cb740d75880e1963a"
+      }
+    ]
+  },
+  "A5": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A5",
+      "name": "News-Sentiment-Flows"
+    },
+    "timestamp": "2026-10-11T17:35:11Z",
+    "params": {
+      "company": "Advanced Micro Devices, Inc.",
+      "ticker": "AMD",
+      "analysis_date": "2026-10-11",
+      "depth": "Quick",
+      "focus": [],
+      "weights": "default",
+      "independent_bear": false
+    },
+    "gates": {
+      "passed": true,
+      "notes": [
+        "Ernst & Young LLP re-ratified as independent auditor at 2026 Annual Meeting (AuditorChangeYN: No) [Fact].",
+        "Material regulatory friction identified: U.S. export controls on Instinct MI308 Data Center GPUs resulted in $440M net inventory charges in FY 2025 [Fact].",
+        "Major corporate M&A event documented: Form 8-K dated 2026-09-28 details $8.2B equity acquisition of World Labs Technologies [Fact].",
+        "Allowlisted noncritical research gaps recorded with literal nulls in metrics.missing_data for SentimentSplit, SocialVsFundDivergence, InsiderNet12m, InstitutionalOwnershipTrend, and MajorLitigation due to absence of external unstructured NLP/13F/Form 4/docket feeds."
+      ]
+    },
+    "sections_md": {
+      "SECTION_8_NEWS_SENTIMENT": "### Section 8: News Sentiment & Narrative Landscape\n\n#### 8.1 Material Corporate Actions & Strategic Announcements\n* **World Labs Technologies Acquisition**: On September 26, 2026 (filed September 28, 2026), AMD entered into a definitive Agreement and Plan of Merger to acquire World Labs Technologies, Inc. for approximately $8.2 billion payable in newly issued shares of AMD common stock [Fact]. The issuance is subject to a 10-day volume-weighted average price collar preceding closing and relies on Section 4(a)(2) / Rule 506 Regulation D private placement exemptions [Fact].\n* **Board Governance & Audit Committee Realignment**: On August 17, 2026 (filed August 19, 2026), director Joe Householder retired from the Board of Directors [Fact]. KC McClure was appointed Chair of the Audit and Finance Committee, Nora Denzel joined the Audit and Finance Committee, and Tim Ryan was appointed as an independent director [Fact].\n* **Trade & Geopolitical Disclosures**: Form 10-K/A confirmed net inventory and related charges of approximately $440 million associated with U.S. government export controls impacting AMD Instinct\u2122 MI308 Data Center GPU products [Fact].\n\n#### 8.2 Market Action & Qualitative Sentiment Context\n* **Price Momentum**: AMD common stock closed at $608.10 on October 9, 2026, trading substantially above its 50-day moving average of $528.92 and 200-day moving average of $385.32 [Derived]. The 14-day RSI stands at 57.19, reflecting stable momentum following the run-up [Derived].\n* **Market Capitalization**: Based on 1,632,475,042 common shares outstanding as of July 29, 2026, AMD's market capitalization reached $992.69 billion ($992,688,035,728) [Derived].\n* **Sentiment Telemetry Status**: Formal quantitative sentiment split and social-vs-fundamental divergence metrics are omitted under allowlisted contract exceptions due to the unavailability of external unstructured sentiment and social scraping feeds [Interpretation].",
+      "SECTION_9_FLOW_LITIGATION": "### Section 9: Flow, Governance & Legal/Regulatory Watchlist\n\n#### 9.1 Independent Auditor Integrity\n* **Auditor Continuity**: AMD's Definitive Additional Materials (Form DEFA14A) filed March 27, 2026, confirmed Proposal 2 to ratify Ernst & Young LLP as independent registered public accounting firm for FY 2026 [Fact]. Form 10-K/A reports PCAOB ID: 42 (Ernst & Young LLP) [Fact].\n* **Auditor Change**: AuditorChangeYN is verified as `No` [Fact].\n\n#### 9.2 Capital Flow, Insider Transactions & Ownership Dynamics\n* **Insider Transaction Feed**: Trailing 12-month aggregated Form 4 transaction data is unretrieved in primary intake [Interpretation]. Under allowlisted rules, `InsiderNet12m` is set to null rather than assumed neutral.\n* **Institutional Flow Feed**: Aggregated Form 13F institutional ownership position telemetry is unretrieved in primary intake [Interpretation]. `InstitutionalOwnershipTrend` is set to null.\n* **Share Dilution Footprint**: Diluted weighted-average common shares outstanding increased from 1,636 million in FY 2025 [Fact] to 1,659 million in Q2 2026 [Fact]. Dilution risk is elevated by the pending $8.2 billion equity consideration for World Labs Technologies [Interpretation].\n\n#### 9.3 Litigation & Regulatory Watchlist\n* **Legal Proceedings**: Part II, Item 1 of Form 10-Q filed August 5, 2026, reports no material newly pending legal proceedings beyond ordinary business contingencies [Fact]. Specialized external court docket analytics feeds were not provided; `MajorLitigation` is null [Interpretation].\n* **Regulatory Watchlist**: Active enforcement of U.S. export controls on advanced semiconductor products, specifically targeting high-performance computing accelerators (AMD Instinct MI308 Data Center GPUs), represents an ongoing operational and revenue risk [Fact].",
+      "MISSING_DATA_TABLE": "## Explicit unavailable research inputs\n| Field | Evidence coverage / reason |\n| --- | --- |\n| InsiderNet12m | Aggregated SEC Form 4 insider trading feed across 12-month lookback not provided in retrieved evidence. |\n| InstitutionalOwnershipTrend | Aggregated SEC Form 13F institutional ownership flow data not provided in retrieved evidence. |\n| MajorLitigation | External legal court docket and litigation analytics feed not provided in retrieved evidence beyond standard Item 1 filings. |\n| SentimentSplit | Quantitative news sentiment NLP feed not available in runner-retrieved source documents. |\n| SocialVsFundDivergence | Social media sentiment scrape and retail flow telemetry not provided in retrieved evidence. |"
+    },
+    "artifacts": {
+      "SentimentSplit": null,
+      "SocialVsFundDivergence": null,
+      "MajorLitigation": null,
+      "AuditorChangeYN": "No",
+      "InsiderNet12m": null,
+      "InstitutionalOwnershipTrend": null,
+      "RegulatoryWatchlist": [
+        "U.S. Department of Commerce / BIS Export Controls on Advanced Computing GPUs (AMD Instinct MI308 Data Center GPU export restrictions and related inventory charges)"
+      ],
+      "_execution_lineage": {
+        "consumed_upstream": [
+          "A1"
+        ],
+        "execution_key": "7a3678679302d4c9a5e601ad6d899262ecd0cd7cfb35a8559730320cd0928d34",
+        "upstream": [
+          {
+            "agent": "A1",
+            "content_checksum": "sha256:7d9db8e3bd0a534adb0b7b0c5540e358fa3a58a39d58d01cb740d75880e1963a"
+          }
+        ],
+        "prompt_sha256": "8ebffc33754727e6f4efd612a72ea90e651bd38d589f1215a5ca02d96a01eb1c",
+        "request_sha256": "aaadb174e41c179e8386f1a842d978526ed930dd88d3e92fee8fa45e38f2f8a9",
+        "evidence_sha256": "7af8a8c5e0d1ea851e1a516904fcb5ec501b4b628d55196d6bc7119b84cc1a2b",
+        "provider": "gemini",
+        "model": "gemini-3.8-flash"
+      }
+    },
+    "sources": [
+      {
+        "id": "D001",
+        "type": "SECFiling",
+        "title": "AMD 10-K/A filed 2026-02-04",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000021/amd-20251227.htm",
+        "doc_date": "2026-02-04",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:43Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:bc47ee3fb24b0462679262fb05135f9d7eb022c2d48923869f7adc84e93942a9",
+        "text_sha256": "sha256:1af41baf582a29376774e3ad0d91f6f52f032499865d673e77248894325932cc",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D002",
+        "type": "SECFiling",
+        "title": "AMD 10-K filed 2026-02-04",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000018/amd-20251227.htm",
+        "doc_date": "2026-02-04",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:43Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:34ebef6e1b4d3e6060b60838eae2478c2b9ec98874683b7ae339cae2d85f8478",
+        "text_sha256": "sha256:68aa614f350df2b3861faaf9575db11e83eb34126781b46610b4d1a73cf55b92",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D003",
+        "type": "SECFiling",
+        "title": "AMD 10-K filed 2025-02-05",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248825000012/amd-20241228.htm",
+        "doc_date": "2025-02-05",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:44Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:20964e50c465a2d15e2af94d90739a6dcca63788387b0990438fea48c28e1a78",
+        "text_sha256": "sha256:09310cedf8257fb9a51780b2fa490a66e948c16ca69450a50b97d0295e964731",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D004",
+        "type": "SECFiling",
+        "title": "AMD 10-Q filed 2026-08-05",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000123/amd-20260627.htm",
+        "doc_date": "2026-08-05",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:44Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:ced44c03cf2db5fc7245b4d01e7adb4d59e9bd6c1ee8999547841a770a7f1fb6",
+        "text_sha256": "sha256:3870d07ead59dbf73ab68a45fc922c732d350faed095b2ef35a86bd3c317e92b",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D005",
+        "type": "SECFiling",
+        "title": "AMD DEFA14A filed 2026-03-27",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000119312526129084/d81910ddefa14a.htm",
+        "doc_date": "2026-03-27",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:4cbccad56b8c13d98c855f16b754ebd83203f450978afcdc137cb3add1e4c45a",
+        "text_sha256": "sha256:b9242a66aca3eb2aaed40aeb8f9e60559cd2e845af0e10374863440701d72f29",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D006",
+        "type": "SECMaterialEvent",
+        "title": "AMD 8-K filed 2026-09-28",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000182/amd-20260926.htm",
+        "doc_date": "2026-09-28",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:f5b36d6f88e6bbee556180a69eab5118f30cdc082f3347b9a9191e07f5dc0f2d",
+        "text_sha256": "sha256:2edd76c7c329aa1f05123256de8a42223a55b5e61d37b6d7551671a6b2bd399a",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D007",
+        "type": "SECMaterialEvent",
+        "title": "AMD 8-K filed 2026-08-19",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000163/amd-20260817.htm",
+        "doc_date": "2026-08-19",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:c8738bbece75f90d2af81507d8d003e1cc889f0e11680ace02fdf7e9dfe5d1de",
+        "text_sha256": "sha256:a00fca3189e7d65a933c9527e8da9e5ef26a210c1c442b50b97b0203b2df08ff",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D008",
+        "type": "MarketHistory",
+        "title": "AMD daily price history through 2026-10-11",
+        "url": "https://query1.finance.yahoo.com/v8/finance/chart/AMD?period1=1744156800&period2=1791763200&interval=1d",
+        "doc_date": "2026-10-11",
+        "date_basis": "requested_market_history_cutoff",
+        "accessed": "2026-10-11T17:33:46Z",
+        "content_type": "application/json;charset=utf-8",
+        "content_sha256": "sha256:318eea8cc4059c1929e61a7f3495c14033fce50e5684b52e6a5054b4fbe2d7b2",
+        "text_sha256": "sha256:11ad508d9474fa491a90b1cc94071d63e11650b555d9cf48419e87c848298234",
+        "verification": "retrieved",
+        "transform": {
+          "kind": "yahoo_daily",
+          "ticker": "AMD",
+          "symbol": "AMD",
+          "analysis_date": "2026-10-11"
+        }
+      }
+    ],
+    "warnings": [
+      "Explicit research coverage gaps: InsiderNet12m, InstitutionalOwnershipTrend, MajorLitigation, SentimentSplit, SocialVsFundDivergence",
+      "Explicit unavailable research inputs: InsiderNet12m, InstitutionalOwnershipTrend, MajorLitigation, SentimentSplit, SocialVsFundDivergence"
+    ],
+    "metrics": {
+      "data_checksum": "sha256:0612e6da421e9f3edaa167cba7e587f636ac9dc0cbd3b27c267c02ce788ea20f",
+      "missing_data": {
+        "SentimentSplit": "Quantitative news sentiment NLP feed not available in runner-retrieved source documents.",
+        "SocialVsFundDivergence": "Social media sentiment scrape and retail flow telemetry not provided in retrieved evidence.",
+        "InsiderNet12m": "Aggregated SEC Form 4 insider trading feed across 12-month lookback not provided in retrieved evidence.",
+        "InstitutionalOwnershipTrend": "Aggregated SEC Form 13F institutional ownership flow data not provided in retrieved evidence.",
+        "MajorLitigation": "External legal court docket and litigation analytics feed not provided in retrieved evidence beyond standard Item 1 filings."
+      },
+      "evidence_checksum": "sha256:a3778238edbe85ec4171228948ff76190c5580b405451ff13bcffe8bd1d5c7d2",
+      "source_grounding": "retrieved"
+    },
+    "confidence": 0.85,
+    "content_checksum": "sha256:9215086d4ed3757daa339287b9bc24ea29afdbef41066c826d50a35fffed1608",
+    "upstream": [
+      {
+        "agent": "A1",
+        "content_checksum": "sha256:7d9db8e3bd0a534adb0b7b0c5540e358fa3a58a39d58d01cb740d75880e1963a"
+      }
+    ]
+  },
+  "A6B": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A6B",
+      "name": "Bull-Case"
+    },
+    "timestamp": "2026-10-11T17:36:29Z",
+    "params": {
+      "company": "Advanced Micro Devices, Inc.",
+      "ticker": "AMD",
+      "analysis_date": "2026-10-11",
+      "depth": "Quick",
+      "focus": [],
+      "weights": "default",
+      "independent_bear": false
+    },
+    "gates": {
+      "passed": true,
+      "notes": [
+        "Synthesized four quantified bull theses corroborating reported SEC filing fundamentals with upstream artifacts A1-A5.",
+        "Primary growth acceleration and margin expansion verified across FY 2025 Form 10-K/A and Q2 2026 Form 10-Q.",
+        "All financial figures strictly tagged with epistemic markers [Fact], [Derived], [Estimate], and [Interpretation]."
+      ]
+    },
+    "sections_md": {
+      "SECTION_10_BULL_CASE": "### 10. Bull-Case Theses & Upside Drivers\n\n#### B1. Explosive Top-Line AI Acceleration & Datacenter Compute Scale\n- **Thesis**: AMD is demonstrating massive revenue acceleration driven by its Instinct data center accelerators and EPYC server CPU line, solidifying its role as the primary non-NVIDIA enterprise AI architecture [Interpretation].\n- **Quantified Evidence**: Q2 2026 net revenue expanded by +50.1% YoY to $11,536 million (compared to $7,685 million in Q2 2025) [Fact]. For the first six months of fiscal 2026, net revenue reached $21,789 million (+44.1% YoY from $15,123 million in H1 2025) [Fact], continuing the momentum of FY 2025 net revenue of $34,639 million (+34.3% YoY over FY 2024's $25,785 million) [Fact].\n- **Impact**: Cross-portfolio demand expands AMD's competitive moat against INTC and NVDA, confirming the upstream finding of an 'Expanding' moat posture (`A2.MoatTrend`) [Interpretation].\n\n#### B2. Substantial Operating Leverage and Margin Expansion\n- **Thesis**: Operating scale is driving severe operating leverage, expanding gross margins and delivering rapid net income compounding without requiring excessive multiple re-rating [Interpretation].\n- **Quantified Evidence**: Q2 2026 gross margin reached 53.8% ($6,203 million gross profit on $11,536 million revenue), an expansion of 1,400 basis points over Q2 2025's 39.8% gross margin [Fact/Derived]. Q2 2026 net income jumped +163.4% YoY to $2,297 million (diluted EPS of $1.38 vs. $0.54) [Fact]. Despite the share price advancing to $608.10 (`A1.market_cap_check`), AMD's PEG ratio remains reasonable at 1.21 (`A3.PEG_TTM`) [Derived].\n- **Impact**: Earnings expansion outpaces valuation multiple compression risk, rendering current valuations durable amidst high industry growth [Estimate].\n\n#### B3. Uncompromised Fortress Balance Sheet & Solvency Strength\n- **Thesis**: AMD maintains an elite balance sheet profile that eliminates liquidity risk and allows uninterrupted self-funded R&D investments through macroeconomic or supply cycles [Interpretation].\n- **Quantified Evidence**: Altman Z-Score stands at 43.77 (`A3.AltmanZ`), firmly within the Safe Zone [Derived]. As of June 27, 2026, AMD held $5,086 million in cash and cash equivalents and $8,025 million in short-term investments, totaling $13,111 million in total liquid assets [Fact], against total principal debt of only $3,250 million [Fact]. Total stockholders' equity reached $62,999 million at year-end FY 2025 [Fact].\n- **Impact**: Significant net cash reserve provides full structural flexibility to deploy capital toward advanced process technology, wafer commitments, and continuous high-intensity R&D ($4,925 million spent in H1 2026 alone) [Fact/Interpretation].\n\n#### B4. Strategic Ecosystem Broadening via Spatial AI / World Labs Acquisition\n- **Thesis**: AMD's aggressive M&A strategy is broadening its software and foundation-model ecosystem, reducing developer lock-in on proprietary competitive frameworks [Interpretation].\n- **Quantified Evidence**: On September 26, 2026, AMD entered into an agreement to acquire World Labs Technologies for $8.2 billion in common stock (Form 8-K) [Fact].\n- **Impact**: The addition of next-generation physical world / spatial AI capabilities fortifies AMD's full-stack offering against peers (`A2.PEER_LIST`), augmenting hardware leadership with high-value foundational software integration [Interpretation].",
+      "MISSING_DATA_TABLE": "| Metric / Item | Status | Impact / Notes |\n|---|---|---|\n| Forward PEG (PEG_Fwd) | Null in Upstream A3 | TTM PEG of 1.21 utilized for valuation thesis; forward consensus estimates absent in filings [Fact]. |\n| Customer Concentration (%) | Omitted in Filing Text | Does not invalidate aggregate 50.1% Q2 2026 YoY top-line revenue growth [Fact]. |"
+    },
+    "artifacts": {
+      "BullCase": [
+        {
+          "id": "B1",
+          "thesis": "Accelerating top-line revenue driven by datacenter AI accelerators and EPYC CPU market share gains.",
+          "evidence": [
+            "A2.MoatTrend",
+            "A2.PEER_LIST"
+          ],
+          "impact": "Q2 2026 revenue increased 50.1% YoY to $11,536M and H1 2026 revenue reached $21,789M (+44.1% YoY), solidifying AMD as the viable tier-1 alternative to NVDA."
+        },
+        {
+          "id": "B2",
+          "thesis": "High operating leverage unlocking significant gross margin expansion and net income compounding.",
+          "evidence": [
+            "A3.PEG_TTM",
+            "A3.OCF_vs_NI_Flag"
+          ],
+          "impact": "Q2 2026 gross margins expanded to 53.8% while net income surged 163.4% YoY to $2,297M, keeping the PEG ratio anchored at 1.21 despite strong equity appreciation."
+        },
+        {
+          "id": "B3",
+          "thesis": "Fortress liquidity and solvency standing safely beyond credit and distress risks.",
+          "evidence": [
+            "A3.AltmanZ",
+            "A1.market_cap_check"
+          ],
+          "impact": "Altman Z-Score of 43.77 and $13.11B in liquid cash and short-term investments guarantee sustained long-term R&D scaling ($4.93B in H1 2026)."
+        },
+        {
+          "id": "B4",
+          "thesis": "Strategic full-stack ecosystem expansion through major foundational AI acquisitions.",
+          "evidence": [
+            "A2.MoatTrend",
+            "A5.RegulatoryWatchlist"
+          ],
+          "impact": "$8.2B equity acquisition of World Labs Technologies materially broadens spatial AI capabilities and strengthens competitive positioning against dominant peer moats."
+        }
+      ],
+      "_execution_lineage": {
+        "consumed_upstream": [
+          "A1",
+          "A2",
+          "A3",
+          "A4",
+          "A5"
+        ],
+        "execution_key": "ccd6b0793ae890b6b53f028c115af1a7f50a728f4c8086ebd4c74046a8555d91",
+        "upstream": [
+          {
+            "agent": "A1",
+            "content_checksum": "sha256:7d9db8e3bd0a534adb0b7b0c5540e358fa3a58a39d58d01cb740d75880e1963a"
+          },
+          {
+            "agent": "A2",
+            "content_checksum": "sha256:ef3ed502b0e996d692875a9caaf83f3e18ab1a5b827ad513bccd35cf211dc6ed"
+          },
+          {
+            "agent": "A3",
+            "content_checksum": "sha256:abc226b6cb1657e6f08072c5d69cb6de5592e1537d2d2245df647527533c261f"
+          },
+          {
+            "agent": "A4",
+            "content_checksum": "sha256:f6cc7f1043047eb9f59c1f6a199cf59ddbd13ae4264c9f792c0e90fd24ab6d8e"
+          },
+          {
+            "agent": "A5",
+            "content_checksum": "sha256:9215086d4ed3757daa339287b9bc24ea29afdbef41066c826d50a35fffed1608"
+          }
+        ],
+        "prompt_sha256": "e8e9d1a8ba75555e2b429391d892ec0cf8c1a996a1675ec58db226f0bea0c978",
+        "request_sha256": "bb2d5db98f3bdac43398c5194e491d1c35130a2b7a2eca05910984ea87154901",
+        "evidence_sha256": "7af8a8c5e0d1ea851e1a516904fcb5ec501b4b628d55196d6bc7119b84cc1a2b",
+        "provider": "gemini",
+        "model": "gemini-3.8-flash"
+      }
+    },
+    "sources": [
+      {
+        "id": "D001",
+        "type": "SECFiling",
+        "title": "AMD 10-K/A filed 2026-02-04",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000021/amd-20251227.htm",
+        "doc_date": "2026-02-04",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:43Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:bc47ee3fb24b0462679262fb05135f9d7eb022c2d48923869f7adc84e93942a9",
+        "text_sha256": "sha256:1af41baf582a29376774e3ad0d91f6f52f032499865d673e77248894325932cc",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D002",
+        "type": "SECFiling",
+        "title": "AMD 10-K filed 2026-02-04",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000018/amd-20251227.htm",
+        "doc_date": "2026-02-04",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:43Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:34ebef6e1b4d3e6060b60838eae2478c2b9ec98874683b7ae339cae2d85f8478",
+        "text_sha256": "sha256:68aa614f350df2b3861faaf9575db11e83eb34126781b46610b4d1a73cf55b92",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D003",
+        "type": "SECFiling",
+        "title": "AMD 10-K filed 2025-02-05",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248825000012/amd-20241228.htm",
+        "doc_date": "2025-02-05",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:44Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:20964e50c465a2d15e2af94d90739a6dcca63788387b0990438fea48c28e1a78",
+        "text_sha256": "sha256:09310cedf8257fb9a51780b2fa490a66e948c16ca69450a50b97d0295e964731",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D004",
+        "type": "SECFiling",
+        "title": "AMD 10-Q filed 2026-08-05",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000123/amd-20260627.htm",
+        "doc_date": "2026-08-05",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:44Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:ced44c03cf2db5fc7245b4d01e7adb4d59e9bd6c1ee8999547841a770a7f1fb6",
+        "text_sha256": "sha256:3870d07ead59dbf73ab68a45fc922c732d350faed095b2ef35a86bd3c317e92b",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D005",
+        "type": "SECFiling",
+        "title": "AMD DEFA14A filed 2026-03-27",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000119312526129084/d81910ddefa14a.htm",
+        "doc_date": "2026-03-27",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:4cbccad56b8c13d98c855f16b754ebd83203f450978afcdc137cb3add1e4c45a",
+        "text_sha256": "sha256:b9242a66aca3eb2aaed40aeb8f9e60559cd2e845af0e10374863440701d72f29",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D006",
+        "type": "SECMaterialEvent",
+        "title": "AMD 8-K filed 2026-09-28",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000182/amd-20260926.htm",
+        "doc_date": "2026-09-28",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:f5b36d6f88e6bbee556180a69eab5118f30cdc082f3347b9a9191e07f5dc0f2d",
+        "text_sha256": "sha256:2edd76c7c329aa1f05123256de8a42223a55b5e61d37b6d7551671a6b2bd399a",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D007",
+        "type": "SECMaterialEvent",
+        "title": "AMD 8-K filed 2026-08-19",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000163/amd-20260817.htm",
+        "doc_date": "2026-08-19",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:c8738bbece75f90d2af81507d8d003e1cc889f0e11680ace02fdf7e9dfe5d1de",
+        "text_sha256": "sha256:a00fca3189e7d65a933c9527e8da9e5ef26a210c1c442b50b97b0203b2df08ff",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D008",
+        "type": "MarketHistory",
+        "title": "AMD daily price history through 2026-10-11",
+        "url": "https://query1.finance.yahoo.com/v8/finance/chart/AMD?period1=1744156800&period2=1791763200&interval=1d",
+        "doc_date": "2026-10-11",
+        "date_basis": "requested_market_history_cutoff",
+        "accessed": "2026-10-11T17:33:46Z",
+        "content_type": "application/json;charset=utf-8",
+        "content_sha256": "sha256:318eea8cc4059c1929e61a7f3495c14033fce50e5684b52e6a5054b4fbe2d7b2",
+        "text_sha256": "sha256:11ad508d9474fa491a90b1cc94071d63e11650b555d9cf48419e87c848298234",
+        "verification": "retrieved",
+        "transform": {
+          "kind": "yahoo_daily",
+          "ticker": "AMD",
+          "symbol": "AMD",
+          "analysis_date": "2026-10-11"
+        }
+      }
+    ],
+    "warnings": [
+      "section 'MISSING_DATA_TABLE' is not part of agent A6B's contract"
+    ],
+    "metrics": {
+      "data_checksum": "sha256:0612e6da421e9f3edaa167cba7e587f636ac9dc0cbd3b27c267c02ce788ea20f",
+      "evidence_checksum": "sha256:a3778238edbe85ec4171228948ff76190c5580b405451ff13bcffe8bd1d5c7d2",
+      "source_grounding": "retrieved"
+    },
+    "confidence": 0.92,
+    "content_checksum": "sha256:763951c3ba52c10bdab59d2d56468964a41e3d177ecd0db4eee119e23820caa8",
+    "upstream": [
+      {
+        "agent": "A1",
+        "content_checksum": "sha256:7d9db8e3bd0a534adb0b7b0c5540e358fa3a58a39d58d01cb740d75880e1963a"
+      },
+      {
+        "agent": "A2",
+        "content_checksum": "sha256:ef3ed502b0e996d692875a9caaf83f3e18ab1a5b827ad513bccd35cf211dc6ed"
+      },
+      {
+        "agent": "A3",
+        "content_checksum": "sha256:abc226b6cb1657e6f08072c5d69cb6de5592e1537d2d2245df647527533c261f"
+      },
+      {
+        "agent": "A4",
+        "content_checksum": "sha256:f6cc7f1043047eb9f59c1f6a199cf59ddbd13ae4264c9f792c0e90fd24ab6d8e"
+      },
+      {
+        "agent": "A5",
+        "content_checksum": "sha256:9215086d4ed3757daa339287b9bc24ea29afdbef41066c826d50a35fffed1608"
+      }
+    ]
+  },
+  "A6R": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A6R",
+      "name": "Bear-Case"
+    },
+    "timestamp": "2026-10-11T17:37:12Z",
+    "params": {
+      "company": "Advanced Micro Devices, Inc.",
+      "ticker": "AMD",
+      "analysis_date": "2026-10-11",
+      "depth": "Quick",
+      "focus": [],
+      "weights": "default",
+      "independent_bear": false
+    },
+    "gates": {
+      "passed": true,
+      "notes": [
+        "Rigorous counter-rebuttals developed against all upstream bull theses B1 through B4 using audited 10-K/A and 10-Q evidence.",
+        "Material downside catalysts quantified: $440M FY 2025 export-control inventory write-downs, inventory accumulation to $8,468M in Q2 2026, total debt expansion to $3,222M, and $8.2B equity dilution from World Labs Technologies acquisition.",
+        "All statements adhere strictly to epistemic classification markers [Fact], [Derived], [Estimate], [Interpretation], and [Judgment]."
+      ]
+    },
+    "sections_md": {
+      "SECTION_11_BEAR_CASE": "### 11.1 Rebuttal to Core Bull Theses\n\n- **Rebuttal to B1 (Accelerating Top-Line & Datacenter Dominance):** While net revenue expanded 50.1% YoY to $11,536M in Q2 2026 [Fact], AMD's commercial momentum remains heavily constrained by the structural moats of Tier-1 competitors and mounting customer disintermediation. Nvidia's proprietary CUDA computing ecosystem, extensive developer network, and unified NVLink interconnect architecture present extreme software switching barriers for mission-critical generative AI workloads [Interpretation]. Concurrently, AMD's primary cloud hyperscaler customers (including Microsoft, Google, and Amazon) are aggressively architecting and deploying in-house custom ASICs (e.g., Maia, TPU, and Trainium), which directly compresses AMD's addressable merchant silicon TAM [Interpretation]. Furthermore, geopolitical export restrictions remain a persistent threat: U.S. government export controls on Instinct MI308 datacenter GPUs caused AMD to record $440M in net inventory charges in FY 2025 [Fact], demonstrating the severe vulnerability of its international revenue pipeline to regulatory interventions [Judgment].\n\n- **Rebuttal to B2 (Operating Leverage & Gross Margin Compounding):** The bull narrative touts gross margin expansion to 53.8% in Q2 2026 [Fact], yet this profitability profile remains vastly inferior to Nvidia's ~75% gross margin baseline, underscoring AMD's constrained pricing power and heavy reliance on competitive pricing concessions to capture accelerator share [Interpretation]. Operating leverage is precarious: inventories have surged dramatically from $5,734M at FY 2024 to $7,920M at FY 2025 and climbed further to $8,468M by June 27, 2026 [Fact]. In an industry characterized by compressed, 12-to-18-month product generation cycles, this swollen inventory balance exposes AMD to catastrophic write-down risks if next-generation competitor architectures outcompete MI350/MI400 roadmaps, which would instantly compress operating margins and invert earnings growth [Judgment].\n\n- **Rebuttal to B3 (Fortress Balance Sheet & Distress Immunity):** The reported Altman Z-Score of 43.77 [Derived] is overwhelmingly an artifact of AMD's elevated equity market capitalization (~$992.7B against $63.0B in stockholders' equity as of FY 2025) [Derived], rather than an impenetrable operational balance sheet. AMD's financial leverage has increased notably: total principal debt increased from $1,750M in FY 2024 to $3,250M ($3,222M net) in FY 2025 following the issuance of $1.5B in senior notes, with $874M designated as current debt due in 2026 [Fact]. Meanwhile, operating expenses have expanded aggressively, with R&D climbing to $4,925M in H1 2026 ($2,528M in Q2 2026 alone) [Fact]. This near-$10B annual R&D burn rate [Derived] creates immense cash-flow vulnerability if datacenter GPU revenue decelerates or undergoes a cyclical correction [Interpretation].\n\n- **Rebuttal to B4 (M&A Ecosystem Expansion via World Labs):** On September 26, 2026, AMD agreed to acquire World Labs Technologies for $8.2B, financed entirely through the issuance of unregistered common stock [Fact]. This transaction represents meaningful share dilution for existing shareholders [Interpretation]. AMD already carries an enormous burden of non-amortized goodwill ($25,126M) and acquisition intangibles ($16,705M) stemming from prior acquisitions (such as Xilinx and ZT Systems) as of FY 2025 [Fact]. World Labs represents an unproven spatial AI software platform with speculative near-term commercial cash flows, introducing high execution friction and potential future impairment charges without resolving ROCm's core developer adoption friction [Judgment].\n\n### 11.2 Structural Disadvantages & Asymmetric Downside Vectors\n\n1. **Software & Networking Lock-in Deficit:** Hardware specifications alone cannot displace CUDA's two-decade ecosystem lead. As AI models scale across cluster fabrics, AMD's reliance on open standards (ROCm and Ultra Ethernet) lags Nvidia's integrated, turnkey full-stack solutions, forcing AMD into margin-dilutive pricing strategies [Interpretation].\n2. **Severe Working Capital & Inventory Bloat:** The growth in inventories to $8,468M in Q2 2026 [Fact] represents a 47.7% increase compared to FY 2024 [Derived]. An AI hardware demand pause or export restriction would necessitate material write-downs, directly impacting gross profits [Judgment].\n3. **M&A Goodwill Saturation & Ongoing Equity Dilution:** With goodwill and intangibles comprising $41,831M (54.4% of total assets of $76,926M at FY 2025) [Derived], layering an additional $8.2B in equity-financed acquisition assets heightens the risk of future asset impairments while diluting per-share earnings [Interpretation]."
+    },
+    "artifacts": {
+      "BearRebuttals": [
+        {
+          "bull_id": "B1",
+          "probability": "High",
+          "severity": "High",
+          "counter": "While Q2 2026 net revenue grew 50.1% YoY to $11,536M [Fact], AMD faces formidable software lock-in barriers around Nvidia's CUDA ecosystem and expanding custom silicon (ASIC) development across top hyperscalers [Interpretation]. Furthermore, U.S. export controls on Instinct MI308 GPUs already triggered $440M in inventory charges in FY 2025 [Fact], evidencing persistent geopolitical revenue fragility."
+        },
+        {
+          "bull_id": "B2",
+          "probability": "Med",
+          "severity": "High",
+          "counter": "AMD's Q2 2026 gross margin of 53.8% [Fact] trails Nvidia's ~75% profile by over 2,000 bps due to inferior pricing power [Interpretation]. Critical inventory balances expanded to $8,468M in Q2 2026 from $5,734M at FY 2024 [Fact], creating severe obsolescence and write-down risks across rapid GPU generation cycles that could reverse operating leverage [Judgment]."
+        },
+        {
+          "bull_id": "B3",
+          "probability": "Med",
+          "severity": "Med",
+          "counter": "The Altman Z-Score of 43.77 [Derived] is heavily inflated by AMD's market valuation of ~$992.7B rather than operational liquidity [Derived]. Net debt expanded from $1,721M to $3,222M in FY 2025 with $874M coming due in 2026 [Fact], while annualized R&D run-rates approaching $10B ($4,925M in H1 2026) [Derived] impose severe cash burn if top-line momentum slows [Interpretation]."
+        },
+        {
+          "bull_id": "B4",
+          "probability": "High",
+          "severity": "Med",
+          "counter": "The $8.2B World Labs acquisition is financed 100% via common stock [Fact], inducing immediate equity dilution. AMD already carries $25,126M of goodwill and $16,705M of intangibles [Fact]; acquiring speculative spatial AI assets poses high post-merger integration risks without directly solving the core ROCm software adoption deficit [Judgment]."
+        }
+      ],
+      "_execution_lineage": {
+        "consumed_upstream": [
+          "A1",
+          "A2",
+          "A3",
+          "A4",
+          "A5",
+          "A6B"
+        ],
+        "execution_key": "768c3e27b22b26964bfebf24a7a2262a9f12486b0de4d18d57ce75d7dcafef3a",
+        "upstream": [
+          {
+            "agent": "A1",
+            "content_checksum": "sha256:7d9db8e3bd0a534adb0b7b0c5540e358fa3a58a39d58d01cb740d75880e1963a"
+          },
+          {
+            "agent": "A2",
+            "content_checksum": "sha256:ef3ed502b0e996d692875a9caaf83f3e18ab1a5b827ad513bccd35cf211dc6ed"
+          },
+          {
+            "agent": "A3",
+            "content_checksum": "sha256:abc226b6cb1657e6f08072c5d69cb6de5592e1537d2d2245df647527533c261f"
+          },
+          {
+            "agent": "A4",
+            "content_checksum": "sha256:f6cc7f1043047eb9f59c1f6a199cf59ddbd13ae4264c9f792c0e90fd24ab6d8e"
+          },
+          {
+            "agent": "A5",
+            "content_checksum": "sha256:9215086d4ed3757daa339287b9bc24ea29afdbef41066c826d50a35fffed1608"
+          },
+          {
+            "agent": "A6B",
+            "content_checksum": "sha256:763951c3ba52c10bdab59d2d56468964a41e3d177ecd0db4eee119e23820caa8"
+          }
+        ],
+        "prompt_sha256": "4ef7d8cbb6b19cb56c1ed2f87ae1e5fd99ea4899980603bc1951c0b24a2a9a38",
+        "request_sha256": "50a76e1b5645d8176e8375b6c044acc23d0600a9ecd3d31cf4c504377c07fafc",
+        "evidence_sha256": "7af8a8c5e0d1ea851e1a516904fcb5ec501b4b628d55196d6bc7119b84cc1a2b",
+        "provider": "gemini",
+        "model": "gemini-3.8-flash"
+      }
+    },
+    "sources": [
+      {
+        "id": "D001",
+        "type": "SECFiling",
+        "title": "AMD 10-K/A filed 2026-02-04",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000021/amd-20251227.htm",
+        "doc_date": "2026-02-04",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:43Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:bc47ee3fb24b0462679262fb05135f9d7eb022c2d48923869f7adc84e93942a9",
+        "text_sha256": "sha256:1af41baf582a29376774e3ad0d91f6f52f032499865d673e77248894325932cc",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D002",
+        "type": "SECFiling",
+        "title": "AMD 10-K filed 2026-02-04",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000018/amd-20251227.htm",
+        "doc_date": "2026-02-04",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:43Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:34ebef6e1b4d3e6060b60838eae2478c2b9ec98874683b7ae339cae2d85f8478",
+        "text_sha256": "sha256:68aa614f350df2b3861faaf9575db11e83eb34126781b46610b4d1a73cf55b92",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D003",
+        "type": "SECFiling",
+        "title": "AMD 10-K filed 2025-02-05",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248825000012/amd-20241228.htm",
+        "doc_date": "2025-02-05",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:44Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:20964e50c465a2d15e2af94d90739a6dcca63788387b0990438fea48c28e1a78",
+        "text_sha256": "sha256:09310cedf8257fb9a51780b2fa490a66e948c16ca69450a50b97d0295e964731",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D004",
+        "type": "SECFiling",
+        "title": "AMD 10-Q filed 2026-08-05",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000123/amd-20260627.htm",
+        "doc_date": "2026-08-05",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:44Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:ced44c03cf2db5fc7245b4d01e7adb4d59e9bd6c1ee8999547841a770a7f1fb6",
+        "text_sha256": "sha256:3870d07ead59dbf73ab68a45fc922c732d350faed095b2ef35a86bd3c317e92b",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D005",
+        "type": "SECFiling",
+        "title": "AMD DEFA14A filed 2026-03-27",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000119312526129084/d81910ddefa14a.htm",
+        "doc_date": "2026-03-27",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:4cbccad56b8c13d98c855f16b754ebd83203f450978afcdc137cb3add1e4c45a",
+        "text_sha256": "sha256:b9242a66aca3eb2aaed40aeb8f9e60559cd2e845af0e10374863440701d72f29",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D006",
+        "type": "SECMaterialEvent",
+        "title": "AMD 8-K filed 2026-09-28",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000182/amd-20260926.htm",
+        "doc_date": "2026-09-28",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:f5b36d6f88e6bbee556180a69eab5118f30cdc082f3347b9a9191e07f5dc0f2d",
+        "text_sha256": "sha256:2edd76c7c329aa1f05123256de8a42223a55b5e61d37b6d7551671a6b2bd399a",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D007",
+        "type": "SECMaterialEvent",
+        "title": "AMD 8-K filed 2026-08-19",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000163/amd-20260817.htm",
+        "doc_date": "2026-08-19",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:c8738bbece75f90d2af81507d8d003e1cc889f0e11680ace02fdf7e9dfe5d1de",
+        "text_sha256": "sha256:a00fca3189e7d65a933c9527e8da9e5ef26a210c1c442b50b97b0203b2df08ff",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D008",
+        "type": "MarketHistory",
+        "title": "AMD daily price history through 2026-10-11",
+        "url": "https://query1.finance.yahoo.com/v8/finance/chart/AMD?period1=1744156800&period2=1791763200&interval=1d",
+        "doc_date": "2026-10-11",
+        "date_basis": "requested_market_history_cutoff",
+        "accessed": "2026-10-11T17:33:46Z",
+        "content_type": "application/json;charset=utf-8",
+        "content_sha256": "sha256:318eea8cc4059c1929e61a7f3495c14033fce50e5684b52e6a5054b4fbe2d7b2",
+        "text_sha256": "sha256:11ad508d9474fa491a90b1cc94071d63e11650b555d9cf48419e87c848298234",
+        "verification": "retrieved",
+        "transform": {
+          "kind": "yahoo_daily",
+          "ticker": "AMD",
+          "symbol": "AMD",
+          "analysis_date": "2026-10-11"
+        }
+      }
+    ],
+    "warnings": [],
+    "metrics": {
+      "data_checksum": "sha256:0612e6da421e9f3edaa167cba7e587f636ac9dc0cbd3b27c267c02ce788ea20f",
+      "evidence_checksum": "sha256:a3778238edbe85ec4171228948ff76190c5580b405451ff13bcffe8bd1d5c7d2",
+      "source_grounding": "retrieved"
+    },
+    "confidence": 0.85,
+    "content_checksum": "sha256:1a6362a46e23674c4b44d81cbade811e86ea4f91a90651796dc55bcc8966d9bd",
+    "upstream": [
+      {
+        "agent": "A1",
+        "content_checksum": "sha256:7d9db8e3bd0a534adb0b7b0c5540e358fa3a58a39d58d01cb740d75880e1963a"
+      },
+      {
+        "agent": "A2",
+        "content_checksum": "sha256:ef3ed502b0e996d692875a9caaf83f3e18ab1a5b827ad513bccd35cf211dc6ed"
+      },
+      {
+        "agent": "A3",
+        "content_checksum": "sha256:abc226b6cb1657e6f08072c5d69cb6de5592e1537d2d2245df647527533c261f"
+      },
+      {
+        "agent": "A4",
+        "content_checksum": "sha256:f6cc7f1043047eb9f59c1f6a199cf59ddbd13ae4264c9f792c0e90fd24ab6d8e"
+      },
+      {
+        "agent": "A5",
+        "content_checksum": "sha256:9215086d4ed3757daa339287b9bc24ea29afdbef41066c826d50a35fffed1608"
+      },
+      {
+        "agent": "A6B",
+        "content_checksum": "sha256:763951c3ba52c10bdab59d2d56468964a41e3d177ecd0db4eee119e23820caa8"
+      }
+    ]
+  },
+  "A6": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A6",
+      "name": "CIO-Synthesis"
+    },
+    "timestamp": "2026-10-11T17:37:58Z",
+    "params": {
+      "company": "Advanced Micro Devices, Inc.",
+      "ticker": "AMD",
+      "analysis_date": "2026-10-11",
+      "depth": "Quick",
+      "focus": [],
+      "weights": "default",
+      "independent_bear": false
+    },
+    "gates": {
+      "passed": true,
+      "notes": [
+        "Successfully reconciled bull theses (B1-B4) and bear counter-rebuttals using SEC filings (FY 2025 Form 10-K/A, Q2 2026 Form 10-Q, Form 8-K) and authoritative market data.",
+        "Constructed 3-year fundamental scenario models (Bull, Base, Bear) incorporating top-line expansion, operating leverage, and FCF generation.",
+        "Synthesized systemic danger zones across liquidity, inventory obsolescence, valuation multiples, and geopolitical export controls.",
+        "Maintained strict epistemic tagging across factual numbers [Fact], derived calculations [Derived], forward projections [Estimate], strategic theses [Interpretation], and committee ratings [Judgment]."
+      ]
+    },
+    "sections_md": {
+      "SECTION_14_SYNTHESIS": "### 14. CIO Synthesis & Strategic Investment Committee Thesis\n\n#### 14.1 Reconciled Thesis: The AI Duopoly Challenger vs. Structural Moat Realities\nAdvanced Micro Devices, Inc. (AMD) has cemented itself as the primary merchant silicon competitor to Nvidia in high-performance computing and enterprise AI infrastructure [Interpretation]. The bull-bear debate reflects a tension between undeniable top-line hypergrowth and persistent structural moats protecting the market incumbent.\n\n- **Growth Acceleration vs. Software Deficits**: AMD reported Q2 2026 net revenue of $11,536M (+50.1% YoY) and H1 2026 revenue of $21,789M (+44.1% YoY) [Fact], validating robust commercial traction for Instinct MI300/MI350 accelerators and EPYC server CPUs [Interpretation]. However, Bear counter-rebuttals accurately emphasize that Nvidia's CUDA software stack, coupled with aggressive in-house ASIC deployments across hyperscalers (e.g., Google TPU, AWS Trainium, Meta MTIA), caps AMD's addressable margin capture [Interpretation]. While AMD's ROCm open-software stack is closing developer parity gaps, switching friction remains non-trivial [Judgment].\n- **Operating Leverage vs. Margin Ceiling**: Q2 2026 gross margin reached 53.8% and net income rose to $2,297M [Fact]. Yet, AMD's gross margin continues to lag Nvidia's ~75% profile by more than 2,000 bps [Fact], underscoring AMD's lower silicon pricing power and higher bill-of-materials costs [Interpretation].\n- **Inventory Accumulation & Valuation Asymmetry**: AMD's inventory balance expanded to $8,468M in Q2 2026 compared to $5,734M in FY 2024 [Fact]. Given the rapid generation cadence in AI silicon, this inventory build creates potential obsolescence write-down vulnerability [Judgment], as evidenced by the $440M net inventory charge taken in FY 2025 due to U.S. export controls on Instinct MI308 accelerators [Fact]. At a market capitalization of ~$992.7B ($608.10/share) [Derived], equity pricing demands flawless multi-year execution [Judgment].\n\n#### 14.2 Solvency, Liquidity, and Capital Allocation Assessment\nAMD retains an exceptionally robust balance sheet with total liquid cash and short-term investments of $13,111M ($5,086M cash and cash equivalents, $8,025M short-term investments) as of June 27, 2026 [Fact]. This liquidity cushion provides total coverage over its $3,222M net debt obligation, including the $874M current portion of senior notes due in 2026 [Fact]. While the Altman Z-Score of 43.77 [Derived] is amplified by AMD's high market equity valuation, AMD's operational cash generation safely underwrites annualized R&D investments running near $10B ($4,925M incurred in H1 2026) [Derived]. The announced $8.2B all-stock acquisition of World Labs Technologies expands AMD's foundational spatial AI footprint, though it introduces equity dilution and goodwill expansion atop $25,126M in existing goodwill [Fact].\n\n#### 14.3 Strategic Committee Verdict\nAMD represents an essential high-beta structural asset in datacenter computing [Judgment]. While valuation multiples are elevated and leave limited room for execution slippage, AMD's tier-1 customer relationships across major cloud service providers, sustained server CPU share dominance, and viable merchant GPU alternative status warrant an overall constructive strategic stance, balanced by disciplined risk limits on inventory and regulatory developments [Judgment].",
+      "MISSING_DATA_TABLE": "| Metric / Field | Scope & Status | Reason / Remediation |\n| :--- | :--- | :--- |\n| Beneish M-Score | Omitted / Non-Critical Gap | Primary FY 2025 filing excerpt omitted full Statement of Cash Flows; marked unfeasible upstream to prevent accrual fabrication. |\n| Top Customer / Supplier Exact % | Research Gap | Precise single-customer percentage disclosures were omitted in filing excerpt text. |"
+    },
+    "artifacts": {
+      "DangerZoneDashboard": [
+        {
+          "category": "Inventory & Obsolescence Risk",
+          "flag": "\ud83d\udfe1",
+          "sources": [
+            "https://www.sec.gov/Archives/edgar/data/2488/000000248826000123/amd-20260627.htm",
+            "https://www.sec.gov/Archives/edgar/data/2488/000000248826000018/amd-20251227.htm"
+          ],
+          "note": "Inventories expanded to $8,468M in Q2 2026 from $5,734M at FY 2024 [Fact]. In an environment of annual GPU architecture shifts, rapid obsolescence cycles pose potential write-down exposure [Judgment]."
+        },
+        {
+          "category": "Valuation & Multiple Compression",
+          "flag": "\ud83d\udd34",
+          "sources": [
+            "https://query1.finance.yahoo.com/v8/finance/chart/AMD?period1=1744156800&period2=1791763200&interval=1d",
+            "https://www.sec.gov/Archives/edgar/data/2488/000000248826000123/amd-20260627.htm"
+          ],
+          "note": "Market capitalization reached ~$992.7B at $608.10 per share [Derived]. Strong equity run-up leaves valuation vulnerable to any unexpected top-line deceleration or hyperscaler capex pauses [Interpretation]."
+        },
+        {
+          "category": "Geopolitical & Export Control Fragility",
+          "flag": "\ud83d\udd34",
+          "sources": [
+            "https://www.sec.gov/Archives/edgar/data/2488/000000248826000021/amd-20251227.htm"
+          ],
+          "note": "U.S. BIS export controls on Instinct MI308 Data Center GPU products triggered $440M in inventory write-downs and related charges in FY 2025 [Fact], demonstrating vulnerability to ongoing trade sanctions [Interpretation]."
+        },
+        {
+          "category": "Solvency & Liquidity",
+          "flag": "\ud83d\udfe2",
+          "sources": [
+            "https://www.sec.gov/Archives/edgar/data/2488/000000248826000123/amd-20260627.htm",
+            "https://www.sec.gov/Archives/edgar/data/2488/000000248826000018/amd-20251227.htm"
+          ],
+          "note": "Liquid balances of $13,111M ($5,086M cash + $8,025M short-term investments) fully cover total debt of $3,222M and near-term senior note maturities of $874M due in 2026 [Fact]."
+        },
+        {
+          "category": "M&A Integration & Intangible Assets",
+          "flag": "\ud83d\udfe1",
+          "sources": [
+            "https://www.sec.gov/Archives/edgar/data/2488/000000248826000182/amd-20260926.htm",
+            "https://www.sec.gov/Archives/edgar/data/2488/000000248826000018/amd-20251227.htm"
+          ],
+          "note": "AMD already carries $25,126M in goodwill and $16,705M in intangibles [Fact]; the pending $8.2B all-stock acquisition of World Labs Technologies induces equity dilution and integration risks [Interpretation]."
+        }
+      ],
+      "ScenarioTable": {
+        "Bull": {
+          "Revenue": "$68.0B - $75.0B [Estimate]",
+          "EPS": "$9.50 - $11.00 [Estimate]",
+          "FCFPerShare": "$8.00 - $9.50 [Estimate]",
+          "Drivers": "Instinct GPU market share captures 20%+ of merchant hyperscaler compute; Turin/EPYC CPU market share climbs above 40%; gross margins expand to 58%+; World Labs spatial AI integration unlocks high-margin software revenues [Interpretation]."
+        },
+        "Base": {
+          "Revenue": "$52.0B - $58.0B [Estimate]",
+          "EPS": "$5.80 - $7.00 [Estimate]",
+          "FCFPerShare": "$4.80 - $6.00 [Estimate]",
+          "Drivers": "Merchant AI GPU share holds stable at 10-15%; enterprise datacenter CPU refresh maintains moderate mid-teens growth; gross margins stabilize between 53% and 55%; ROCm ecosystem gains gradual developer parity [Interpretation]."
+        },
+        "Bear": {
+          "Revenue": "$38.0B - $44.0B [Estimate]",
+          "EPS": "$3.00 - $4.00 [Estimate]",
+          "FCFPerShare": "$2.00 - $3.00 [Estimate]",
+          "Drivers": "Hyperscalers aggressively migrate to internal custom ASICs; Nvidia architecture widening maintains software lock-in; inventory obsolescence across $8.47B balance forces substantial gross margin contraction to sub-48% [Interpretation]."
+        }
+      },
+      "Catalysts": [
+        "Accelerating commercial ramp and multi-billion-dollar order expansions for Instinct MI300/MI350 series accelerators across top cloud hyperscalers [Interpretation].",
+        "Continued enterprise and cloud x86 server CPU share displacement against Intel Xeon platforms driven by Zen-based Turin processors [Interpretation].",
+        "Software maturation and framework optimization in ROCm reducing porting friction and developer switching costs against CUDA [Interpretation].",
+        "Full-stack commercialization of spatial AI capabilities following closing of the World Labs Technologies transaction [Interpretation]."
+      ],
+      "Headwinds": [
+        "Hyperscalers accelerating proprietary in-house silicon development (TPU, Trainium, MTIA, Maia), compressing third-party merchant accelerator addressable demand [Interpretation].",
+        "Nvidia's proprietary CUDA ecosystem and annual platform release cadence locking in gross margin premiums over 2,000 bps above AMD [Interpretation].",
+        "Elevated inventory balance of $8,468M posing severe write-down and margin erosion risks in the event of rapid silicon generation turnover [Fact].",
+        "Evolving U.S. Department of Commerce / BIS geopolitical export controls limiting datacenter compute exports to foreign markets [Fact]."
+      ],
+      "_execution_lineage": {
+        "consumed_upstream": [
+          "A1",
+          "A2",
+          "A3",
+          "A4",
+          "A5",
+          "A6B",
+          "A6R"
+        ],
+        "execution_key": "d8d913123eec28b158b2a5138b35b7d89222742bd379781a904b62ff5ce5dd61",
+        "upstream": [
+          {
+            "agent": "A1",
+            "content_checksum": "sha256:7d9db8e3bd0a534adb0b7b0c5540e358fa3a58a39d58d01cb740d75880e1963a"
+          },
+          {
+            "agent": "A2",
+            "content_checksum": "sha256:ef3ed502b0e996d692875a9caaf83f3e18ab1a5b827ad513bccd35cf211dc6ed"
+          },
+          {
+            "agent": "A3",
+            "content_checksum": "sha256:abc226b6cb1657e6f08072c5d69cb6de5592e1537d2d2245df647527533c261f"
+          },
+          {
+            "agent": "A4",
+            "content_checksum": "sha256:f6cc7f1043047eb9f59c1f6a199cf59ddbd13ae4264c9f792c0e90fd24ab6d8e"
+          },
+          {
+            "agent": "A5",
+            "content_checksum": "sha256:9215086d4ed3757daa339287b9bc24ea29afdbef41066c826d50a35fffed1608"
+          },
+          {
+            "agent": "A6B",
+            "content_checksum": "sha256:763951c3ba52c10bdab59d2d56468964a41e3d177ecd0db4eee119e23820caa8"
+          },
+          {
+            "agent": "A6R",
+            "content_checksum": "sha256:1a6362a46e23674c4b44d81cbade811e86ea4f91a90651796dc55bcc8966d9bd"
+          }
+        ],
+        "prompt_sha256": "5c0fa777c537a44f818eb2e08b070df06cb141d2848ba2f48dd2a3d5f2fb5b23",
+        "request_sha256": "cb8029c6ad84421f5aaa9deabdc71aeefc95a016f72e6415ef1f416e9a53e13f",
+        "evidence_sha256": "7af8a8c5e0d1ea851e1a516904fcb5ec501b4b628d55196d6bc7119b84cc1a2b",
+        "provider": "gemini",
+        "model": "gemini-3.8-flash"
+      }
+    },
+    "sources": [
+      {
+        "id": "D001",
+        "type": "SECFiling",
+        "title": "AMD 10-K/A filed 2026-02-04",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000021/amd-20251227.htm",
+        "doc_date": "2026-02-04",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:43Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:bc47ee3fb24b0462679262fb05135f9d7eb022c2d48923869f7adc84e93942a9",
+        "text_sha256": "sha256:1af41baf582a29376774e3ad0d91f6f52f032499865d673e77248894325932cc",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D002",
+        "type": "SECFiling",
+        "title": "AMD 10-K filed 2026-02-04",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000018/amd-20251227.htm",
+        "doc_date": "2026-02-04",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:43Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:34ebef6e1b4d3e6060b60838eae2478c2b9ec98874683b7ae339cae2d85f8478",
+        "text_sha256": "sha256:68aa614f350df2b3861faaf9575db11e83eb34126781b46610b4d1a73cf55b92",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D003",
+        "type": "SECFiling",
+        "title": "AMD 10-K filed 2025-02-05",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248825000012/amd-20241228.htm",
+        "doc_date": "2025-02-05",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:44Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:20964e50c465a2d15e2af94d90739a6dcca63788387b0990438fea48c28e1a78",
+        "text_sha256": "sha256:09310cedf8257fb9a51780b2fa490a66e948c16ca69450a50b97d0295e964731",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D004",
+        "type": "SECFiling",
+        "title": "AMD 10-Q filed 2026-08-05",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000123/amd-20260627.htm",
+        "doc_date": "2026-08-05",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:44Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:ced44c03cf2db5fc7245b4d01e7adb4d59e9bd6c1ee8999547841a770a7f1fb6",
+        "text_sha256": "sha256:3870d07ead59dbf73ab68a45fc922c732d350faed095b2ef35a86bd3c317e92b",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D005",
+        "type": "SECFiling",
+        "title": "AMD DEFA14A filed 2026-03-27",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000119312526129084/d81910ddefa14a.htm",
+        "doc_date": "2026-03-27",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:4cbccad56b8c13d98c855f16b754ebd83203f450978afcdc137cb3add1e4c45a",
+        "text_sha256": "sha256:b9242a66aca3eb2aaed40aeb8f9e60559cd2e845af0e10374863440701d72f29",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D006",
+        "type": "SECMaterialEvent",
+        "title": "AMD 8-K filed 2026-09-28",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000182/amd-20260926.htm",
+        "doc_date": "2026-09-28",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:f5b36d6f88e6bbee556180a69eab5118f30cdc082f3347b9a9191e07f5dc0f2d",
+        "text_sha256": "sha256:2edd76c7c329aa1f05123256de8a42223a55b5e61d37b6d7551671a6b2bd399a",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D007",
+        "type": "SECMaterialEvent",
+        "title": "AMD 8-K filed 2026-08-19",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000163/amd-20260817.htm",
+        "doc_date": "2026-08-19",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:c8738bbece75f90d2af81507d8d003e1cc889f0e11680ace02fdf7e9dfe5d1de",
+        "text_sha256": "sha256:a00fca3189e7d65a933c9527e8da9e5ef26a210c1c442b50b97b0203b2df08ff",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D008",
+        "type": "MarketHistory",
+        "title": "AMD daily price history through 2026-10-11",
+        "url": "https://query1.finance.yahoo.com/v8/finance/chart/AMD?period1=1744156800&period2=1791763200&interval=1d",
+        "doc_date": "2026-10-11",
+        "date_basis": "requested_market_history_cutoff",
+        "accessed": "2026-10-11T17:33:46Z",
+        "content_type": "application/json;charset=utf-8",
+        "content_sha256": "sha256:318eea8cc4059c1929e61a7f3495c14033fce50e5684b52e6a5054b4fbe2d7b2",
+        "text_sha256": "sha256:11ad508d9474fa491a90b1cc94071d63e11650b555d9cf48419e87c848298234",
+        "verification": "retrieved",
+        "transform": {
+          "kind": "yahoo_daily",
+          "ticker": "AMD",
+          "symbol": "AMD",
+          "analysis_date": "2026-10-11"
+        }
+      }
+    ],
+    "warnings": [
+      "section 'MISSING_DATA_TABLE' is not part of agent A6's contract"
+    ],
+    "metrics": {
+      "data_checksum": "sha256:0612e6da421e9f3edaa167cba7e587f636ac9dc0cbd3b27c267c02ce788ea20f",
+      "evidence_checksum": "sha256:a3778238edbe85ec4171228948ff76190c5580b405451ff13bcffe8bd1d5c7d2",
+      "source_grounding": "retrieved"
+    },
+    "confidence": 0.88,
+    "content_checksum": "sha256:adc1e1ef78adc57bfbf8ba1d3160b08320bcb88a6db76196ac11c923be6704ed",
+    "upstream": [
+      {
+        "agent": "A1",
+        "content_checksum": "sha256:7d9db8e3bd0a534adb0b7b0c5540e358fa3a58a39d58d01cb740d75880e1963a"
+      },
+      {
+        "agent": "A2",
+        "content_checksum": "sha256:ef3ed502b0e996d692875a9caaf83f3e18ab1a5b827ad513bccd35cf211dc6ed"
+      },
+      {
+        "agent": "A3",
+        "content_checksum": "sha256:abc226b6cb1657e6f08072c5d69cb6de5592e1537d2d2245df647527533c261f"
+      },
+      {
+        "agent": "A4",
+        "content_checksum": "sha256:f6cc7f1043047eb9f59c1f6a199cf59ddbd13ae4264c9f792c0e90fd24ab6d8e"
+      },
+      {
+        "agent": "A5",
+        "content_checksum": "sha256:9215086d4ed3757daa339287b9bc24ea29afdbef41066c826d50a35fffed1608"
+      },
+      {
+        "agent": "A6B",
+        "content_checksum": "sha256:763951c3ba52c10bdab59d2d56468964a41e3d177ecd0db4eee119e23820caa8"
+      },
+      {
+        "agent": "A6R",
+        "content_checksum": "sha256:1a6362a46e23674c4b44d81cbade811e86ea4f91a90651796dc55bcc8966d9bd"
+      }
+    ]
+  },
+  "A7": {
+    "schema_version": "2.1",
+    "agent": {
+      "id": "A7",
+      "name": "Final-Assembly"
+    },
+    "timestamp": "2026-10-11T17:39:00Z",
+    "params": {
+      "company": "Advanced Micro Devices, Inc.",
+      "ticker": "AMD",
+      "analysis_date": "2026-10-11",
+      "depth": "Quick",
+      "focus": [],
+      "weights": "default",
+      "independent_bear": false
+    },
+    "gates": {
+      "passed": true,
+      "notes": [
+        "Final assembly completed across all required sections and synthesis modules.",
+        "Strict epistemic classification enforced across all fundamental statements: [Fact], [Derived], [Estimate], [Interpretation], and [Judgment].",
+        "Allowlisted missing research inputs for FCF yield and ROIC documented with rigorous accounting rationale due to the omission of the FY 2025 Statement of Cash Flows in primary filing excerpts.",
+        "Scorecard weighted sum verified: Financials (25.0%), Moat (20.0%), Growth (15.0%), Valuation (15.0%), MgmtGov (10.0%), RiskInverse (10.0%), ESG (2.5%), Market (2.5%)."
+      ]
+    },
+    "sections_md": {
+      "SECTION_0_EXEC_SUMMARY": "## Executive Summary: Advanced Micro Devices, Inc. (AMD)\n\n### Investment Verdict & Stance\n**Recommendation**: **HOLD** [Judgment]. Advanced Micro Devices, Inc. has established itself as the preeminent commercial challenger to Nvidia in accelerated computing while consolidating dominant market share gains in enterprise x86 datacenter CPUs against Intel [Interpretation]. However, following an extraordinary equity advance to $608.10 per share [Fact] representing an equity market capitalization of ~$992.7 billion [Derived], valuation multiples reflect near-flawless execution [Interpretation]. Balanced against accelerating datacenter compute demand are significant operational and structural risks, including inventory accumulation to $8.47 billion [Fact], a $440 million export-control write-down in FY 2025 [Fact], persistent CUDA software ecosystem lock-in [Interpretation], and equity dilution from the pending $8.20 billion all-stock acquisition of World Labs Technologies [Fact].\n\n### Core Thesis & Moat Posture\n* **Datacenter Accelerator & EPYC Expansion**: Net revenue expanded 34.3% YoY in FY 2025 to $34,639 million [Fact] and accelerated further in H1 2026, up 44.1% YoY to $21,789 million [Fact], driven by hyperscaler adoption of Instinct MI300/MI350 accelerators and Turin server CPUs [Interpretation]. AMD's competitive moat is categorized as **Expanding** [Judgment].\n* **Gross Margin & Operating Leverage**: Gross profit for H1 2026 reached $11,619 million (53.3% gross margin) compared to $6,795 million (44.9%) in H1 2025 [Fact], demonstrating substantial operating leverage as fixed R&D scale is amortized across high-ASP datacenter shipments [Interpretation].\n* **Fortress Solvency**: Cash, cash equivalents, and short-term investments totaled $13,111 million as of June 27, 2026 [Fact], comfortably shielding the company against total funded debt of $3,222 million [Fact] and near-term senior note maturities of $874 million due in 2026 [Fact]. Altman Z-Score registers at 43.77 [Derived], firmly in the Safe Zone.\n* **Valuation & Dilution Headwinds**: Trading at elevated multiples of trailing and annualized earnings, upside is constrained by severe competitor pricing power (Nvidia gross margins exceed AMD by >2,000 bps) [Interpretation] and 100% equity funding for the $8.20 billion World Labs merger [Fact].",
+      "SECTION_15_SWOT": "## Comprehensive SWOT Analysis\n\n### Strengths\n* **Dual-Pillar Compute Architecture**: AMD is the sole semiconductor enterprise possessing top-tier merchant x86 microprocessors (EPYC/Ryzen) and high-performance discrete GPU accelerator platforms (Instinct/RDNA) [Fact].\n* **Accelerating Datacenter Momentum**: H1 2026 revenue expanded 44.1% YoY to $21,789 million with Q2 2026 operating income jumping to $1,990 million from an operating loss of $134 million in Q2 2025 [Fact].\n* **Balance Sheet Solvency**: Ample liquid assets of $13,111 million ($5,086 million cash + $8,025 million short-term investments) far exceed total principal debt of $3,250 million [Fact].\n* **Fabless Manufacturing Execution**: Established long-term packaging and leading-edge wafer supply relationships with TSMC enable rapid architectural transitions without capital-intensive fab commitments [Interpretation].\n\n### Weaknesses\n* **Software Moat Disadvantage**: ROCm software stack continues to trail Nvidia's deeply entrenched CUDA ecosystem in enterprise tooling, developer ecosystem breadth, and out-of-the-box library optimization [Interpretation].\n* **Gross Margin Discount**: Q2 2026 gross margin of 53.8% [Fact] lags key competitor Nvidia (~75%) by over 2,000 basis points due to higher silicon packaging complexity and merchant pricing concessions [Interpretation].\n* **Elevated Working Capital Exposure**: Inventories expanded to $8,468 million in Q2 2026 from $5,734 million at FY 2024 [Fact], heightening obsolescence risks across rapid silicon iteration cycles [Judgment].\n\n### Opportunities\n* **Enterprise AI Diversification**: Cloud hyperscalers actively seek dual-vendor merchant procurement to curb single-supplier lock-in, positioning AMD Instinct as the primary tier-1 alternative [Interpretation].\n* **Server CPU Market Share Dominance**: Zen 5 Turin EPYC processor generation continues displacing Intel Xeon across cloud and enterprise tiers, expanding datacenter CPU share toward 40%+ [Estimate].\n* **Spatial AI Integration**: Pending $8.20 billion acquisition of World Labs Technologies provides proprietary full-stack models for 3D world generation and physical AI workloads [Interpretation].\n\n### Threats\n* **Geopolitical & Export Control Sanctions**: U.S. Department of Commerce / BIS advanced compute restrictions resulted in $440 million in net inventory write-downs on Instinct MI308 GPUs in FY 2025 [Fact]; further regulatory tightening threatens addressable international demand [Interpretation].\n* **Hyperscaler In-House Silicon (ASICs)**: Internal accelerators developed by major customers (Google TPU, AWS Trainium, Meta MTIA, Microsoft Maia) threaten merchant GPU TAM [Interpretation].\n* **Foundry Concentration**: 100% reliance on TSMC advanced packaging (CoWoS) and leading-edge nodes leaves manufacturing exposed to Taiwan geopolitical disruption and packaging capacity constraints [Interpretation].\n\n### Watchlist Items\n1. Gross margin evolution across subsequent quarters relative to the 55% inflection threshold [Estimate].\n2. Inventory velocity and turnover rates against the $8.47 billion balance [Fact].\n3. Regulatory approvals, equity dilution mechanics, and integration timelines for the $8.20 billion World Labs merger [Fact].\n4. Datacenter AI GPU revenue growth sustainability versus hyperscaler capex revision cycles [Interpretation].",
+      "SECTION_16_SCORECARD": "## FUWForge Institutional Scorecard\n\n| Category | Weight | Score (1-10) | Weighted Contribution | Commentary |\n| :--- | :---: | :---: | :---: | :--- |\n| **Financials** | 25.0% | 7.8 | 1.950 | Superb liquidity ($13.1B liquid assets) [Fact], Altman Z of 43.77 [Derived], though inventory accumulation ($8.47B) warrants caution [Fact]. |\n| **Moat** | 20.0% | 8.2 | 1.640 | Expanding datacenter processor moat; credible tier-1 merchant alternative to NVDA, tempered by CUDA software dominance [Interpretation]. |\n| **Growth** | 15.0% | 8.5 | 1.275 | Exceptional top-line momentum with Q2 2026 revenue up 50.1% YoY to $11.54B and operating leverage accelerating [Fact]. |\n| **Valuation** | 15.0% | 5.0 | 0.750 | Elevated multiples at ~$992.7B market capitalization and $608.10 share price limit intermediate margin of safety [Derived]. |\n| **Mgmt / Governance** | 10.0% | 8.0 | 0.800 | Proven execution under Dr. Lisa Su; stable board oversight; Ernst & Young ratified as independent auditor (24 years tenure) [Fact]. |\n| **Risk (Inverse)** | 10.0% | 6.5 | 0.650 | Headwinds from export control write-downs ($440M) [Fact], ASIC substitution risk, and M&A integration dilution [Interpretation]. |\n| **ESG** | 2.5% | 7.5 | 0.188 | Stable governance and sustainability reporting; environmental contingency accruals remain de minimis ($4.8M) [Fact]. |\n| **Market Context** | 2.5% | 7.0 | 0.175 | Strong technical momentum trading well above SMA 50 ($528.92) and SMA 200 ($385.32) with neutral RSI 14 (57.19) [Fact]. |\n| **Overall** | **100.0%** | **7.43** | **7.428** | **Rating Band: HOLD** [Judgment] |\n\n*Rating Band Guidelines*: Buy: >= 7.50; Hold: 6.00 - 7.49; Sell: < 6.00 [Judgment].",
+      "MISSING_DATA_TABLE": "## Explicit unavailable research inputs\n| Field | Evidence coverage / reason |\n| --- | --- |\n| comparison_fields.fcf_yield_ttm_pct | Consolidated Statement of Cash Flows for FY 2025 omitted in retrieved filing text; operating and free cash flows cannot be derived factually without fabrication. |\n| comparison_fields.roic_ttm_pct | Invested capital and NOPAT derivation constrained due to omission of FY 2025 Consolidated Statement of Cash Flows in retrieved filings. |"
+    },
+    "artifacts": {
+      "SWOT": {
+        "Strengths": [
+          "Unique merchant semiconductor portfolio spanning both high-performance x86 CPUs (EPYC) and discrete datacenter GPUs (Instinct) [Fact].",
+          "Accelerating revenue growth (+44.1% YoY in H1 2026 to $21,789M) and substantial operating margin recovery ($3,466M operating income in H1 2026) [Fact].",
+          "Pristine solvency profile with $13,111M in cash and short-term investments shielding against $3,222M in total debt [Fact].",
+          "Proven architectural execution leveraging TSMC leading-edge process nodes and 3D chiplet packaging innovations [Interpretation]."
+        ],
+        "Weaknesses": [
+          "Gross margins of 53.8% in Q2 2026 [Fact] lag dominant competitor Nvidia (~75%) by over 2,000 basis points due to packaging costs and competitive pricing [Interpretation].",
+          "Software developer ecosystem around ROCm remains substantially smaller than Nvidia's entrenched CUDA platform [Interpretation].",
+          "Surge in inventory to $8,468M as of Q2 2026 [Fact], increasing vulnerability to rapid architectural depreciation and write-downs [Judgment]."
+        ],
+        "Opportunities": [
+          "Cloud hyperscaler urgency to cultivate a secondary merchant GPU supplier to reduce dependence on Nvidia [Interpretation].",
+          "Server CPU market share expansion beyond 40% as Zen 5 Turin processors capture share from Intel Xeon platforms [Estimate].",
+          "Expanding addressable spatial computing and physical AI software market following the integration of World Labs Technologies [Interpretation]."
+        ],
+        "Threats": [
+          "Geopolitical trade restrictions and BIS export controls, which previously drove $440M in Instinct MI308 GPU inventory write-downs in FY 2025 [Fact].",
+          "Hyperscaler vertical integration and aggressive ramp of proprietary in-house custom ASICs (TPU, Trainium, MTIA, Maia) [Interpretation].",
+          "High reliance on TSMC manufacturing facilities and advanced packaging capacity in Taiwan [Interpretation]."
+        ],
+        "Watchlist": [
+          "Gross margin progression relative to corporate 55%+ target [Estimate].",
+          "Inventory turnover and aging dynamics across the $8,468M balance [Fact].",
+          "Dilution impact and integration milestones for the $8.20B all-stock World Labs Technologies acquisition [Fact].",
+          "U.S. BIS export control updates regarding advanced computing accelerators [Fact]."
+        ]
+      },
+      "Glossary": [
+        {
+          "term": "Altman Z-Score",
+          "definition": "A quantitative formula assessing corporate bankruptcy probability; a score of 43.77 places AMD solidly in the Safe Zone [Derived]."
+        },
+        {
+          "term": "ROCm",
+          "definition": "Radeon Open Compute, AMD's open-source software development platform and compute runtime for GPU acceleration competing with Nvidia's CUDA [Interpretation]."
+        },
+        {
+          "term": "Instinct",
+          "definition": "AMD's brand of high-performance datacenter GPU accelerators engineered specifically for AI training, fine-tuning, and inference workloads [Fact]."
+        },
+        {
+          "term": "EPYC",
+          "definition": "AMD's high-performance server microprocessor product family utilizing the x86 instruction set architecture for enterprise and cloud datacenters [Fact]."
+        },
+        {
+          "term": "BIS Export Controls",
+          "definition": "Regulatory restrictions enforced by the U.S. Department of Commerce Bureau of Industry and Security restricting sales of advanced computing chips to foreign jurisdictions [Fact]."
+        }
+      ],
+      "comparison_fields": {
+        "quality_score_10": 7.8,
+        "valuation_score_10": 5.0,
+        "expected_5y_irr_base_pct": 11.5,
+        "downside_case_5y_irr_pct": -4.2,
+        "fcf_yield_ttm_pct": null,
+        "roic_ttm_pct": null,
+        "net_debt_to_ebitda": -1.1,
+        "moat_score_10": 8.2,
+        "reinvestment_runway_score_10": 8.0,
+        "balance_sheet_score_10": 8.8,
+        "fragility_score_10": 5.5,
+        "evidence_quality_score_10": 8.5,
+        "data_completeness_score_10": 8.0
+      },
+      "Scorecard": {
+        "Financials": {
+          "score": 7.8,
+          "weight": 0.25,
+          "weighted": 1.95
+        },
+        "Moat": {
+          "score": 8.2,
+          "weight": 0.2,
+          "weighted": 1.64
+        },
+        "Growth": {
+          "score": 8.5,
+          "weight": 0.15,
+          "weighted": 1.275
+        },
+        "Valuation": {
+          "score": 5.0,
+          "weight": 0.15,
+          "weighted": 0.75
+        },
+        "MgmtGov": {
+          "score": 8.0,
+          "weight": 0.1,
+          "weighted": 0.8
+        },
+        "RiskInverse": {
+          "score": 6.5,
+          "weight": 0.1,
+          "weighted": 0.65
+        },
+        "ESG": {
+          "score": 7.5,
+          "weight": 0.025,
+          "weighted": 0.188
+        },
+        "Market": {
+          "score": 7.0,
+          "weight": 0.025,
+          "weighted": 0.175
+        },
+        "Overall": {
+          "score": 7.43,
+          "rating_band": "Hold"
+        }
+      },
+      "_execution_lineage": {
+        "consumed_upstream": [
+          "A1",
+          "A2",
+          "A3",
+          "A4",
+          "A5",
+          "A6",
+          "A6B",
+          "A6R"
+        ],
+        "execution_key": "ce289c1baa1dd01054937b07aa7bd421d55e87603817530f56debd37475b828d",
+        "upstream": [
+          {
+            "agent": "A1",
+            "content_checksum": "sha256:7d9db8e3bd0a534adb0b7b0c5540e358fa3a58a39d58d01cb740d75880e1963a"
+          },
+          {
+            "agent": "A2",
+            "content_checksum": "sha256:ef3ed502b0e996d692875a9caaf83f3e18ab1a5b827ad513bccd35cf211dc6ed"
+          },
+          {
+            "agent": "A3",
+            "content_checksum": "sha256:abc226b6cb1657e6f08072c5d69cb6de5592e1537d2d2245df647527533c261f"
+          },
+          {
+            "agent": "A4",
+            "content_checksum": "sha256:f6cc7f1043047eb9f59c1f6a199cf59ddbd13ae4264c9f792c0e90fd24ab6d8e"
+          },
+          {
+            "agent": "A5",
+            "content_checksum": "sha256:9215086d4ed3757daa339287b9bc24ea29afdbef41066c826d50a35fffed1608"
+          },
+          {
+            "agent": "A6",
+            "content_checksum": "sha256:adc1e1ef78adc57bfbf8ba1d3160b08320bcb88a6db76196ac11c923be6704ed"
+          },
+          {
+            "agent": "A6B",
+            "content_checksum": "sha256:763951c3ba52c10bdab59d2d56468964a41e3d177ecd0db4eee119e23820caa8"
+          },
+          {
+            "agent": "A6R",
+            "content_checksum": "sha256:1a6362a46e23674c4b44d81cbade811e86ea4f91a90651796dc55bcc8966d9bd"
+          }
+        ],
+        "prompt_sha256": "87db880273ba65db5c590e4ee8f20628a9c34958494712201ba08c9dd0eeebcb",
+        "request_sha256": "8196627994d42b2d877f960ac7ccdc7629ace9ae9da7f691d3108fcdda7c13cb",
+        "evidence_sha256": "7af8a8c5e0d1ea851e1a516904fcb5ec501b4b628d55196d6bc7119b84cc1a2b",
+        "provider": "gemini",
+        "model": "gemini-3.8-flash"
+      }
+    },
+    "sources": [
+      {
+        "id": "D001",
+        "type": "SECFiling",
+        "title": "AMD 10-K/A filed 2026-02-04",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000021/amd-20251227.htm",
+        "doc_date": "2026-02-04",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:43Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:bc47ee3fb24b0462679262fb05135f9d7eb022c2d48923869f7adc84e93942a9",
+        "text_sha256": "sha256:1af41baf582a29376774e3ad0d91f6f52f032499865d673e77248894325932cc",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D002",
+        "type": "SECFiling",
+        "title": "AMD 10-K filed 2026-02-04",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000018/amd-20251227.htm",
+        "doc_date": "2026-02-04",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:43Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:34ebef6e1b4d3e6060b60838eae2478c2b9ec98874683b7ae339cae2d85f8478",
+        "text_sha256": "sha256:68aa614f350df2b3861faaf9575db11e83eb34126781b46610b4d1a73cf55b92",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D003",
+        "type": "SECFiling",
+        "title": "AMD 10-K filed 2025-02-05",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248825000012/amd-20241228.htm",
+        "doc_date": "2025-02-05",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:44Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:20964e50c465a2d15e2af94d90739a6dcca63788387b0990438fea48c28e1a78",
+        "text_sha256": "sha256:09310cedf8257fb9a51780b2fa490a66e948c16ca69450a50b97d0295e964731",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D004",
+        "type": "SECFiling",
+        "title": "AMD 10-Q filed 2026-08-05",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000123/amd-20260627.htm",
+        "doc_date": "2026-08-05",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:44Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:ced44c03cf2db5fc7245b4d01e7adb4d59e9bd6c1ee8999547841a770a7f1fb6",
+        "text_sha256": "sha256:3870d07ead59dbf73ab68a45fc922c732d350faed095b2ef35a86bd3c317e92b",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D005",
+        "type": "SECFiling",
+        "title": "AMD DEFA14A filed 2026-03-27",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000119312526129084/d81910ddefa14a.htm",
+        "doc_date": "2026-03-27",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:4cbccad56b8c13d98c855f16b754ebd83203f450978afcdc137cb3add1e4c45a",
+        "text_sha256": "sha256:b9242a66aca3eb2aaed40aeb8f9e60559cd2e845af0e10374863440701d72f29",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D006",
+        "type": "SECMaterialEvent",
+        "title": "AMD 8-K filed 2026-09-28",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000182/amd-20260926.htm",
+        "doc_date": "2026-09-28",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:f5b36d6f88e6bbee556180a69eab5118f30cdc082f3347b9a9191e07f5dc0f2d",
+        "text_sha256": "sha256:2edd76c7c329aa1f05123256de8a42223a55b5e61d37b6d7551671a6b2bd399a",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D007",
+        "type": "SECMaterialEvent",
+        "title": "AMD 8-K filed 2026-08-19",
+        "url": "https://www.sec.gov/Archives/edgar/data/2488/000000248826000163/amd-20260817.htm",
+        "doc_date": "2026-08-19",
+        "date_basis": "SEC_filing_date",
+        "accessed": "2026-10-11T17:33:45Z",
+        "content_type": "text/html",
+        "content_sha256": "sha256:c8738bbece75f90d2af81507d8d003e1cc889f0e11680ace02fdf7e9dfe5d1de",
+        "text_sha256": "sha256:a00fca3189e7d65a933c9527e8da9e5ef26a210c1c442b50b97b0203b2df08ff",
+        "verification": "retrieved"
+      },
+      {
+        "id": "D008",
+        "type": "MarketHistory",
+        "title": "AMD daily price history through 2026-10-11",
+        "url": "https://query1.finance.yahoo.com/v8/finance/chart/AMD?period1=1744156800&period2=1791763200&interval=1d",
+        "doc_date": "2026-10-11",
+        "date_basis": "requested_market_history_cutoff",
+        "accessed": "2026-10-11T17:33:46Z",
+        "content_type": "application/json;charset=utf-8",
+        "content_sha256": "sha256:318eea8cc4059c1929e61a7f3495c14033fce50e5684b52e6a5054b4fbe2d7b2",
+        "text_sha256": "sha256:11ad508d9474fa491a90b1cc94071d63e11650b555d9cf48419e87c848298234",
+        "verification": "retrieved",
+        "transform": {
+          "kind": "yahoo_daily",
+          "ticker": "AMD",
+          "symbol": "AMD",
+          "analysis_date": "2026-10-11"
+        }
+      }
+    ],
+    "warnings": [
+      "Consolidated Statement of Cash Flows for FY 2025 omitted in primary SEC Form 10-K/A filing excerpts; FCF yield and ROIC set to null to avoid fabrication.",
+      "Equity dilution from the $8.20B World Labs Technologies acquisition pending final closing share price determination.",
+      "Explicit research coverage gaps: comparison_fields.fcf_yield_ttm_pct, comparison_fields.roic_ttm_pct",
+      "Explicit unavailable research inputs: comparison_fields.fcf_yield_ttm_pct, comparison_fields.roic_ttm_pct"
+    ],
+    "metrics": {
+      "data_checksum": "sha256:0612e6da421e9f3edaa167cba7e587f636ac9dc0cbd3b27c267c02ce788ea20f",
+      "missing_data": {
+        "comparison_fields.fcf_yield_ttm_pct": "Consolidated Statement of Cash Flows for FY 2025 omitted in retrieved filing text; operating and free cash flows cannot be derived factually without fabrication.",
+        "comparison_fields.roic_ttm_pct": "Invested capital and NOPAT derivation constrained due to omission of FY 2025 Consolidated Statement of Cash Flows in retrieved filings."
+      },
+      "evidence_checksum": "sha256:a3778238edbe85ec4171228948ff76190c5580b405451ff13bcffe8bd1d5c7d2",
+      "source_grounding": "retrieved"
+    },
+    "confidence": 0.88,
+    "content_checksum": "sha256:614440ee9854b4f7b688accd579e7a1c81a0f7669a402a77a7097a201be6de4f",
+    "upstream": [
+      {
+        "agent": "A1",
+        "content_checksum": "sha256:7d9db8e3bd0a534adb0b7b0c5540e358fa3a58a39d58d01cb740d75880e1963a"
+      },
+      {
+        "agent": "A2",
+        "content_checksum": "sha256:ef3ed502b0e996d692875a9caaf83f3e18ab1a5b827ad513bccd35cf211dc6ed"
+      },
+      {
+        "agent": "A3",
+        "content_checksum": "sha256:abc226b6cb1657e6f08072c5d69cb6de5592e1537d2d2245df647527533c261f"
+      },
+      {
+        "agent": "A4",
+        "content_checksum": "sha256:f6cc7f1043047eb9f59c1f6a199cf59ddbd13ae4264c9f792c0e90fd24ab6d8e"
+      },
+      {
+        "agent": "A5",
+        "content_checksum": "sha256:9215086d4ed3757daa339287b9bc24ea29afdbef41066c826d50a35fffed1608"
+      },
+      {
+        "agent": "A6",
+        "content_checksum": "sha256:adc1e1ef78adc57bfbf8ba1d3160b08320bcb88a6db76196ac11c923be6704ed"
+      },
+      {
+        "agent": "A6B",
+        "content_checksum": "sha256:763951c3ba52c10bdab59d2d56468964a41e3d177ecd0db4eee119e23820caa8"
+      },
+      {
+        "agent": "A6R",
+        "content_checksum": "sha256:1a6362a46e23674c4b44d81cbade811e86ea4f91a90651796dc55bcc8966d9bd"
+      }
+    ]
+  }
+}

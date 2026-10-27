@@ -1,0 +1,67 @@
+{
+  "ticker": "AAPL",
+  "documents": [
+    {
+      "title": "AAPL 10-K filed 2025-10-31",
+      "type": "SECFiling",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm",
+      "doc_date": "2025-10-31",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "AAPL 10-K filed 2024-11-01",
+      "type": "SECFiling",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019324000123/aapl-20240928.htm",
+      "doc_date": "2024-11-01",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "AAPL 10-K filed 2023-11-03",
+      "type": "SECFiling",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019323000106/aapl-20230930.htm",
+      "doc_date": "2023-11-03",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "AAPL 10-Q filed 2026-07-31",
+      "type": "SECFiling",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000020/aapl-20260627.htm",
+      "doc_date": "2026-07-31",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "AAPL DEF 14A filed 2026-01-08",
+      "type": "SECFiling",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000130817926000008/aapl014016-def14a.htm",
+      "doc_date": "2026-01-08",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "AAPL 8-K/A filed 2026-09-01",
+      "type": "SECMaterialEvent",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000114036126035325/ef20081427_8ka.htm",
+      "doc_date": "2026-09-01",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "AAPL 8-K filed 2026-07-30",
+      "type": "SECMaterialEvent",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000018/aapl-20260730.htm",
+      "doc_date": "2026-07-30",
+      "date_basis": "SEC_filing_date"
+    },
+    {
+      "title": "AAPL daily price history through 2026-10-26",
+      "type": "MarketHistory",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/AAPL?period1=1745452800&period2=1793059200&interval=1d",
+      "doc_date": "2026-10-26",
+      "date_basis": "requested_market_history_cutoff",
+      "transform": {
+        "kind": "yahoo_daily",
+        "ticker": "AAPL",
+        "symbol": "AAPL",
+        "analysis_date": "2026-10-26"
+      }
+    }
+  ]
+}

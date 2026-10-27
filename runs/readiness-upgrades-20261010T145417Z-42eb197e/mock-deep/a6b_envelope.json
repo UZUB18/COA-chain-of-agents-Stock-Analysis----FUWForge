@@ -1,0 +1,129 @@
+{
+  "schema_version": "2.1",
+  "agent": {
+    "id": "A6B",
+    "name": "Bull-Case"
+  },
+  "timestamp": "2026-10-10T14:54:58Z",
+  "params": {
+    "company": "Mock Deep Inc",
+    "ticker": "MOCKD",
+    "analysis_date": "2025-06-01",
+    "depth": "Deep",
+    "focus": [],
+    "weights": "default",
+    "independent_bear": false
+  },
+  "gates": {
+    "passed": true,
+    "notes": []
+  },
+  "sections_md": {
+    "SECTION_10_BULL_CASE": "# Section 10: Bull Case Theses\n\n1. **Enterprise Cloud Expansion**: High net retention (>118%) drives compounding recurring revenue.\n2. **Operating Margin Leverage**: Automation and infrastructure optimization expand operating margins by +200 bps.\n3. **Capital Return Acceleration**: Expanding FCF yields enable robust annual share repurchases."
+  },
+  "artifacts": {
+    "BullCase": [
+      {
+        "id": "B1",
+        "thesis": "Enterprise Cloud Expansion",
+        "evidence": [
+          "A2.PEER_LIST",
+          "A3.AltmanZ"
+        ],
+        "impact": "Topline revenue CAGR +15%"
+      },
+      {
+        "id": "B2",
+        "thesis": "Operating Margin Leverage",
+        "evidence": [
+          "A3.OCF_vs_NI_Flag"
+        ],
+        "impact": "Operating margin +200 bps"
+      },
+      {
+        "id": "B3",
+        "thesis": "Capital Return Acceleration",
+        "evidence": [
+          "A5.SentimentSplit"
+        ],
+        "impact": "FCF per share +12% annualized"
+      }
+    ],
+    "_execution_lineage": {
+      "consumed_upstream": [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5"
+      ],
+      "execution_key": "0ca77a9b8286155c0eca70e9cec31d9e55da551c8d9fe73a50522c2631866630",
+      "upstream": [
+        {
+          "agent": "A1",
+          "content_checksum": "sha256:741bd6d173f8987b4683ea5121757a56c31476856cd41b8fe3f8de117b30b2f8"
+        },
+        {
+          "agent": "A2",
+          "content_checksum": "sha256:bd266ec4fc327787f478d81d3cfbda6a0368bb00e9f6679fc539cb06a698a867"
+        },
+        {
+          "agent": "A3",
+          "content_checksum": "sha256:81bc943882e7f3252baf6c1d31dfb00dfc25dee2b66f15f4f2c3447218ea40a7"
+        },
+        {
+          "agent": "A4",
+          "content_checksum": "sha256:f00fe5c6a6b86ed8c8fe18ecd9b18e99bf35f3c02755d276711a1a14f1322f25"
+        },
+        {
+          "agent": "A5",
+          "content_checksum": "sha256:e755820616916db876897952f17311d980f9e380c5e0d4cd4d39bcae0e986ea1"
+        }
+      ],
+      "prompt_sha256": "7ca4fe3d478e70ea3ba926def3465f83c5a5cba748883faf30ebccd725ac044d",
+      "request_sha256": "9efaaa6a42e8993fabcea073d48e58f3fb4b9cd7b44867bc1f89a1345dc90b78",
+      "evidence_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "provider": "mock",
+      "model": "make_mock_agent_cls.<locals>.ConfiguredMockAgent"
+    }
+  },
+  "sources": [
+    {
+      "type": "Synthesis",
+      "url": "internal:a6b",
+      "doc_date": "2025-01-31",
+      "accessed": "2026-10-10T14:54:58Z"
+    }
+  ],
+  "warnings": [],
+  "metrics": {
+    "data_checksum": "sha256:653d0437967116efc83f3d36c15156dd4ed31265f25ecbe2874ae4d3bfbc1de3",
+    "latency_ms": 80,
+    "tokens": 310,
+    "retries": 0
+  },
+  "confidence": 0.95,
+  "content_checksum": "sha256:0889239ec2c66f611f29532182d86ef60a1664f2cf458a76ab96ac5b60318608",
+  "upstream": [
+    {
+      "agent": "A1",
+      "content_checksum": "sha256:741bd6d173f8987b4683ea5121757a56c31476856cd41b8fe3f8de117b30b2f8"
+    },
+    {
+      "agent": "A2",
+      "content_checksum": "sha256:bd266ec4fc327787f478d81d3cfbda6a0368bb00e9f6679fc539cb06a698a867"
+    },
+    {
+      "agent": "A3",
+      "content_checksum": "sha256:81bc943882e7f3252baf6c1d31dfb00dfc25dee2b66f15f4f2c3447218ea40a7"
+    },
+    {
+      "agent": "A4",
+      "content_checksum": "sha256:f00fe5c6a6b86ed8c8fe18ecd9b18e99bf35f3c02755d276711a1a14f1322f25"
+    },
+    {
+      "agent": "A5",
+      "content_checksum": "sha256:e755820616916db876897952f17311d980f9e380c5e0d4cd4d39bcae0e986ea1"
+    }
+  ]
+}

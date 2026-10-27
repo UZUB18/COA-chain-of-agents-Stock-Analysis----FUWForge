@@ -75,10 +75,10 @@ def test_fact_is_not_usable_at_the_start_of_its_filing_day():
     assert usable_as_of(fact, "2025-02-02T00:00:00Z") is True
 
 
-def test_unparseable_filing_date_is_never_treated_as_recent():
-    """A missing/corrupt filing date must not silently become 'available now'."""
-    assert _conservative_availability("") == "1970-01-01T23:59:59Z"
-    assert _conservative_availability("not-a-date") == "1970-01-01T23:59:59Z"
+def test_unparseable_filing_date_has_no_availability_timestamp():
+    """An epoch would pass modern cutoffs; unknown dates have no timestamp."""
+    assert _conservative_availability("") is None
+    assert _conservative_availability("not-a-date") is None
 
 
 def test_availability_policy_is_recorded_on_every_fact():
