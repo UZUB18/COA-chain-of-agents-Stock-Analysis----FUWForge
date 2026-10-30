@@ -136,6 +136,23 @@ def test_section_coverage_and_unknown_sections(temp_dir):
     assert any("SECTION_99_FOREIGN" in warning for warning in result.warnings)
 
 
+@pytest.mark.parametrize("agent_cls", [A6BMock, A6RMock, A6Mock])
+def test_schema_supported_missing_data_table_is_not_unknown(temp_dir, agent_cls):
+    env = agent_cls().run(make_context(temp_dir)).envelope
+    env.sections_md["MISSING_DATA_TABLE"] = (
+        "| Metric | Required | Found | Remediation |\n"
+        "|---|---|---|---|\n"
+        "| Peer evidence | Yes | None | Provide a supporting source. |"
+    )
+
+    result = validate_contract(env, strict=True)
+
+    assert result.valid, result.errors
+    assert not any(
+        "MISSING_DATA_TABLE" in warning for warning in result.warnings
+    )
+
+
 def test_quick_depth_relaxes_lay_summary(temp_dir):
     context = make_context(temp_dir)
     env = A7Mock().run(context).envelope

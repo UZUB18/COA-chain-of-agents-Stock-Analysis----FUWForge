@@ -255,9 +255,18 @@ def cmd_verify_run(args: argparse.Namespace) -> None:
         return
 
     require_source_backed = getattr(args, "require_source_backed", False)
-    report = semantic_audit(run_dir, require_source_backed=require_source_backed)
+    report = semantic_audit(
+        run_dir,
+        require_source_backed=require_source_backed,
+        strict=args.strict,
+    )
     if args.strict:
-        report.errors.extend(report.warnings)
+        report.errors.extend(
+            warning
+            for warning in report.warnings
+            if warning not in report.strict_exempt_warnings
+            and warning not in report.errors
+        )
         if not report.complete:
             report.errors.append("strict: run is incomplete")
 

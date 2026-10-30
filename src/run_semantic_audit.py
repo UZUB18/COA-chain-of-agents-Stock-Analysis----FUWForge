@@ -70,6 +70,8 @@ class AuditReport:
     levels: Dict[str, str] = field(default_factory=dict)
     errors: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
+    #: Warnings that remain informational under ``--strict``.
+    strict_exempt_warnings: Set[str] = field(default_factory=set)
     #: What a level could NOT establish. These are not defects and are not
     #: escalated by ``--strict``: they state the boundary of what was verified,
     #: so "the arithmetic replayed" is never confused with "every input was
@@ -862,6 +864,7 @@ def replay_beneish(
 def semantic_audit(
     run_dir: Path,
     require_source_backed: bool = False,
+    strict: bool = False,
 ) -> AuditReport:
     """
     Audit a run directory across independent levels.
@@ -1057,7 +1060,7 @@ def semantic_audit(
     # Level 3 — graph and contracts.
     graph_errors = _audit_graph(
         envelopes, run_dir, report, fact_ledger=fact_ledger,
-        expected_company=expected_company, cutoff=analysis_date,
+        expected_company=expected_company, cutoff=analysis_date, strict=strict,
     )
     graph_errors = list(duplicate_role_errors) + graph_errors
     report.errors.extend(graph_errors)
@@ -1268,6 +1271,7 @@ def _audit_graph(
     fact_ledger: Optional[Mapping[str, Any]] = None,
     expected_company: Optional[str] = None,
     cutoff: Optional[str] = None,
+    strict: bool = False,
 ) -> List[str]:
     """Validate consumed-parent lineage and machine-checkable contracts."""
     errors: List[str] = []
@@ -1382,7 +1386,7 @@ def _audit_graph(
         kwargs: Dict[str, Any] = {
             "depth_config": depth_config,
             "envelopes": upstream_envelopes,
-            "strict": False,
+            "strict": strict,
         }
         if "fact_ledger" in sig.parameters:
             kwargs["fact_ledger"] = fact_ledger
@@ -1395,6 +1399,14 @@ def _audit_graph(
 
         result = validate_contract(env, **kwargs)
         errors.extend(f"{agent_id} contract: {err}" for err in result.errors)
+        for warning in result.warnings:
+            message = f"{agent_id} contract: {warning}"
+            report.warnings.append(message)
+            if strict:
+                if warning in result.strict_exempt_warnings:
+                    report.strict_exempt_warnings.add(message)
+                else:
+                    errors.append(message)
 
     return errors
 
@@ -1539,11 +1551,19 @@ def verify_run_semantic(
     require_source_backed: bool = False,
 ) -> ValidationResult:
     """ValidationResult-compatible view of :func:`semantic_audit`."""
-    report = semantic_audit(run_dir, require_source_backed=require_source_backed)
+    report = semantic_audit(
+        run_dir,
+        require_source_backed=require_source_backed,
+        strict=strict,
+    )
     errors = list(report.errors)
     warnings = list(report.warnings)
     if strict:
-        errors.extend(warnings)
+        errors.extend(
+            warning
+            for warning in warnings
+            if warning not in report.strict_exempt_warnings and warning not in errors
+        )
         if not report.complete:
             errors.append("strict: run is incomplete")
     return ValidationResult(valid=not errors, errors=errors, warnings=warnings)

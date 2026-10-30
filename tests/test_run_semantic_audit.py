@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -73,6 +74,48 @@ def _reseal(path: Path) -> None:
 
 def _envelope_path(run_dir: Path, agent: str) -> Path:
     return run_dir / f"{agent.lower()}_envelope.json"
+
+
+def _run_with_injected_default(tmp: Path) -> Path:
+    _good_run(tmp)
+    path = _envelope_path(tmp, "A2")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data.setdefault("metrics", {})["injected_defaults"] = ["test-default"]
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    _reseal(path)
+    return tmp
+
+
+def _run_with_unexpected_section(tmp: Path) -> Path:
+    _good_run(tmp)
+    path = _envelope_path(tmp, "A7")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["sections_md"]["SECTION_999_UNEXPECTED"] = "Unexpected content."
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    _reseal(path)
+    return tmp
+
+
+def _run_with_documented_data_gap(tmp: Path) -> Path:
+    _good_run(tmp)
+    path = _envelope_path(tmp, "A7")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["artifacts"]["comparison_fields"]["quality_score_10"] = None
+    data.setdefault("metrics", {})["missing_data"] = [
+        {
+            "field": "comparison_fields.quality_score_10",
+            "reason": "The comparison quality score was not disclosed.",
+        }
+    ]
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    _reseal(path)
+    manifest_path = tmp / "run_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["roles"]["A7"] = json.loads(path.read_text(encoding="utf-8"))[
+        "content_checksum"
+    ]
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    return tmp
 
 
 # ------------------------------------------------------------------ good run
@@ -331,5 +374,136 @@ def test_verify_run_semantic_is_a_thin_compatible_wrapper():
         _good_run(tmp)
         result = verify_run_semantic(tmp, strict=False)
         assert result.valid, result.errors
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_lenient_audit_reports_contract_warnings_without_failing_graph():
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_contract_warn_"))
+    try:
+        _run_with_injected_default(tmp)
+        report = semantic_audit(tmp)
+
+        assert report.levels["graph_and_contracts"] == "passed"
+        assert any("injected defaults" in warning for warning in report.warnings)
+        assert not any("injected defaults" in error for error in report.errors)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_strict_contract_mode_is_enforced_across_entry_points():
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_contract_strict_"))
+    try:
+        _run_with_injected_default(tmp)
+
+        report = semantic_audit(tmp, strict=True)
+        assert report.levels["graph_and_contracts"] == "failed"
+        assert any("injected defaults" in error for error in report.errors)
+
+        result = verify_run_semantic(tmp, strict=True)
+        assert not result.valid
+        assert any("injected defaults" in error for error in result.errors)
+
+        cli = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "src.controller",
+                "verify-run",
+                str(tmp),
+                "--strict",
+                "--json",
+            ],
+            cwd=PROJECT_ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        assert cli.returncode != 0, cli.stdout + cli.stderr
+        audit = json.loads(cli.stdout)
+        assert audit["levels"]["graph_and_contracts"] == "failed"
+        assert any("injected defaults" in error for error in audit["errors"])
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_strict_unexpected_section_warning_fails_graph_across_entry_points():
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_contract_warn_strict_"))
+    try:
+        _run_with_unexpected_section(tmp)
+        expected = "section 'SECTION_999_UNEXPECTED' is not part of agent A7's contract"
+
+        report = semantic_audit(tmp, strict=True)
+        assert report.levels["graph_and_contracts"] == "failed"
+        assert "graph_and_contracts" in report.failed_levels()
+        assert any(expected in warning for warning in report.warnings)
+        assert any(expected in error for error in report.errors)
+
+        result = verify_run_semantic(tmp, strict=True)
+        assert not result.valid
+        assert any(expected in warning for warning in result.warnings)
+        assert any(expected in error for error in result.errors)
+
+        cli = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "src.controller",
+                "verify-run",
+                str(tmp),
+                "--strict",
+                "--json",
+            ],
+            cwd=PROJECT_ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        assert cli.returncode != 0, cli.stdout + cli.stderr
+        audit = json.loads(cli.stdout)
+        assert "graph_and_contracts" in audit["failed_levels"]
+        assert any(expected in warning for warning in audit["warnings"])
+        assert any(expected in error for error in audit["errors"])
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_strict_documented_data_gap_remains_warning_across_entry_points():
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_contract_gap_strict_"))
+    try:
+        _run_with_documented_data_gap(tmp)
+        expected = "Explicit unavailable research inputs: comparison_fields.quality_score_10"
+
+        report = semantic_audit(tmp, strict=True)
+        assert report.valid, report.errors
+        assert report.levels["graph_and_contracts"] == "passed"
+        assert any(expected in warning for warning in report.warnings)
+        assert not any(expected in error for error in report.errors)
+
+        result = verify_run_semantic(tmp, strict=True)
+        assert result.valid, result.errors
+        assert any(expected in warning for warning in result.warnings)
+        assert not any(expected in error for error in result.errors)
+
+        cli = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "src.controller",
+                "verify-run",
+                str(tmp),
+                "--strict",
+                "--json",
+            ],
+            cwd=PROJECT_ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        assert cli.returncode == 0, cli.stdout + cli.stderr
+        audit = json.loads(cli.stdout)
+        assert audit["levels"]["graph_and_contracts"] == "passed"
+        assert any(expected in warning for warning in audit["warnings"])
+        assert not any(expected in error for error in audit["errors"])
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

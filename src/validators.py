@@ -22,6 +22,9 @@ class ValidationResult:
     errors: List[str]
     warnings: List[str] = field(default_factory=list)
     envelope_checksum_errors: List[str] = field(default_factory=list)
+    #: Informational warnings that strict mode must continue to report without
+    #: treating them as defects.
+    strict_exempt_warnings: List[str] = field(default_factory=list)
 
 
 class EnvelopeValidator:

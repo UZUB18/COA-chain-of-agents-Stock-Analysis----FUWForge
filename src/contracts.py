@@ -117,6 +117,9 @@ OPTIONAL_SECTIONS: Dict[str, Set[str]] = {
     "A3": {"MISSING_DATA_TABLE"},
     "A4": {"MISSING_DATA_TABLE"},
     "A5": {"MISSING_DATA_TABLE"},
+    "A6B": {"MISSING_DATA_TABLE"},
+    "A6R": {"MISSING_DATA_TABLE"},
+    "A6": {"MISSING_DATA_TABLE"},
     "A7": {"MISSING_DATA_TABLE"},
 }
 
@@ -806,6 +809,7 @@ def validate_contract(
     """
     errors: List[str] = []
     warnings: List[str] = []
+    strict_exempt_warnings: List[str] = []
     agent_id = envelope.agent.id
     upstream = envelopes or {}
 
@@ -830,7 +834,11 @@ def validate_contract(
             errors.append(f"missing_data.{path} requires an explicitly present null artifact value")
     valid_gaps = {path: reason for path, reason in data_gaps.items() if path in allowed}
     if valid_gaps:
-        warnings.append("Explicit unavailable research inputs: " + ", ".join(sorted(valid_gaps)))
+        gap_warning = (
+            "Explicit unavailable research inputs: " + ", ".join(sorted(valid_gaps))
+        )
+        warnings.append(gap_warning)
+        strict_exempt_warnings.append(gap_warning)
     checker = _STRUCTURAL_CHECKS.get(agent_id)
     if checker is not None:
         errors.extend(checker(envelope.artifacts, valid_gaps) if agent_id in ("A2", "A3", "A4", "A5") else checker(envelope.artifacts))
@@ -934,4 +942,9 @@ def validate_contract(
         else:
             warnings.append(message)
 
-    return ValidationResult(valid=not errors, errors=errors, warnings=warnings)
+    return ValidationResult(
+        valid=not errors,
+        errors=errors,
+        warnings=warnings,
+        strict_exempt_warnings=strict_exempt_warnings,
+    )

@@ -223,7 +223,7 @@ def test_run_wizard_prints_real_audit_result(monkeypatch, capsys, tmp_path):
     )
     monkeypatch.setattr(
         "src.run_audit.semantic_audit",
-        lambda _run_dir, require_source_backed: report,
+        lambda _run_dir, require_source_backed, **_kwargs: report,
     )
 
     captured = {}

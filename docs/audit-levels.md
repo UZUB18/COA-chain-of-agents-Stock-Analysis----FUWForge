@@ -11,8 +11,10 @@ distinctions an auditor needs.
 
 Run: `python -m src.controller verify-run <run_dir> [--strict] [--require-source-backed] [--json]`
 
-`--strict` preserves honest unavailable-source disclosures. For complete source-backed
-core-forensics acceptance, add `--require-source-backed`; its policy is described below.
+`--strict` enforces contract errors such as injected defaults and unverified source
+grounding. Honest `unavailable` calculation disclosures remain reported and are not
+escalated. For complete source-backed core-forensics acceptance, add
+`--require-source-backed`; its policy is described below.
 
 ---
 
@@ -92,13 +94,19 @@ never as a pass.
 
 - the dependency graph is acyclic and every declared parent exists;
 - each envelope's `upstream` checksums match the referenced envelopes;
-- the run manifest agrees with the envelopes on both graph and role bindings;
 - duplicate role IDs are absent;
 - agent contracts hold (for example, a calculator's recorded classification
   agrees with its recomputed score).
 
 **Does not prove:** that the dependency graph reflects the *logical* order that
 should have been used, or that an agent was given appropriate inputs.
+
+Contract warnings are reported in both ordinary and strict audits. With
+`--strict`, warning-only contract findings such as unexpected sections become
+errors at this level. Explicitly documented unavailable research inputs remain
+warnings because they are honest disclosures. Injected defaults and unverified
+source grounding are strict errors. `MISSING_DATA_TABLE` is a schema-supported
+diagnostic section for every agent and is not an unexpected section.
 
 **On stripped legacy lineage:** when an envelope's sealed `upstream` is empty
 while execution recorded real parents, this is reported as a **warning** —
@@ -188,7 +196,8 @@ counters distinguish them, and the assurance label above states which one applie
 ## Level 5 — `final_artifacts`
 
 **Proves:** the report, artifacts and provenance log on disk match the
-envelopes the manifest binds — byte for byte, by hash.
+envelopes the manifest binds — byte for byte, by hash. The manifest also agrees
+with the envelopes on role and graph bindings.
 
 **Does not prove:** that the report is correct, complete, or unbiased. It proves
 the published file *is* the audited file.
