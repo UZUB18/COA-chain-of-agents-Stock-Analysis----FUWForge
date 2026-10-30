@@ -25,6 +25,10 @@ from src.validators import validate_checksum
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+ALLOW_DEFAULTS_HELP = (
+    "Legacy diagnostic mode: permit flagged placeholders; not verified research "
+    "(--strict takes precedence)."
+)
 
 
 def _today_date() -> str:
@@ -1024,7 +1028,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run_parser.add_argument(
         "--allow-defaults", action="store_true",
-        help="Legacy diagnostic mode: permit flagged placeholders; not verified research (--strict takes precedence).",
+        help=ALLOW_DEFAULTS_HELP,
     )
     run_parser.add_argument("--resume", action="store_true", help="Reuse only checksum-verified validated receipts; recompute changed requests and descendants.")
     run_parser.add_argument("--recovery-choice", choices=["retry", "abandon"], help="Resolve uncertain completion explicitly; retry may repeat paid external calls.")

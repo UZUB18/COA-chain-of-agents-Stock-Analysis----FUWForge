@@ -17,7 +17,9 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from dotenv import dotenv_values
 
 from src.controller import (
+    ALLOW_DEFAULTS_HELP,
     PROJECT_ROOT,
+    build_parser,
     cmd_export_packet,
     cmd_run,
     cmd_verify_run,
@@ -127,39 +129,45 @@ def build_wizard_args(answers: Dict[str, Any]) -> argparse.Namespace:
     provider = answers.get("provider", "mock")
     model = answers.get("model")
     depth = answers.get("depth", "Standard")
-    strict = answers.get("strict", False)
+    strict_answer = answers.get("strict")
+    strict = strict_answer if isinstance(strict_answer, bool) else provider != "mock"
     run_dir = answers.get("run_dir")
     source_mode = answers.get("source_mode", "direct")
     evidence_pack = answers.get("evidence_pack")
 
-    auto_sources = source_mode == "auto"
-    web_search = provider == "gemini" if source_mode == "auto" else False
-    if source_mode == "direct":
-        web_search = False
-
-    return argparse.Namespace(
-        ticker=ticker,
-        company=company,
-        analysis_date=analysis_date,
-        provider=provider,
-        model=model,
-        depth=depth,
-        focus=[],
-        weights="default",
-        strict=strict,
-        allow_defaults=not strict,
-        run_dir=run_dir,
-        run_id=None,
-        evidence_pack=evidence_pack,
-        auto_sources=auto_sources,
-        web_search=web_search,
-        web_max_sources=4,
-        no_url_context=False,
-        cik=None,
-        independent_bear=answers.get("independent_bear", False),
-        resume=False,
-        random_data=False,
+    tokens = ["run"]
+    if run_dir:
+        tokens.append(str(run_dir))
+    tokens.extend(
+        [
+            "--ticker",
+            str(ticker),
+            "--company",
+            str(company),
+            "--analysis-date",
+            str(analysis_date),
+            "--provider",
+            str(provider),
+            "--depth",
+            str(depth),
+        ]
     )
+    if model:
+        tokens.extend(["--model", str(model)])
+    if strict:
+        tokens.append("--strict")
+    elif provider != "mock":
+        tokens.append("--allow-defaults")
+    if answers.get("independent_bear", False):
+        tokens.append("--independent-bear")
+    if source_mode == "auto":
+        tokens.append("--auto-sources")
+    elif source_mode == "evidence":
+        tokens.extend(["--evidence-pack", str(evidence_pack), "--no-web-search"])
+    elif source_mode == "direct":
+        tokens.append("--no-web-search")
+
+    return build_parser().parse_args(tokens)
 
 
 def run_wizard() -> None:
@@ -241,7 +249,17 @@ def run_wizard() -> None:
     ]
     depth = _prompt_choice("Select Analysis Depth", depth_options, default_index=1)
 
-    strict = _prompt_yes_no("Enable Strict Contract Mode? (fails closed if any model artifact is missing)", default=False)
+    strict = _prompt_yes_no(
+        "Enable Strict Contract Mode? (fails closed if any model artifact is missing)",
+        default=provider != "mock",
+    )
+    if provider != "mock" and not strict:
+        print(f"\n  [!] {ALLOW_DEFAULTS_HELP}")
+    if provider == "gemini" and strict and source_mode == "direct":
+        print(
+            "\n  [!] Strict live analysis requires an Evidence Pack or Automatic "
+            "source intake; direct reasoning alone does not satisfy the strict evidence contract."
+        )
     independent_bear = _prompt_yes_no("Run Independent Adversarial Bear Case agent? (runs unassisted bearish analysis)", default=False)
 
     # 7. Output Directory
@@ -299,15 +317,12 @@ def run_wizard() -> None:
     print("\n" + "=" * 78)
     print("  Running Forensic Audit & Cryptographic Seal Verification...")
     print("=" * 78 + "\n")
-    audit_args = argparse.Namespace(
-        run_dir=run_dir,
-        json=False,
-        require_source_backed=False,
-    )
+    audit_args = build_parser().parse_args(["verify-run", str(run_dir)])
     try:
         cmd_verify_run(audit_args)
     except Exception as exc:
         print(f"[!] Audit encountered warning or error: {exc}", file=sys.stderr)
+        raise SystemExit(1)
 
     # Post-Run Interactive Next Actions
     resolved_dir = Path(run_dir).resolve()
@@ -324,19 +339,21 @@ def run_wizard() -> None:
     print("=" * 78)
 
     next_options = [
-        ("packet", "Export a cryptographically sealed Research Packet (.zip)"),
+        ("packet", "Export a cryptographically sealed Research Packet (.json)"),
         ("view", "Preview the Executive Summary & Final Report in terminal"),
         ("exit", "Finish and exit"),
     ]
     action = _prompt_choice("Next Actions", next_options, default_index=1)
 
     if action == "packet":
-        packet_path = resolved_dir / f"{ticker.lower()}_packet.zip"
-        pkt_args = argparse.Namespace(
-            run_dir=str(resolved_dir),
-            output=str(packet_path),
-            packet_version="research_packet_v1",
-            strict=False,
+        packet_path = resolved_dir / f"{ticker.lower()}_packet.json"
+        pkt_args = build_parser().parse_args(
+            [
+                "export-packet",
+                str(resolved_dir),
+                "--output",
+                str(packet_path),
+            ]
         )
         try:
             cmd_export_packet(pkt_args)
