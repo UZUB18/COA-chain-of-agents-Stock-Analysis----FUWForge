@@ -17,6 +17,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.agents.registry import AgentRegistry
 from src.orchestrator import FUWForgeOrchestrator, OrchestratorParams
 from src.provenance import ProvenanceLog
 
@@ -289,7 +290,11 @@ def test_controller_assembly():
             path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
         # 1. Test Standard Depth Assembly
-        orchestrator = FUWForgeOrchestrator(PROJECT_ROOT)
+        registry_model = "orchestrator-registry-model"
+        orchestrator = FUWForgeOrchestrator(
+            PROJECT_ROOT,
+            registry=AgentRegistry(provider="mock", model=registry_model),
+        )
         params_standard = OrchestratorParams(
             company="Test Company Inc.",
             ticker="TEST",
@@ -344,6 +349,29 @@ def test_controller_assembly():
             )
             last_pos = pos
 
+        assert "\nprovider: controller\n" in content
+        assert "\nmodel: not-applicable\n" in content
+        assert registry_model not in content
+        controller_banner = "**CONTROLLER-ASSEMBLED — envelopes supplied by operator"
+        banner_at = content.find(controller_banner)
+        first_section = content.find("# Section 0:")
+        assert banner_at != -1, "controller assembly must identify operator-supplied envelopes"
+        assert banner_at < first_section, "the controller banner must precede the analysis"
+        assert "**MOCK PROVIDER" not in content
+
+        summary_data = json.loads(
+            (temp_dir / "run_summary.json").read_text(encoding="utf-8")
+        )
+        manifest_data = json.loads(
+            (temp_dir / "run_manifest.json").read_text(encoding="utf-8")
+        )
+        assert summary_data["provider"] == "controller"
+        assert summary_data["model"] == "not-applicable"
+        assert registry_model not in json.dumps(summary_data)
+        assert manifest_data["configuration"]["provider"] == "controller"
+        assert manifest_data["configuration"]["model"] == "not-applicable"
+        assert registry_model not in json.dumps(manifest_data)
+
         # 2. Test Quick Depth (skips 13, 17, 18)
         params_quick = OrchestratorParams(
             company="Test Company Inc.",
@@ -396,6 +424,34 @@ def test_controller_assembly():
 
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_automated_mock_run_keeps_mock_banner(tmp_path):
+    orchestrator = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock")
+    params = OrchestratorParams(
+        company="Test Company Inc.",
+        ticker="MOCK",
+        analysis_date="2025-01-31",
+        depth="Quick",
+        focus=[],
+        weights="default",
+    )
+
+    summary = orchestrator.run(
+        run_id="test_mock_run",
+        params=params,
+        mode="automated",
+        output_root=tmp_path,
+    )
+    content = Path(summary["outputs"]["report"]).read_text(encoding="utf-8")
+
+    assert "\nprovider: mock\n" in content
+    assert "\nmodel: not-applicable\n" in content
+    banner_at = content.find("**MOCK PROVIDER")
+    first_section = content.find("# Section 0:")
+    assert banner_at != -1, "mock run must carry its synthetic-output banner"
+    assert banner_at < first_section, "the mock banner must precede the analysis"
+    assert "**CONTROLLER-ASSEMBLED" not in content
 
 
 if __name__ == "__main__":

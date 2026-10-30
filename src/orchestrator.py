@@ -701,7 +701,7 @@ class FUWForgeOrchestrator:
         )
 
         outputs = self._write_outputs(
-            run_id, params, output_root, envelopes, depth_config, frozen_checksum
+            run_id, params, output_root, envelopes, depth_config, frozen_checksum, mode
         )
         summary = self._summary_payload(
             run_id, params, state, status="completed", halt_reason=None, outputs=outputs
@@ -1190,6 +1190,7 @@ class FUWForgeOrchestrator:
         envelopes: Dict[str, Envelope],
         depth_config: Optional[Dict[str, Any]] = None,
         checksum: Optional[str] = None,
+        mode: str = "automated",
     ) -> Dict[str, str]:
         assembled_sections = self._assemble_sections(
             envelopes, depth_config=depth_config
@@ -1197,8 +1198,12 @@ class FUWForgeOrchestrator:
         # The report is the artifact a reader forwards; it must name the backend
         # that produced it. Without this, a fixture-generated "Buy" rating is
         # byte-for-byte indistinguishable in its header from a live analysis.
-        provider_name = getattr(self.registry, "provider", "unknown")
-        model_name = getattr(self.registry, "model", None) or "not-applicable"
+        if mode == "controller":
+            provider_name = "controller"
+            model_name = "not-applicable"
+        else:
+            provider_name = getattr(self.registry, "provider", "unknown")
+            model_name = getattr(self.registry, "model", None) or "not-applicable"
         front_matter = (
             "---\n"
             f"run_id: {run_id}\n"
@@ -1228,6 +1233,12 @@ class FUWForgeOrchestrator:
                 "comes from built-in fixtures, not from retrieved filings or a language "
                 "model. This run exercises pipeline mechanics only: it is not research and "
                 "must not be cited as analysis.\n\n"
+            )
+        if mode == "controller":
+            notice += (
+                "> **CONTROLLER-ASSEMBLED — envelopes supplied by operator.** Provider and "
+                "model identity for those envelopes are not inferred from the orchestrator "
+                "registry.\n\n"
             )
         if injected or unverified:
             notice += "> **NOT VERIFIED RESEARCH.** "
@@ -1275,7 +1286,8 @@ class FUWForgeOrchestrator:
                 analysis_date=params.analysis_date,
                 status="completed",
                 summary={
-                    "provider": getattr(self.registry, "provider", "unknown"),
+                    "provider": provider_name,
+                    "model": model_name,
                     "checksum": checksum,
                     "evidence_checksum": (self.evidence_pack.checksum if self.evidence_pack else None),
                     "params": params.__dict__,
@@ -1355,16 +1367,27 @@ class FUWForgeOrchestrator:
     ) -> Dict[str, Any]:
         metrics: RuntimeMetricsCollector = state["metrics"]
         registry_model = getattr(self.registry, "model", None)
+        flow_mode = state.get("flow_mode", "automated")
+        provider_name = (
+            "controller"
+            if flow_mode == "controller"
+            else getattr(self.registry, "provider", "unknown")
+        )
+        model_name = (
+            "not-applicable"
+            if flow_mode == "controller"
+            else (registry_model or "not-applicable")
+        )
         return {
             "run_id": run_id,
             "status": status,
             "halt_reason": halt_reason,
-            "provider": getattr(self.registry, "provider", "unknown"),
+            "provider": provider_name,
             # True backend identity when known; otherwise an explicit sentinel, never a guess.
-            "model": registry_model if registry_model else "not-applicable",
+            "model": model_name,
             "strict": self.strict,
             # Real execution mode recorded from run(..., mode=...), not a params field.
-            "flow_mode": state.get("flow_mode", "automated"),
+            "flow_mode": flow_mode,
             "params": params.__dict__,
             "checksum": state.get("checksum"),
             "evidence_checksum": state.get("evidence_checksum"),
