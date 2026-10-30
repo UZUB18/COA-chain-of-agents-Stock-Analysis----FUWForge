@@ -861,6 +861,22 @@ def replay_beneish(
 # ------------------------------------------------------------------- audit
 
 
+def _is_rejected_halt_diagnostic(
+    manifest: Optional[Mapping[str, Any]],
+    agent_id: str,
+    env: Envelope,
+) -> bool:
+    """Return true only for an explicitly rejected, unaccepted halt diagnostic."""
+    if not isinstance(manifest, dict) or manifest.get("status") != "halted":
+        return False
+    roles = manifest.get("roles")
+    return (
+        isinstance(roles, dict)
+        and agent_id not in roles
+        and env.gates.get("passed") is False
+    )
+
+
 def semantic_audit(
     run_dir: Path,
     require_source_backed: bool = False,
@@ -894,6 +910,12 @@ def semantic_audit(
     duplicate_role_errors: List[str] = []
 
     envelope_files = sorted(run_dir.glob("*_envelope.json"))
+    empty_halted_run = (
+        isinstance(manifest, dict)
+        and manifest.get("status") == "halted"
+        and manifest.get("roles") == {}
+        and not envelope_files
+    )
     for path in envelope_files:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
@@ -935,21 +957,36 @@ def semantic_audit(
                     f"{path.name}: content checksum mismatch (file modified after sealing)"
                 )
         else:
-            report.warnings.append(
-                f"{path.name}: no content_checksum (legacy or unsealed; run `controller seal`)"
+            warning = (
+                f"{path.name}: no content_checksum "
+                "(legacy or unsealed; run `controller seal`)"
             )
+            report.warnings.append(warning)
+            if _is_rejected_halt_diagnostic(manifest, agent_id, env):
+                report.strict_exempt_warnings.add(warning)
 
-    if not envelope_files:
+    if not envelope_files and not empty_halted_run:
         integrity_errors.append("no *_envelope.json files found")
 
     # Level 1 — envelope integrity (plus the existing provenance-chain checks).
     chain_result = verify_run(run_dir)
     envelope_checksum_errors = set(chain_result.envelope_checksum_errors)
     integrity_errors.extend(
-        err for err in chain_result.errors if err not in envelope_checksum_errors
+        err
+        for err in chain_result.errors
+        if err not in envelope_checksum_errors
+        and not (
+            empty_halted_run and err == "no *_envelope.json files found"
+        )
     )
     report.warnings.extend(chain_result.warnings)
-    report.levels["envelope_integrity"] = "failed" if integrity_errors else "passed"
+    report.levels["envelope_integrity"] = (
+        "failed"
+        if integrity_errors
+        else "not_applicable"
+        if empty_halted_run
+        else "passed"
+    )
     report.errors.extend(integrity_errors)
 
     # Resolve ticker and analysis_date (cutoff) from manifest, envelopes, or summary
@@ -1238,25 +1275,57 @@ def semantic_audit(
     # Level 6 — completeness.
     manifest = manifest or _load_manifest(run_dir)
     expected = set(EXPECTED_ROLES)
-    present = set(envelopes)
-    missing = sorted(expected - present)
-    unexpected = sorted(present - expected)
-    report.complete = not missing and not unexpected
     report.halted = bool(manifest and manifest.get("status") == "halted")
-    if missing:
-        report.levels["completeness"] = "incomplete"
-        report.errors.append(
-            "run is incomplete: missing required role(s): " + ", ".join(missing)
-        )
-    elif unexpected:
+    manifest_roles = (
+        manifest.get("roles")
+        if report.halted and isinstance(manifest.get("roles"), dict)
+        else {}
+    )
+    accepted_present = (
+        set(envelopes).intersection(manifest_roles)
+        if report.halted
+        else set(envelopes)
+    )
+    missing = sorted(expected - accepted_present)
+    unexpected = sorted(set(envelopes) - expected)
+    report.complete = not report.halted and not missing and not unexpected
+    if unexpected:
         report.levels["completeness"] = "failed"
         report.errors.append(
             "run contains unexpected role(s): " + ", ".join(unexpected)
         )
-    elif report.halted:
+    if missing:
+        if report.halted:
+            if "completeness" not in report.levels:
+                report.levels["completeness"] = "incomplete"
+        else:
+            report.levels["completeness"] = "failed"
+            suffix = (
+                f"contradicts a {manifest.get('status')} manifest"
+                if manifest
+                else "manifest is absent"
+            )
+            report.errors.append(
+                "run is incomplete: missing required role(s): "
+                f"{', '.join(missing)}; {suffix}"
+            )
+    elif not unexpected and report.halted:
         report.levels["completeness"] = "incomplete"
-    else:
+    elif not unexpected:
         report.levels["completeness"] = "passed"
+
+    if report.halted:
+        expected_absence_warnings = {
+            "no assembled report found",
+            "no artifacts bundle found",
+        }
+        if empty_halted_run:
+            expected_absence_warnings.add("no provenance log found")
+        report.strict_exempt_warnings.update(
+            warning
+            for warning in report.warnings
+            if warning in expected_absence_warnings
+        )
 
     if manifest:
         report.errors.extend(validate_run_manifest(manifest))
@@ -1275,6 +1344,7 @@ def _audit_graph(
 ) -> List[str]:
     """Validate consumed-parent lineage and machine-checkable contracts."""
     errors: List[str] = []
+    manifest = _load_manifest(run_dir)
     depth_config = None
     for path in sorted(run_dir.glob("run_summary.json")):
         try:
@@ -1375,6 +1445,8 @@ def _audit_graph(
     for agent_id in ("A1", "A2", "A3", "A4", "A5", "A6B", "A6R", "A6", "A7"):
         env = envelopes.get(agent_id)
         if env is None:
+            continue
+        if _is_rejected_halt_diagnostic(manifest, agent_id, env):
             continue
         upstream_envelopes: Dict[str, Envelope] = {}
         for entry in env.upstream or []:

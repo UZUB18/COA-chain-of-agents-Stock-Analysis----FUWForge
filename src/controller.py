@@ -267,8 +267,6 @@ def cmd_verify_run(args: argparse.Namespace) -> None:
             if warning not in report.strict_exempt_warnings
             and warning not in report.errors
         )
-        if not report.complete:
-            report.errors.append("strict: run is incomplete")
 
     if getattr(args, "json", False):
         print(json.dumps(report.to_dict(), indent=2))

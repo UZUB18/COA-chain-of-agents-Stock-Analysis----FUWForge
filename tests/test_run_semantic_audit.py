@@ -34,9 +34,12 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.run_audit import (
     AUDIT_LEVELS,
     AuditReport,
+    verify_run,
     verify_run_semantic,
     semantic_audit,
 )
+from src.agents.base import BaseAgent
+from src.agents.mock import A7Mock
 from src.utils.beneish import beneish_score
 
 ALL_AGENTS = ["A1", "A2", "A3", "A4", "A5", "A6B", "A6R", "A6", "A7"]
@@ -115,6 +118,128 @@ def _run_with_documented_data_gap(tmp: Path) -> Path:
         "content_checksum"
     ]
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    return tmp
+
+
+def _halt_before_a6(tmp: Path) -> Path:
+    """Interrupt a real pipeline after A1-A5/A6B/A6R have been accepted."""
+    from src.orchestrator import FUWForgeOrchestrator, OrchestratorParams
+
+    class LateFailureAgent(BaseAgent):
+        id = "A6"
+        name = "CIO-Synthesis"
+
+        def run(self, context):
+            raise RuntimeError("late dispatch failure")
+
+    orchestrator = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock")
+    orchestrator.registry.register_instance(LateFailureAgent())
+    params = OrchestratorParams(
+        company="Halt Co",
+        ticker="HALT",
+        analysis_date="2026-02-01",
+        depth="Standard",
+        focus=[],
+        weights="default",
+    )
+    with pytest.raises(RuntimeError, match="late dispatch failure"):
+        orchestrator.run("halted_partial", params, output_root=tmp)
+    return tmp
+
+
+def _halt_at_a1_gate(tmp: Path) -> Path:
+    """Produce the real unaccepted A1 diagnostic written by a gate rejection."""
+    from src.orchestrator import FUWForgeOrchestrator, OrchestratorParams
+
+    orchestrator = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock")
+    params = OrchestratorParams(
+        company="Halt Co",
+        ticker="HALT",
+        analysis_date="2026-02-01",
+        depth="Standard",
+        focus=[],
+        weights="default",
+    )
+    params.__dict__["fail_gate"] = True
+    with pytest.raises(RuntimeError, match="A1 gate failure halts the run"):
+        orchestrator.run("halted_a1", params, output_root=tmp)
+    return tmp
+
+
+def _halt_at_a7_gate(tmp: Path) -> Path:
+    """Leave an unaccepted rejected A7 diagnostic after all earlier roles passed."""
+    from src.orchestrator import FUWForgeOrchestrator, OrchestratorParams
+
+    class RejectedFinalAgent(A7Mock):
+        def run(self, context):
+            output = super().run(context)
+            output.envelope.gates = {
+                "passed": False,
+                "notes": ["Final assembly contract rejected."],
+            }
+            return output
+
+    orchestrator = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock")
+    orchestrator.registry.register_instance(RejectedFinalAgent())
+    params = OrchestratorParams(
+        company="Halt Co",
+        ticker="HALT",
+        analysis_date="2026-02-01",
+        depth="Standard",
+        focus=[],
+        weights="default",
+    )
+    with pytest.raises(RuntimeError, match="A7 hard gate failure halts the run"):
+        orchestrator.run("halted_a7", params, output_root=tmp)
+    return tmp
+
+
+def _halt_during_a1_dispatch(tmp: Path) -> Path:
+    """Halt after dispatch starts but before A1 can produce any envelope."""
+    from src.orchestrator import FUWForgeOrchestrator, OrchestratorParams
+
+    class FirstAgentFailure(BaseAgent):
+        id = "A1"
+        name = "Harvester-&-Validator"
+
+        def run(self, context):
+            raise RuntimeError("failure before first envelope")
+
+    orchestrator = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock")
+    orchestrator.registry.register_instance(FirstAgentFailure())
+    params = OrchestratorParams(
+        company="Halt Co",
+        ticker="HALT",
+        analysis_date="2026-02-01",
+        depth="Standard",
+        focus=[],
+        weights="default",
+    )
+    with pytest.raises(RuntimeError, match="failure before first envelope"):
+        orchestrator.run("halted_empty", params, output_root=tmp)
+    return tmp
+
+
+def _halt_during_output_assembly(tmp: Path) -> Path:
+    """Accept all agents, then halt before final report/artifact assembly."""
+    from src.orchestrator import FUWForgeOrchestrator, OrchestratorParams
+
+    orchestrator = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock")
+
+    def fail_assembly(*args, **kwargs):
+        raise RuntimeError("final output assembly failed")
+
+    orchestrator._write_outputs = fail_assembly
+    params = OrchestratorParams(
+        company="Halt Co",
+        ticker="HALT",
+        analysis_date="2026-02-01",
+        depth="Standard",
+        focus=[],
+        weights="default",
+    )
+    with pytest.raises(RuntimeError, match="final output assembly failed"):
+        orchestrator.run("halted_assembly", params, output_root=tmp)
     return tmp
 
 
@@ -325,27 +450,406 @@ def test_missing_source_bytes_are_unavailable_not_success():
 # ------------------------------------------------------------ halted / levels
 
 
-def test_halted_run_is_explicitly_incomplete():
+def test_genuine_halted_subgraph_is_incomplete_without_missing_role_error():
     tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_halt_"))
     try:
-        from src.orchestrator import FUWForgeOrchestrator, OrchestratorParams
-
-        orchestrator = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock")
-        params = OrchestratorParams(
-            company="Halt Co",
-            ticker="HALT",
-            analysis_date="2026-02-01",
-            depth="Standard",
-            focus=[],
-            weights="default",
-        )
-        params.__dict__["fail_gate"] = True
-        with pytest.raises(RuntimeError):
-            orchestrator.run("halted", params, output_root=tmp)
+        _halt_before_a6(tmp)
 
         report = semantic_audit(tmp)
         assert not report.complete, "a halted run must not be reported as complete"
-        assert report.levels.get("completeness") == "incomplete"
+        assert report.halted
+        assert report.levels["completeness"] == "incomplete"
+        assert report.overall_state == "incomplete"
+        assert report.failed_levels() == []
+        assert not any("missing required role" in error for error in report.errors)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_rejected_a1_diagnostic_halt_is_incomplete():
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_rejected_a1_"))
+    try:
+        _halt_at_a1_gate(tmp)
+        manifest = json.loads((tmp / "run_manifest.json").read_text(encoding="utf-8"))
+        a1 = json.loads(_envelope_path(tmp, "A1").read_text(encoding="utf-8"))
+        assert manifest["status"] == "halted"
+        assert manifest["roles"] == {}
+        assert a1["gates"]["passed"] is False
+        assert a1["content_checksum"] is None
+
+        report = semantic_audit(tmp)
+        assert report.levels["completeness"] == "incomplete"
+        assert report.overall_state == "incomplete"
+        assert report.failed_levels() == []
+        assert not any(error.startswith("A1 contract:") for error in report.errors)
+
+        cli = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "src.controller",
+                "verify-run",
+                str(tmp),
+                "--strict",
+                "--json",
+            ],
+            cwd=PROJECT_ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        assert cli.returncode != 0, cli.stdout + cli.stderr
+        audit = json.loads(cli.stdout)
+        assert audit["overall_state"] == "incomplete"
+        assert audit["failed_levels"] == []
+        assert "no assembled report found" in audit["warnings"]
+        assert "no artifacts bundle found" in audit["warnings"]
+        assert any("a1_envelope.json: no content_checksum" in w for w in audit["warnings"])
+        assert not any(error.startswith("A1 contract:") for error in audit["errors"])
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_rejected_diagnostic_does_not_fill_missing_final_role():
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_rejected_a7_"))
+    try:
+        _halt_at_a7_gate(tmp)
+        manifest = json.loads((tmp / "run_manifest.json").read_text(encoding="utf-8"))
+        a7 = json.loads(_envelope_path(tmp, "A7").read_text(encoding="utf-8"))
+        assert manifest["status"] == "halted"
+        assert "A7" not in manifest["roles"]
+        assert a7["gates"]["passed"] is False
+
+        report = semantic_audit(tmp)
+        assert report.complete is False
+        assert report.levels["completeness"] == "incomplete"
+        assert report.overall_state == "incomplete"
+        assert report.failed_levels() == []
+        assert not any(
+            "missing required role" in error for error in report.errors
+        )
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_empty_halted_run_is_incomplete_with_not_applicable_integrity():
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_empty_halt_"))
+    try:
+        _halt_during_a1_dispatch(tmp)
+        manifest = json.loads((tmp / "run_manifest.json").read_text(encoding="utf-8"))
+        assert manifest["status"] == "halted"
+        assert manifest["roles"] == {}
+        assert not list(tmp.glob("*_envelope.json"))
+
+        report = semantic_audit(tmp)
+        assert report.complete is False
+        assert report.levels["envelope_integrity"] == "not_applicable"
+        assert report.levels["completeness"] == "incomplete"
+        assert report.overall_state == "incomplete"
+        assert report.errors == []
+        for warning in (
+            "no provenance log found",
+            "no assembled report found",
+            "no artifacts bundle found",
+        ):
+            assert warning in report.warnings
+
+        for extra_args in ([], ["--strict"]):
+            cli = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "src.controller",
+                    "verify-run",
+                    str(tmp),
+                    "--json",
+                    *extra_args,
+                ],
+                cwd=PROJECT_ROOT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            assert cli.returncode != 0, cli.stdout + cli.stderr
+            audit = json.loads(cli.stdout)
+            assert audit["overall_state"] == "incomplete"
+            assert audit["levels"]["envelope_integrity"] == "not_applicable"
+            assert audit["errors"] == []
+            assert "no provenance log found" in audit["warnings"]
+            assert "no assembled report found" in audit["warnings"]
+            assert "no artifacts bundle found" in audit["warnings"]
+
+        integrity = verify_run(tmp)
+        assert not integrity.valid
+        assert "no *_envelope.json files found" in integrity.errors
+
+        integrity_cli = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "src.controller",
+                "verify-run",
+                str(tmp),
+                "--integrity-only",
+            ],
+            cwd=PROJECT_ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        assert integrity_cli.returncode != 0, (
+            integrity_cli.stdout + integrity_cli.stderr
+        )
+        assert "no *_envelope.json files found" in integrity_cli.stdout
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_empty_halted_manifest_with_recorded_role_still_fails():
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_empty_recorded_"))
+    try:
+        _halt_during_a1_dispatch(tmp)
+        manifest_path = tmp / "run_manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["roles"] = {"A1": "sha256:" + "0" * 64}
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+        report = semantic_audit(tmp)
+        assert report.levels["completeness"] == "incomplete"
+        assert report.levels["envelope_integrity"] == "failed"
+        assert report.levels["final_artifacts"] == "failed"
+        assert report.overall_state == "failed"
+        assert any(
+            "manifest specifies role 'A1' which is missing" in error
+            for error in report.errors
+        )
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_halted_gate_true_unrecorded_envelope_is_not_accepted():
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_unrecorded_a7_"))
+    try:
+        _good_run(tmp)
+        a7_path = _envelope_path(tmp, "A7")
+        a7 = json.loads(a7_path.read_text(encoding="utf-8"))
+        a7.pop("content_checksum", None)
+        a7["sections_md"].pop("SECTION_0_EXEC_SUMMARY", None)
+        a7_path.write_text(json.dumps(a7, indent=2), encoding="utf-8")
+        assert a7["gates"]["passed"] is True
+
+        manifest_path = tmp / "run_manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["roles"].pop("A7")
+        manifest["status"] = "halted"
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+        report = semantic_audit(tmp)
+        assert report.complete is False
+        assert report.levels["completeness"] == "incomplete"
+        assert report.levels["graph_and_contracts"] == "failed"
+        assert report.overall_state == "failed"
+        assert any(
+            "A7 contract" in error and "SECTION_0_EXEC_SUMMARY" in error
+            for error in report.errors
+        ), report.errors
+
+        strict = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "src.controller",
+                "verify-run",
+                str(tmp),
+                "--strict",
+                "--json",
+            ],
+            cwd=PROJECT_ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        assert strict.returncode != 0, strict.stdout + strict.stderr
+        audit = json.loads(strict.stdout)
+        assert audit["complete"] is False
+        assert audit["overall_state"] == "failed"
+        assert any("A7 contract" in error for error in audit["errors"])
+        assert any(
+            "a7_envelope.json: no content_checksum" in error
+            for error in audit["errors"]
+        )
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_post_agent_assembly_halt_is_not_complete():
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_assembly_halt_"))
+    try:
+        _halt_during_output_assembly(tmp)
+        manifest = json.loads((tmp / "run_manifest.json").read_text(encoding="utf-8"))
+        assert manifest["status"] == "halted"
+        assert set(manifest["roles"]) == set(ALL_AGENTS)
+
+        report = semantic_audit(tmp)
+        assert report.halted is True
+        assert report.complete is False
+        assert report.levels["completeness"] == "incomplete"
+        assert report.overall_state == "incomplete"
+        assert report.failed_levels() == []
+
+        for extra_args in ([], ["--strict"]):
+            cli = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "src.controller",
+                    "verify-run",
+                    str(tmp),
+                    "--json",
+                    *extra_args,
+                ],
+                cwd=PROJECT_ROOT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            assert cli.returncode != 0, cli.stdout + cli.stderr
+            audit = json.loads(cli.stdout)
+            assert audit["complete"] is False
+            assert audit["overall_state"] == "incomplete"
+            assert audit["failed_levels"] == []
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_completed_run_with_missing_role_reports_explicit_contradiction():
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_missing_completed_"))
+    try:
+        _good_run(tmp)
+        _envelope_path(tmp, "A7").unlink()
+
+        report = semantic_audit(tmp)
+        assert report.levels["completeness"] == "failed"
+        assert report.overall_state == "failed"
+        assert "completeness" in report.failed_levels()
+        assert any(
+            "A7" in error
+            and "missing required role" in error
+            and "completed manifest" in error
+            for error in report.errors
+        ), report.errors
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_missing_role_without_manifest_reports_explicit_contradiction():
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_missing_manifest_"))
+    try:
+        _good_run(tmp)
+        _envelope_path(tmp, "A7").unlink()
+        (tmp / "run_manifest.json").unlink()
+
+        report = semantic_audit(tmp)
+        assert report.levels["completeness"] == "failed"
+        assert report.overall_state == "failed"
+        assert "completeness" in report.failed_levels()
+        assert any(
+            "A7" in error
+            and "missing required role" in error
+            and "manifest is absent" in error
+            for error in report.errors
+        ), report.errors
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_halted_incomplete_state_survives_strict_cli_json():
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_halt_cli_"))
+    try:
+        _halt_before_a6(tmp)
+        for extra_args in ([], ["--strict"]):
+            cli = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "src.controller",
+                    "verify-run",
+                    str(tmp),
+                    "--json",
+                    *extra_args,
+                ],
+                cwd=PROJECT_ROOT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            assert cli.returncode != 0, cli.stdout + cli.stderr
+            audit = json.loads(cli.stdout)
+            assert audit["levels"]["completeness"] == "incomplete"
+            assert audit["overall_state"] == "incomplete"
+            assert audit["failed_levels"] == []
+            assert not any(
+                "missing required role" in error for error in audit["errors"]
+            )
+            assert "strict: run is incomplete" not in audit["errors"]
+            assert "no assembled report found" in audit["warnings"]
+            assert "no artifacts bundle found" in audit["warnings"]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_independent_integrity_failure_still_fails_halted_run():
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_halt_tamper_"))
+    try:
+        _halt_before_a6(tmp)
+        path = _envelope_path(tmp, "A6B")
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["sections_md"]["TAMPERED"] = "changed after sealing"
+        path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+        report = semantic_audit(tmp)
+        assert report.levels["completeness"] == "incomplete"
+        assert report.overall_state == "failed"
+        assert "envelope_integrity" in report.failed_levels()
+        assert not any("missing required role" in error for error in report.errors)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_manifest_role_contradiction_still_fails_halted_run():
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_halt_manifest_"))
+    try:
+        _halt_before_a6(tmp)
+        manifest_path = tmp / "run_manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["roles"]["A6B"] = "sha256:" + "0" * 64
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+        report = semantic_audit(tmp)
+        assert report.levels["completeness"] == "incomplete"
+        assert report.overall_state == "failed"
+        assert "final_artifacts" in report.failed_levels()
+        assert any(
+            "manifest checksum for role 'A6B'" in error for error in report.errors
+        ), report.errors
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_unexpected_role_still_fails_halted_run():
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_halt_unexpected_"))
+    try:
+        _halt_before_a6(tmp)
+        data = json.loads(_envelope_path(tmp, "A6B").read_text(encoding="utf-8"))
+        data["agent"]["id"] = "Z9"
+        path = tmp / "z9_envelope.json"
+        path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        _reseal(path)
+
+        report = semantic_audit(tmp)
+        assert report.levels["completeness"] == "failed"
+        assert report.overall_state == "failed"
+        assert any("unexpected role(s): Z9" in error for error in report.errors)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

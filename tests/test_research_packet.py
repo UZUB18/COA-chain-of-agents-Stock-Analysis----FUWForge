@@ -30,6 +30,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.orchestrator import FUWForgeOrchestrator, OrchestratorParams
+from src.agents.base import BaseAgent
 from src.research_packet import (
     APPROVAL_STATUS_PENDING,
     DISCLAIMER_TEXT,
@@ -53,6 +54,51 @@ def _build_mock_run(output_dir: Path, ticker: str = "PKT", company: str = "Packe
         weights="default",
     )
     orchestrator.run("packet_test_run", params, output_root=output_dir)
+    return output_dir
+
+
+def _halt_before_a6(output_dir: Path) -> Path:
+    """Interrupt a real pipeline, leaving a valid halted partial subgraph."""
+    class LateFailureAgent(BaseAgent):
+        id = "A6"
+        name = "CIO-Synthesis"
+
+        def run(self, context):
+            raise RuntimeError("late dispatch failure")
+
+    orchestrator = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock")
+    orchestrator.registry.register_instance(LateFailureAgent())
+    params = OrchestratorParams(
+        company="Halt Corp",
+        ticker="HALT",
+        analysis_date="2026-02-01",
+        depth="Standard",
+        focus=[],
+        weights="default",
+    )
+    with pytest.raises(RuntimeError, match="late dispatch failure"):
+        orchestrator.run("halted_packet_run", params, output_root=output_dir)
+    return output_dir
+
+
+def _halt_during_output_assembly(output_dir: Path) -> Path:
+    """Accept every agent, then fail before the final report and artifacts."""
+    orchestrator = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock")
+
+    def fail_assembly(*args, **kwargs):
+        raise RuntimeError("final output assembly failed")
+
+    orchestrator._write_outputs = fail_assembly
+    params = OrchestratorParams(
+        company="Assembly Halt Corp",
+        ticker="ASMHALT",
+        analysis_date="2026-02-01",
+        depth="Standard",
+        focus=[],
+        weights="default",
+    )
+    with pytest.raises(RuntimeError, match="final output assembly failed"):
+        orchestrator.run("halted_assembly_run", params, output_root=output_dir)
     return output_dir
 
 
@@ -170,8 +216,8 @@ def test_incomplete_run_is_exportable_with_accurate_audit_state():
 
         # Audit state must reflect incompleteness
         assert packet["audit"]["complete"] is False
-        assert packet["audit"]["levels"]["completeness"] == "incomplete"
-        assert packet["audit"]["overall_state"] in ("incomplete", "failed")
+        assert packet["audit"]["levels"]["completeness"] == "failed"
+        assert packet["audit"]["overall_state"] == "failed"
 
         # Limitations must note incompleteness
         assert any("incomplete" in lim.lower() for lim in packet["limitations"])
@@ -190,28 +236,35 @@ def test_incomplete_run_is_exportable_with_accurate_audit_state():
 def test_halted_run_is_exportable_with_accurate_audit_state():
     with tempfile.TemporaryDirectory() as tmp_dir:
         run_dir = Path(tmp_dir) / "run"
-        orchestrator = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock")
-        params = OrchestratorParams(
-            company="Halt Corp",
-            ticker="HALT",
-            analysis_date="2026-02-01",
-            depth="Standard",
-            focus=[],
-            weights="default",
-        )
-        params.__dict__["fail_gate"] = True
-        with pytest.raises(RuntimeError):
-            orchestrator.run("halted_run", params, output_root=run_dir)
+        _halt_before_a6(run_dir)
 
         packet = build_packet(run_dir)
         assert packet["audit"]["complete"] is False
+        assert packet["audit"]["halted"] is True
+        assert packet["audit"]["overall_state"] == "incomplete"
+        assert packet["audit"]["failed_levels"] == []
         assert packet["audit"]["levels"]["completeness"] == "incomplete"
-        assert any("incomplete" in lim.lower() or "error" in lim.lower() for lim in packet["limitations"])
+        assert any("incomplete" in lim.lower() for lim in packet["limitations"])
+        assert not validate_packet(packet, run_dir=run_dir)
 
         out_file = Path(tmp_dir) / "halted_packet.json"
         res = export_packet(run_dir, out_file)
         assert out_file.is_file()
         assert res["sha256"] == file_sha256(out_file)
+
+
+def test_post_agent_assembly_halt_packet_is_incomplete():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        run_dir = Path(tmp_dir) / "run"
+        _halt_during_output_assembly(run_dir)
+
+        packet = build_packet(run_dir)
+        assert packet["status"] == "halted"
+        assert packet["audit"]["halted"] is True
+        assert packet["audit"]["complete"] is False
+        assert packet["audit"]["levels"]["completeness"] == "incomplete"
+        assert packet["audit"]["overall_state"] == "incomplete"
+        assert not validate_packet(packet, run_dir=run_dir)
 
 
 def test_halted_manifest_run_is_exportable():
