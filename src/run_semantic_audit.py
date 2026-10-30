@@ -941,8 +941,9 @@ def semantic_audit(
 
     # Level 1 — envelope integrity (plus the existing provenance-chain checks).
     chain_result = verify_run(run_dir)
+    envelope_checksum_errors = set(chain_result.envelope_checksum_errors)
     integrity_errors.extend(
-        err for err in chain_result.errors if "checksum mismatch" not in err
+        err for err in chain_result.errors if err not in envelope_checksum_errors
     )
     report.warnings.extend(chain_result.warnings)
     report.levels["envelope_integrity"] = "failed" if integrity_errors else "passed"

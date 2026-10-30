@@ -50,6 +50,7 @@ __all__ = [
 def verify_run(run_dir: Path, strict: bool = False) -> ValidationResult:
     errors: List[str] = []
     warnings: List[str] = []
+    envelope_checksum_errors: List[str] = []
     run_dir = Path(run_dir)
 
     if not run_dir.is_dir():
@@ -92,9 +93,9 @@ def verify_run(run_dir: Path, strict: bool = False) -> ValidationResult:
         if recorded:
             actual = envelope_content_checksum(data)
             if actual != recorded:
-                errors.append(
-                    f"{path.name}: content checksum mismatch (file was modified after sealing)"
-                )
+                error = f"{path.name}: content checksum mismatch (file was modified after sealing)"
+                errors.append(error)
+                envelope_checksum_errors.append(error)
             else:
                 checksums[agent_id] = actual
         else:
@@ -194,5 +195,10 @@ def verify_run(run_dir: Path, strict: bool = False) -> ValidationResult:
     if strict:
         errors.extend(f"strict: {warning}" for warning in warnings)
 
-    return ValidationResult(valid=not errors, errors=errors, warnings=warnings)
+    return ValidationResult(
+        valid=not errors,
+        errors=errors,
+        warnings=warnings,
+        envelope_checksum_errors=envelope_checksum_errors,
+    )
 

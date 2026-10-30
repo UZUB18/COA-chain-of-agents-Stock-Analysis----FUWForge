@@ -40,6 +40,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.run_semantic_audit import semantic_audit
+from src.validators import ValidationResult
 
 TICKER = "SEM"
 ANALYSIS_DATE = "2026-02-01"
@@ -458,6 +459,71 @@ def test_tampered_envelope_bytes_fail_integrity():
         # Deliberately NOT re-sealed.
         report = semantic_audit(tmp)
         assert report.levels["envelope_integrity"] != "passed"
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_edited_provenance_fails_envelope_integrity():
+    """Provenance chain failures are integrity failures, not checksum duplicates."""
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_p5_provenance_integrity_"))
+    try:
+        _good_run(tmp)
+        provenance = next(tmp.glob("*_provenance.log"))
+        lines = provenance.read_text(encoding="utf-8").splitlines()
+        lines[0] = lines[0].replace("accepted", "rewritten")
+        provenance.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+        report = semantic_audit(tmp)
+
+        assert report.overall_state == "failed"
+        assert report.levels["envelope_integrity"] == "failed"
+        assert any(
+            provenance.name in error
+            and "line 1" in error
+            and "checksum mismatch" in error
+            for error in report.errors
+        ), report.errors
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_envelope_checksum_error_is_not_duplicated():
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_p5_integrity_once_"))
+    try:
+        _good_run(tmp)
+        path = _a3_path(tmp)
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["artifacts"]["BeneishM"]["raw_score"] = -9.99
+        path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+        report = semantic_audit(tmp)
+
+        matching = [
+            error
+            for error in report.errors
+            if path.name in error and "content checksum mismatch" in error
+        ]
+        assert len(matching) == 1, report.errors
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_non_envelope_checksum_error_is_preserved(monkeypatch):
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_p5_non_envelope_checksum_"))
+    try:
+        _good_run(tmp)
+
+        def fake_verify_run(_run_dir):
+            return ValidationResult(
+                valid=False,
+                errors=["checksum mismatch: unrelated comparison failed"],
+            )
+
+        monkeypatch.setattr("src.run_audit.verify_run", fake_verify_run)
+        report = semantic_audit(tmp)
+
+        assert report.levels["envelope_integrity"] == "failed"
+        assert "checksum mismatch: unrelated comparison failed" in report.errors
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

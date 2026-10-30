@@ -21,6 +21,7 @@ class ValidationResult:
     valid: bool
     errors: List[str]
     warnings: List[str] = field(default_factory=list)
+    envelope_checksum_errors: List[str] = field(default_factory=list)
 
 
 class EnvelopeValidator:
