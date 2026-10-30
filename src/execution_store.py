@@ -37,7 +37,9 @@ from enum import Enum
 import hashlib
 import json
 from pathlib import Path
+import shutil
 import sqlite3
+import tempfile
 import uuid
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Set, Tuple, Union
 
@@ -49,6 +51,7 @@ from src.execution_identity import (
     true_descendants,
 )
 from src.resources import get_schema_path
+from src.utils.checksum import envelope_content_checksum
 from src.validators import ValidationResult
 
 try:
@@ -71,6 +74,18 @@ def compute_raw_checksum(data: Any) -> str:
     """Compute sha256 checksum for raw response data."""
     raw_str = _canonical_json(data) if not isinstance(data, str) else data
     return f"sha256:{hashlib.sha256(raw_str.encode('utf-8')).hexdigest()}"
+
+
+def receipt_envelope_checksum_matches(
+    envelope: Any, accepted_checksum: Optional[str]
+) -> bool:
+    """Require the embedded, receipt, and recomputed envelope checksums to agree."""
+    return (
+        isinstance(envelope, dict)
+        and isinstance(accepted_checksum, str)
+        and envelope.get("content_checksum") == accepted_checksum
+        and envelope_content_checksum(envelope) == accepted_checksum
+    )
 
 
 class ExecutionState(str, Enum):
@@ -191,8 +206,9 @@ class ExecutionReceipt:
         """
         return (
             self.state == ExecutionState.VALIDATED.value
-            and bool(self.accepted_checksum)
-            and self.accepted_envelope is not None
+            and receipt_envelope_checksum_matches(
+                self.accepted_envelope, self.accepted_checksum
+            )
             and self.recovery_choice != RecoveryChoice.ABANDON.value
         )
 
@@ -238,6 +254,97 @@ def validate_receipt(data: Dict[str, Any]) -> ValidationResult:
     if missing:
         return ValidationResult(valid=False, errors=[f"Missing keys: {', '.join(missing)}"])
     return ValidationResult(valid=True, errors=[])
+
+
+def unresolved_recovery_agents(db_path: Union[str, Path]) -> List[str]:
+    """Return unresolved agents after validating a private copy, including WAL."""
+    path = Path(db_path)
+    candidates = [path, Path(f"{path}-wal"), Path(f"{path}-shm")]
+
+    def state() -> Dict[Path, Optional[Tuple[int, int]]]:
+        return {
+            candidate: (
+                (candidate.stat().st_size, candidate.stat().st_mtime_ns)
+                if candidate.is_file()
+                else None
+            )
+            for candidate in candidates
+        }
+
+    if not path.exists():
+        if any(candidate.exists() for candidate in candidates[1:]):
+            raise RuntimeError("Execution ledger sidecar exists without its database.")
+        return []
+    if not path.is_file():
+        raise RuntimeError("Execution ledger path is not a regular file.")
+    wal_path, shm_path = candidates[1:]
+    if any(candidate.exists() and not candidate.is_file() for candidate in candidates[1:]):
+        raise RuntimeError("Execution ledger sidecar is not a regular file.")
+    if shm_path.exists() and not wal_path.exists():
+        raise RuntimeError("Execution ledger shared-memory file exists without its WAL.")
+
+    before = state()
+    with tempfile.TemporaryDirectory(prefix="fuwforge-ledger-inspect-") as temp_dir:
+        copied = Path(temp_dir) / path.name
+        for candidate in candidates:
+            if candidate.is_file():
+                shutil.copyfile(candidate, copied.with_name(candidate.name))
+        # shortcut: resume inspection assumes no concurrent writer; replace this
+        # copied-file check with SQLite backup/locking when concurrent resumes exist.
+        if state() != before:
+            raise RuntimeError("Execution ledger changed during read-only inspection.")
+
+        connection = sqlite3.connect(copied)
+        try:
+            integrity = connection.execute("PRAGMA integrity_check").fetchall()
+            if integrity != [("ok",)]:
+                raise RuntimeError(
+                    f"Execution ledger failed integrity check: {integrity!r}"
+                )
+            has_table = connection.execute(
+                "SELECT 1 FROM sqlite_master "
+                "WHERE type = 'table' AND name = 'execution_receipts'"
+            ).fetchone()
+            if not has_table:
+                raise RuntimeError(
+                    "Existing execution ledger is missing the execution_receipts table."
+                )
+            validated_rows = connection.execute(
+                """
+                SELECT agent_id, accepted_envelope_json, accepted_checksum
+                FROM execution_receipts
+                WHERE state = 'validated'
+                """
+            ).fetchall()
+            for agent_id, envelope_json, accepted_checksum in validated_rows:
+                envelope = None
+                if isinstance(envelope_json, str):
+                    try:
+                        envelope = json.loads(envelope_json)
+                    except json.JSONDecodeError as exc:
+                        raise RuntimeError(
+                            f"{agent_id}: reusable receipt checksum mismatch"
+                        ) from exc
+                if not receipt_envelope_checksum_matches(envelope, accepted_checksum):
+                    raise RuntimeError(
+                        f"{agent_id}: reusable receipt checksum mismatch"
+                    )
+            rows = connection.execute(
+                """
+                SELECT agent_id
+                FROM execution_receipts
+                WHERE state IN ('running', 'returned', 'unknown_completion')
+                  AND recovery_choice IS NULL
+                ORDER BY created_at ASC
+                """
+            ).fetchall()
+            return [row[0] for row in rows]
+        except sqlite3.DatabaseError as exc:
+            raise RuntimeError(
+                f"Execution ledger cannot be inspected safely: {exc}"
+            ) from exc
+        finally:
+            connection.close()
 
 
 class ExecutionStore:

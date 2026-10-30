@@ -11,7 +11,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import copy
 
@@ -32,6 +32,7 @@ from src.execution_store import (
     ExecutionState,
     ExecutionStore,
     RecoveryChoice,
+    unresolved_recovery_agents,
 )
 from src.forensic_inputs import forensic_inputs_for
 from src.provenance import ProvenanceLog
@@ -166,7 +167,7 @@ class FUWForgeOrchestrator:
     ) -> Dict[str, Any]:
         """
         Execute the gated flow. Writes ``run_summary.json`` and ``run_manifest.json``
-        even when the run halts, then returns metadata about the run.
+        when a run halts after dispatch begins, then returns metadata about the run.
         """
         is_resume = self.resume if resume is None else bool(resume)
         rec_choice = self.recovery_choice if recovery_choice is None else recovery_choice
@@ -190,15 +191,9 @@ class FUWForgeOrchestrator:
             runs_dir = get_default_runs_dir(self.project_root)
             target_root = (runs_dir / run_id).resolve()
 
-        # Preserve archived runs: default existing output must not silently overwrite; explicit resume allowed.
-        if mode == "automated" and not is_resume and target_root.is_dir():
-            has_summary = (target_root / "run_summary.json").is_file()
-            has_envelopes = bool(list(target_root.glob("*_envelope.json")))
-            if has_summary or has_envelopes:
-                raise FileExistsError(
-                    f"Run directory '{target_root}' already contains an existing run. "
-                    "Default execution will not silently overwrite archived runs. Pass resume=True or use a fresh directory."
-                )
+        evidence_pack, snapshot_evidence = self._preflight(
+            params, mode, is_resume, rec_choice, target_root
+        )
 
         target_root.mkdir(parents=True, exist_ok=True)
         state: Dict[str, Any] = {
@@ -206,42 +201,17 @@ class FUWForgeOrchestrator:
             "started_at": _now_iso(),
             "envelopes": {},
             "flow_mode": mode,
+            "dispatch_started": False,
         }
         store: Optional[ExecutionStore] = None
         try:
-            from src.evidence import EvidencePack
-
-            self.evidence_pack = None
-            if self.evidence_pack_path:
-                pack = EvidencePack(self.evidence_pack_path, ticker=params.ticker, analysis_date=params.analysis_date)
-                evidence_dir = target_root / "evidence"
-                if evidence_dir.is_dir():
-                    # Resume: this run already snapshotted its evidence. Re-snapshotting
-                    # would fail on a non-empty directory and, worse, could overwrite
-                    # the bytes that earlier envelopes were actually generated from.
-                    # Re-load the existing snapshot instead — constructing an
-                    # EvidencePack re-verifies every document and attachment against
-                    # its recorded digest — and only reuse it when it is the same
-                    # evidence this resume was asked to run against.
-                    existing = EvidencePack(
-                        evidence_dir / "evidence.json",
-                        ticker=params.ticker,
-                        analysis_date=params.analysis_date,
-                    )
-                    if existing.checksum != pack.checksum:
-                        raise ValueError(
-                            f"Run directory '{target_root}' already holds a different "
-                            "evidence snapshot than the supplied --evidence-pack. Resuming "
-                            "against changed evidence would invalidate prior receipts; "
-                            "use a fresh directory instead."
-                        )
-                    self.evidence_pack = existing
-                    state["evidence_reused_snapshot"] = True
+            self.evidence_pack = evidence_pack
+            if evidence_pack is not None:
+                if snapshot_evidence:
+                    self.evidence_pack = evidence_pack.snapshot(target_root / "evidence")
                 else:
-                    self.evidence_pack = pack.snapshot(evidence_dir)
-                state["evidence_checksum"] = pack.checksum
-            elif mode == "automated" and self.strict and self.registry.provider not in ("mock", "stub"):
-                raise ValueError("Strict model analysis requires --evidence-pack with retrieved source documents.")
+                    state["evidence_reused_snapshot"] = True
+                state["evidence_checksum"] = evidence_pack.checksum
 
             if mode != "controller":
                 db_path = self.execution_store_path or (target_root / "execution_ledger.db")
@@ -271,6 +241,8 @@ class FUWForgeOrchestrator:
                 resume=is_resume,
             )
         except Exception as exc:
+            if not state.get("dispatch_started"):
+                raise
             payload = self._summary_payload(
                 run_id, params, state, status="halted", halt_reason=str(exc), outputs={}
             )
@@ -308,6 +280,80 @@ class FUWForgeOrchestrator:
             if store is not None:
                 store.close()
 
+    def _preflight(
+        self,
+        params: OrchestratorParams,
+        mode: str,
+        is_resume: bool,
+        recovery_choice: Optional[Union[RecoveryChoice, str]],
+        target_root: Path,
+    ) -> Tuple[Optional[Any], bool]:
+        """Validate refusal conditions without creating or changing run files."""
+        # Preserve archived runs: default existing output must not silently overwrite; explicit resume allowed.
+        if mode == "automated" and not is_resume and target_root.is_dir():
+            has_summary = (target_root / "run_summary.json").is_file()
+            has_envelopes = bool(list(target_root.glob("*_envelope.json")))
+            if has_summary or has_envelopes:
+                raise FileExistsError(
+                    f"Run directory '{target_root}' already contains an existing run. "
+                    "Default execution will not silently overwrite archived runs. Pass resume=True or use a fresh directory."
+                )
+
+        from src.evidence import EvidencePack
+
+        self.evidence_pack = None
+        pack = None
+        snapshot_evidence = False
+        if self.evidence_pack_path:
+            pack = EvidencePack(
+                self.evidence_pack_path,
+                ticker=params.ticker,
+                analysis_date=params.analysis_date,
+            )
+            evidence_dir = target_root / "evidence"
+            if evidence_dir.is_dir():
+                # Re-verify the sealed bytes that earlier envelopes used.
+                existing = EvidencePack(
+                    evidence_dir / "evidence.json",
+                    ticker=params.ticker,
+                    analysis_date=params.analysis_date,
+                )
+                if existing.checksum != pack.checksum:
+                    raise ValueError(
+                        f"Run directory '{target_root}' already holds a different "
+                        "evidence snapshot than the supplied --evidence-pack. Resuming "
+                        "against changed evidence would invalidate prior receipts; "
+                        "use a fresh directory instead."
+                    )
+                pack = existing
+                self.evidence_pack = existing
+            else:
+                snapshot_evidence = True
+        elif mode == "automated" and self.strict and self.registry.provider not in ("mock", "stub"):
+            raise ValueError("Strict model analysis requires --evidence-pack with retrieved source documents.")
+
+        if mode != "controller" and is_resume and recovery_choice is not None:
+            choice = (
+                recovery_choice.value
+                if isinstance(recovery_choice, RecoveryChoice)
+                else str(recovery_choice)
+            )
+            if choice not in (RecoveryChoice.RETRY.value, RecoveryChoice.ABANDON.value):
+                raise ValueError(
+                    f"Invalid recovery choice '{choice}'. Must be 'retry' or 'abandon'."
+                )
+
+        if mode != "controller" and is_resume:
+            db_path = self.execution_store_path or (target_root / "execution_ledger.db")
+            needing = unresolved_recovery_agents(db_path)
+            if needing and not recovery_choice:
+                raise RuntimeError(
+                    f"Uncertain completion(s) detected for agents {needing} on resume. "
+                    "An explicit recovery choice is required: specify recovery_choice='retry' or 'abandon'."
+                )
+
+        return pack, snapshot_evidence
+
     def _run_pipeline(
         self,
         run_id: str,
@@ -341,6 +387,9 @@ class FUWForgeOrchestrator:
         envelopes: Dict[str, Envelope] = {}
         state["envelopes"] = envelopes
 
+        def mark_dispatch() -> None:
+            state["dispatch_started"] = True
+
         # Phase 1 — A1 Gate
         metrics.start_agent("A1")
         execution = self._run_agent(
@@ -356,6 +405,7 @@ class FUWForgeOrchestrator:
             envelopes,
             store=store,
             resume=resume,
+            on_dispatch=mark_dispatch,
         )
         a1_env = self._accept_agent(
             "A1",
@@ -402,6 +452,7 @@ class FUWForgeOrchestrator:
                     envelopes,
                     store=store,
                     resume=resume,
+                    on_dispatch=mark_dispatch,
                 )
         else:
             with concurrent.futures.ThreadPoolExecutor(
@@ -422,6 +473,8 @@ class FUWForgeOrchestrator:
                         envelopes,
                         store,
                         resume,
+                        None,
+                        mark_dispatch,
                     ): aid
                     for aid in phase2_ids
                 }
@@ -462,6 +515,7 @@ class FUWForgeOrchestrator:
             envelopes,
             store=store,
             resume=resume,
+            on_dispatch=mark_dispatch,
         )
         envelopes["A6B"] = self._accept_agent(
             "A6B",
@@ -500,6 +554,7 @@ class FUWForgeOrchestrator:
                 store=store,
                 resume=resume,
                 challenge_initial={"phase": "independent", "instructions": "Generate independent bearish hypotheses without the bull case. Use local thesis identifiers in bull_id; reconciliation will map these later."},
+                on_dispatch=mark_dispatch,
             )
             initial_root = output_root / "challenge_initial"
             initial_root.mkdir(exist_ok=True)
@@ -522,6 +577,7 @@ class FUWForgeOrchestrator:
                 store=store,
                 resume=resume,
                 challenge_initial=initial_env.to_dict(),
+                on_dispatch=mark_dispatch,
             )
             # Preserve initial bear theses and reconciliation record inside A6R artifacts
             init_theses = (
@@ -566,6 +622,7 @@ class FUWForgeOrchestrator:
                 envelopes,
                 store=store,
                 resume=resume,
+                on_dispatch=mark_dispatch,
             )
             envelopes["A6R"] = self._accept_agent(
                 "A6R",
@@ -596,6 +653,7 @@ class FUWForgeOrchestrator:
             envelopes,
             store=store,
             resume=resume,
+            on_dispatch=mark_dispatch,
         )
         envelopes["A6"] = self._accept_agent(
             "A6",
@@ -626,6 +684,7 @@ class FUWForgeOrchestrator:
             envelopes,
             store=store,
             resume=resume,
+            on_dispatch=mark_dispatch,
         )
         envelopes["A7"] = self._accept_agent(
             "A7",
@@ -676,6 +735,7 @@ class FUWForgeOrchestrator:
         envelopes: Optional[Dict[str, Envelope]] = None,
         store: Optional[ExecutionStore] = None, resume: bool = False,
         challenge_initial: Optional[Dict[str, Any]] = None,
+        on_dispatch: Optional[Callable[[], None]] = None,
     ) -> AgentExecution:
         """Freeze inputs and persist a request before execution; reuse validated bytes only."""
         import hashlib
@@ -707,6 +767,8 @@ class FUWForgeOrchestrator:
         key = ""
         identity: Dict[str, Any] = {}
         if mode == "controller":
+            if on_dispatch is not None:
+                on_dispatch()
             path = output_root / f"{agent_id.lower()}_envelope.json"
             data = json.loads(path.read_text(encoding="utf-8"))
             output = AgentOutput(Envelope.from_dict(data), {"controller": True, "raw_data": data})
@@ -733,15 +795,17 @@ class FUWForgeOrchestrator:
                 "request_sha256": request_hash, "evidence_sha256": evidence_hash}
             if store and resume:
                 receipt = store.get(key)
-                if receipt and receipt.is_safely_reusable():
+                if receipt and receipt.recovery_choice == RecoveryChoice.ABANDON.value:
+                    raise RuntimeError(f"{agent_id}: execution explicitly abandoned")
+                if receipt and receipt.state == ExecutionState.VALIDATED.value:
+                    if not receipt.is_safely_reusable():
+                        raise RuntimeError(f"{agent_id}: reusable receipt checksum mismatch")
                     payload = receipt.accepted_envelope
-                    if not isinstance(payload, dict) or envelope_content_checksum(payload) != receipt.accepted_checksum:
+                    if not isinstance(payload, dict):
                         raise RuntimeError(f"{agent_id}: reusable receipt checksum mismatch")
                     env = Envelope.from_dict(payload)
                     return AgentExecution(env, env.to_dict(), {**identity, "reused": True, "usage": receipt.usage},
                         0, 1, refs, key, snapshot, True)
-                if receipt and receipt.recovery_choice == RecoveryChoice.ABANDON.value:
-                    raise RuntimeError(f"{agent_id}: execution explicitly abandoned")
                 if receipt and receipt.raw_response is not None:
                     # The provider already answered and the bytes are on disk. A
                     # local normalization or validation failure is recoverable
@@ -773,6 +837,8 @@ class FUWForgeOrchestrator:
                     key, {"raw": str(raw)}, usage=getattr(raw, "usage", None))
                 context.on_repair_start = lambda error, prompt_hash: store.begin_repair(key, error, prompt_hash)
             print(f"[{_now_iso()}] [ORCH] Starting agent {agent_id} ({agent.name})...", flush=True)
+            if on_dispatch is not None:
+                on_dispatch()
             try:
                 output = agent.run(context)
             except Exception:

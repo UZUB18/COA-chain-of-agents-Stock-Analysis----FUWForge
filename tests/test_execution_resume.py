@@ -21,6 +21,7 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
+import sqlite3
 import sys
 import tempfile
 from typing import Any, Dict
@@ -37,20 +38,23 @@ from src.execution_identity import (
     execution_key,
     true_descendants,
 )
+from src.agents.registry import model_registry
+from src.agents.base import BaseAgent
 from src.execution_store import (
     ExecutionReceipt,
     ExecutionState,
     ExecutionStore,
     RecoveryChoice,
     compute_raw_checksum,
+    unresolved_recovery_agents,
     validate_receipt,
 )
 from src.orchestrator import FUWForgeOrchestrator, OrchestratorParams
+from src.utils.checksum import envelope_content_checksum
 
 
 CHECKSUM_A1 = "sha256:" + "a" * 64
 CHECKSUM_A2 = "sha256:" + "b" * 64
-CHECKSUM_A3 = "sha256:" + "c" * 64
 PROMPT_HASH_1 = "sha256:" + "1" * 64
 PROMPT_HASH_2 = "sha256:" + "2" * 64
 EVIDENCE_HASH_1 = "sha256:" + "e" * 64
@@ -71,7 +75,7 @@ def _sample_raw_response() -> Dict[str, Any]:
 
 
 def _sample_accepted_envelope(agent_id: str = "A1", checksum: str = CHECKSUM_A1) -> Dict[str, Any]:
-    return {
+    envelope = {
         "schema_version": "2.1",
         "agent": {"id": agent_id, "name": f"Agent {agent_id}"},
         "gates": {"passed": True, "notes": ["All criteria met"]},
@@ -79,8 +83,9 @@ def _sample_accepted_envelope(agent_id: str = "A1", checksum: str = CHECKSUM_A1)
         "artifacts": {"data": 123},
         "sources": [],
         "metrics": {"data_checksum": checksum},
-        "content_checksum": checksum,
     }
+    envelope["content_checksum"] = envelope_content_checksum(envelope)
+    return envelope
 
 
 # -----------------------------------------------------------------------------
@@ -178,7 +183,11 @@ def test_validated_node_is_reusable_without_provider_call():
     store.mark_returned(key, raw_response=raw, usage={"total_tokens": 200})
 
     envelope = _sample_accepted_envelope("A2", CHECKSUM_A2)
-    receipt = store.mark_validated(key, accepted_envelope=envelope, accepted_checksum=CHECKSUM_A2)
+    receipt = store.mark_validated(
+        key,
+        accepted_envelope=envelope,
+        accepted_checksum=envelope["content_checksum"],
+    )
 
     assert receipt.state == ExecutionState.VALIDATED.value
     assert receipt.is_validated()
@@ -391,7 +400,12 @@ def test_recorded_recovery_decision_clears_the_obligation():
         # Only a node that actually returned AND validated is ever reusable.
         store.mark_returned(key, {"ok": True})
         assert not store.is_reusable(key)
-        store.mark_validated(key, _sample_accepted_envelope("A3"), accepted_checksum=CHECKSUM_A3)
+        accepted_envelope = _sample_accepted_envelope("A3")
+        store.mark_validated(
+            key,
+            accepted_envelope,
+            accepted_checksum=accepted_envelope["content_checksum"],
+        )
         assert store.is_reusable(key)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -481,7 +495,7 @@ def test_raw_checksum_and_accepted_checksum_stored_distinctly():
     store.mark_returned(key, raw_response=raw_data, raw_checksum=custom_raw_ck)
 
     accepted_env = _sample_accepted_envelope("A2", CHECKSUM_A2)
-    custom_acc_ck = CHECKSUM_A2
+    custom_acc_ck = accepted_env["content_checksum"]
     receipt = store.mark_validated(key, accepted_envelope=accepted_env, accepted_checksum=custom_acc_ck)
 
     assert receipt.raw_checksum == custom_raw_ck
@@ -512,10 +526,11 @@ def test_receipt_validates_against_json_schema():
         usage={"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
         latency_ms=120,
     )
+    accepted_envelope = _sample_accepted_envelope("A2", CHECKSUM_A2)
     receipt = store.mark_validated(
         key,
-        accepted_envelope=_sample_accepted_envelope("A2", CHECKSUM_A2),
-        accepted_checksum=CHECKSUM_A2,
+        accepted_envelope=accepted_envelope,
+        accepted_checksum=accepted_envelope["content_checksum"],
     )
 
     data = receipt.to_dict()
@@ -657,6 +672,24 @@ def _resume_params() -> OrchestratorParams:
     )
 
 
+def _run_tree_bytes(root: Path) -> Dict[str, bytes | None]:
+    return {
+        str(path.relative_to(root)): None if path.is_dir() else path.read_bytes()
+        for path in sorted(root.rglob("*"))
+    }
+
+
+class _NoDispatchBackend:
+    model = "no-dispatch"
+
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, prompt: str) -> str:  # pragma: no cover - only on violation
+        self.calls += 1
+        raise AssertionError("a refused resume must not dispatch to the provider")
+
+
 def test_resume_reuses_existing_evidence_snapshot_instead_of_overwriting():
     """
     A resumed run already owns its evidence directory. Re-snapshotting used to
@@ -705,15 +738,385 @@ def test_resume_against_changed_evidence_is_refused():
             PROJECT_ROOT, provider="mock", model="mock-v1", evidence_pack=original
         )
         first.run("resume_run", _resume_params(), output_root=run_dir)
+        before = _run_tree_bytes(run_dir)
 
         changed = _make_evidence_pack(tmp / "pack_b", "Revenue: 999. Different filing.")
+        backend = _NoDispatchBackend()
         second = FUWForgeOrchestrator(
-            PROJECT_ROOT, provider="mock", model="mock-v1", evidence_pack=changed
+            PROJECT_ROOT,
+            registry=model_registry(backend, provider="recording"),
+            evidence_pack=changed,
         )
-        with pytest.raises(ValueError, match="different evidence snapshot"):
+        with pytest.raises(ValueError) as raised:
             second.run("resume_run", _resume_params(), output_root=run_dir, resume=True)
+        assert str(raised.value) == (
+            f"Run directory '{run_dir}' already holds a different evidence snapshot "
+            "than the supplied --evidence-pack. Resuming against changed evidence "
+            "would invalidate prior receipts; use a fresh directory instead."
+        )
+        assert backend.calls == 0
+        assert _run_tree_bytes(run_dir) == before
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_resume_with_uncertain_receipt_in_wal_is_refused_without_mutation():
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_resume_wal_"))
+    store = None
+    try:
+        run_dir = tmp / "run"
+        FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1").run(
+            "resume_run", _resume_params(), output_root=run_dir
+        )
+
+        db_path = run_dir / "execution_ledger.db"
+        store = ExecutionStore(db_path)
+        store._conn.execute("PRAGMA wal_autocheckpoint=0")
+        key = store.begin(
+            agent_id="A1",
+            provider="mock",
+            model="mock-v1",
+            prompt_sha256=PROMPT_HASH_1,
+            evidence_sha256=EVIDENCE_HASH_1,
+            upstream=(),
+            execution_key="uncertain-a1",
+        )
+        store.mark_returned(key, raw_response={"raw": "provider returned"})
+        assert Path(f"{db_path}-wal").is_file()
+        before = _run_tree_bytes(run_dir)
+
+        backend = _NoDispatchBackend()
+        runner = FUWForgeOrchestrator(
+            PROJECT_ROOT, registry=model_registry(backend, provider="recording")
+        )
+        with pytest.raises(RuntimeError) as raised:
+            runner.run("resume_run", _resume_params(), output_root=run_dir, resume=True)
+
+        assert str(raised.value) == (
+            "Uncertain completion(s) detected for agents ['A1'] on resume. "
+            "An explicit recovery choice is required: specify "
+            "recovery_choice='retry' or 'abandon'."
+        )
+        assert backend.calls == 0
+        assert store.get(key).state == ExecutionState.RETURNED.value
+        assert _run_tree_bytes(run_dir) == before
+    finally:
+        if store is not None:
+            store.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_ledger_inspection_fails_closed_when_corrupt(tmp_path):
+    db_path = tmp_path / "execution_ledger.db"
+    db_path.write_bytes(b"not sqlite")
+    with pytest.raises(RuntimeError, match="cannot be inspected safely"):
+        unresolved_recovery_agents(db_path)
+
+
+def test_existing_ledger_without_receipt_schema_fails_closed(tmp_path):
+    db_path = tmp_path / "execution_ledger.db"
+    with sqlite3.connect(db_path) as connection:
+        connection.execute("CREATE TABLE unrelated (id TEXT)")
+    with pytest.raises(RuntimeError, match="execution_receipts"):
+        unresolved_recovery_agents(db_path)
+
+
+def test_invalid_recovery_choice_preserves_run_tree(tmp_path):
+    run_dir = tmp_path / "run"
+    FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1").run(
+        "resume_run", _resume_params(), output_root=run_dir
+    )
+    with ExecutionStore(run_dir / "execution_ledger.db") as store:
+        key = store.begin(
+            agent_id="A1",
+            provider="mock",
+            model="mock-v1",
+            prompt_sha256=PROMPT_HASH_1,
+            evidence_sha256=EVIDENCE_HASH_1,
+            upstream=(),
+            execution_key="uncertain-a1",
+        )
+        store.mark_returned(key, raw_response={"raw": "provider returned"})
+    before = _run_tree_bytes(run_dir)
+
+    backend = _NoDispatchBackend()
+    runner = FUWForgeOrchestrator(
+        PROJECT_ROOT, registry=model_registry(backend, provider="recording")
+    )
+    with pytest.raises(ValueError) as raised:
+        runner.run(
+            "resume_run",
+            _resume_params(),
+            output_root=run_dir,
+            resume=True,
+            recovery_choice="bogus",
+        )
+
+    assert str(raised.value) == (
+        "Invalid recovery choice 'bogus'. Must be 'retry' or 'abandon'."
+    )
+    assert backend.calls == 0
+    assert _run_tree_bytes(run_dir) == before
+
+
+@pytest.mark.parametrize(
+    "choice, expected_state",
+    [("retry", ExecutionState.RUNNING.value), ("abandon", ExecutionState.FAILED.value)],
+)
+def test_explicit_recovery_choice_allows_resume(tmp_path, choice, expected_state):
+    run_dir = tmp_path / "run"
+    runner = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1")
+    runner.run("resume_run", _resume_params(), output_root=run_dir)
+
+    with ExecutionStore(run_dir / "execution_ledger.db") as store:
+        key = store.begin(
+            agent_id="A1",
+            provider="mock",
+            model="mock-v1",
+            prompt_sha256=PROMPT_HASH_1,
+            evidence_sha256=EVIDENCE_HASH_1,
+            upstream=(),
+            execution_key="uncertain-a1",
+        )
+        store.mark_returned(key, raw_response={"raw": "provider returned"})
+
+    summary = runner.run(
+        "resume_run",
+        _resume_params(),
+        output_root=run_dir,
+        resume=True,
+        recovery_choice=choice,
+    )
+
+    assert summary["status"] == "completed"
+    with ExecutionStore(run_dir / "execution_ledger.db") as store:
+        receipt = store.get(key)
+        assert receipt.recovery_choice == choice
+        assert receipt.state == expected_state
+
+
+def test_strict_resume_without_evidence_is_refused_without_mutation():
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_resume_strict_"))
+    try:
+        run_dir = tmp / "run"
+        FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1").run(
+            "resume_run", _resume_params(), output_root=run_dir
+        )
+        before = _run_tree_bytes(run_dir)
+
+        backend = _NoDispatchBackend()
+        runner = FUWForgeOrchestrator(
+            PROJECT_ROOT,
+            registry=model_registry(backend, provider="recording", strict=True),
+            strict=True,
+        )
+        with pytest.raises(ValueError) as raised:
+            runner.run("resume_run", _resume_params(), output_root=run_dir, resume=True)
+
+        assert str(raised.value) == (
+            "Strict model analysis requires --evidence-pack with retrieved source documents."
+        )
+        assert backend.calls == 0
+        assert _run_tree_bytes(run_dir) == before
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_resume_halt_after_dispatch_is_still_recorded(tmp_path):
+    run_dir = tmp_path / "run"
+    runner = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1")
+    runner.run("resume_run", _resume_params(), output_root=run_dir)
+
+    failing_params = _resume_params()
+    failing_params.__dict__["fail_gate"] = True
+    with pytest.raises(RuntimeError, match="A1 gate failure"):
+        runner.run("resume_run", failing_params, output_root=run_dir, resume=True)
+
+    summary = json.loads((run_dir / "run_summary.json").read_text(encoding="utf-8"))
+    manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
+    assert summary["status"] == "halted"
+    assert manifest["status"] == "halted"
+    assert "A1 gate failure" in summary["halt_reason"]
+
+
+def test_resume_halt_after_reused_agents_is_still_recorded(tmp_path):
+    run_dir = tmp_path / "run"
+    params = _resume_params()
+    FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1").run(
+        "resume_run", params, output_root=run_dir
+    )
+
+    class LateFailureAgent(BaseAgent):
+        id = "A6"
+        name = "CIO-Synthesis"
+
+        def run(self, context):
+            raise RuntimeError("late dispatch failure")
+
+    runner = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1")
+    runner.registry.register_instance(LateFailureAgent())
+    with pytest.raises(RuntimeError, match="late dispatch failure"):
+        runner.run("resume_run", params, output_root=run_dir, resume=True)
+
+    summary = json.loads((run_dir / "run_summary.json").read_text(encoding="utf-8"))
+    manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
+    assert summary["status"] == "halted"
+    assert manifest["status"] == "halted"
+    assert "late dispatch failure" in summary["halt_reason"]
+
+
+def test_failure_before_dispatch_does_not_create_halted_outputs(tmp_path):
+    run_dir = tmp_path / "run"
+    backend = _NoDispatchBackend()
+    runner = FUWForgeOrchestrator(
+        PROJECT_ROOT, registry=model_registry(backend, provider="recording")
+    )
+    params = _resume_params()
+    params.depth = "Not a configured depth"
+
+    with pytest.raises(KeyError, match="Unknown depth mode"):
+        runner.run("resume_run", params, output_root=run_dir)
+
+    assert backend.calls == 0
+    assert not (run_dir / "run_summary.json").exists()
+    assert not (run_dir / "run_manifest.json").exists()
+
+
+def test_corrupt_reusable_receipt_preserves_run_tree(tmp_path):
+    run_dir = tmp_path / "run"
+    params = _resume_params()
+    FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1").run(
+        "resume_run", params, output_root=run_dir
+    )
+    with sqlite3.connect(run_dir / "execution_ledger.db") as connection:
+        connection.execute(
+            "UPDATE execution_receipts "
+            "SET accepted_envelope_json = '{}' "
+            "WHERE agent_id = 'A1'"
+        )
+    before = _run_tree_bytes(run_dir)
+
+    runner = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1")
+    original_resolve = runner.registry.resolve
+
+    def resolve_without_dispatch(agent_id):
+        agent = original_resolve(agent_id)
+
+        def must_not_dispatch(context):
+            raise AssertionError("provider was dispatched")
+
+        agent.run = must_not_dispatch
+        return agent
+
+    runner.registry.resolve = resolve_without_dispatch
+    with pytest.raises(RuntimeError, match="reusable receipt checksum mismatch"):
+        runner.run("resume_run", params, output_root=run_dir, resume=True)
+
+    assert _run_tree_bytes(run_dir) == before
+
+
+@pytest.mark.parametrize(
+    "corruption",
+    [
+        "accepted_checksum",
+        "accepted_envelope_json",
+        "embedded_checksum_missing",
+        "embedded_checksum_mismatch",
+    ],
+)
+def test_inconsistent_validated_receipt_preserves_run_tree(tmp_path, corruption):
+    run_dir = tmp_path / "run"
+    params = _resume_params()
+    FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1").run(
+        "resume_run", params, output_root=run_dir
+    )
+    db_path = run_dir / "execution_ledger.db"
+    with sqlite3.connect(db_path) as connection:
+        if corruption in ("accepted_checksum", "accepted_envelope_json"):
+            connection.execute(
+                f"UPDATE execution_receipts SET {corruption} = NULL "
+                "WHERE agent_id = 'A1'"
+            )
+        else:
+            envelope_json, accepted_checksum = connection.execute(
+                "SELECT accepted_envelope_json, accepted_checksum "
+                "FROM execution_receipts WHERE agent_id = 'A1'"
+            ).fetchone()
+            envelope = json.loads(envelope_json)
+            assert envelope_content_checksum(envelope) == accepted_checksum
+            if corruption == "embedded_checksum_missing":
+                envelope.pop("content_checksum")
+            else:
+                envelope["content_checksum"] = "sha256:" + "0" * 64
+            connection.execute(
+                "UPDATE execution_receipts SET accepted_envelope_json = ? "
+                "WHERE agent_id = 'A1'",
+                (json.dumps(envelope),),
+            )
+    before = _run_tree_bytes(run_dir)
+
+    runner = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1")
+    original_resolve = runner.registry.resolve
+    dispatches = []
+
+    def resolve_without_dispatch(agent_id):
+        agent = original_resolve(agent_id)
+
+        def must_not_dispatch(context):
+            dispatches.append(agent_id)
+            raise AssertionError("provider was dispatched")
+
+        agent.run = must_not_dispatch
+        return agent
+
+    runner.registry.resolve = resolve_without_dispatch
+    with pytest.raises(RuntimeError, match="reusable receipt checksum mismatch"):
+        runner.run("resume_run", params, output_root=run_dir, resume=True)
+
+    assert dispatches == []
+    assert _run_tree_bytes(run_dir) == before
+
+
+def test_valid_wal_backed_receipts_are_reused(tmp_path):
+    run_dir = tmp_path / "run"
+    params = _resume_params()
+    FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1").run(
+        "resume_run", params, output_root=run_dir
+    )
+    db_path = run_dir / "execution_ledger.db"
+    connection = sqlite3.connect(db_path)
+    connection.execute("PRAGMA wal_autocheckpoint=0")
+    with connection:
+        connection.execute(
+            "UPDATE execution_receipts SET updated_at = updated_at || ' ' "
+            "WHERE agent_id = 'A1'"
+        )
+    assert Path(f"{db_path}-wal").stat().st_size > 32
+
+    runner = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1")
+    original_resolve = runner.registry.resolve
+    dispatches = []
+
+    def resolve_without_dispatch(agent_id):
+        agent = original_resolve(agent_id)
+
+        def must_not_dispatch(context):
+            dispatches.append(agent_id)
+            raise AssertionError("validated receipt was not reused")
+
+        agent.run = must_not_dispatch
+        return agent
+
+    runner.registry.resolve = resolve_without_dispatch
+    try:
+        summary = runner.run(
+            "resume_run", params, output_root=run_dir, resume=True
+        )
+    finally:
+        connection.close()
+
+    assert summary["status"] == "completed"
+    assert dispatches == []
 
 
 def test_reused_envelopes_preserve_sealed_semantic_bytes():

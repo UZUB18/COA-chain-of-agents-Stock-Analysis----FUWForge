@@ -326,6 +326,4 @@ def test_strict_live_provider_requires_evidence_before_any_api_call(tmp_path):
     params = OrchestratorParams("Test", "TEST", "2025-01-31", "Quick", [], "default")
     with pytest.raises(ValueError, match="requires --evidence-pack"):
         runner.run("strict", params, output_root=tmp_path / "run")
-    summary = json.loads((tmp_path / "run" / "run_summary.json").read_text())
-    assert summary["status"] == "halted"
-    assert summary["metrics"] == {}
+    assert not (tmp_path / "run").exists()
