@@ -1,6 +1,7 @@
 """Regression tests for malformed-envelope recovery, artifact loss and fake sources."""
 import copy
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -285,6 +286,37 @@ def test_real_provider_cli_is_strict_by_default(monkeypatch, capsys, provider, f
     args = controller.build_parser().parse_args(["run", "--ticker", "TEST", "--provider", provider, "--no-web-search", *flags])
     args.func(args)
     assert captured["strict"] is expected_strict
+    capsys.readouterr()
+
+
+@pytest.mark.parametrize("initial", [None, "0"])
+def test_run_cli_does_not_mutate_strict_environment(monkeypatch, capsys, initial):
+    from src import controller
+
+    captured = {}
+
+    class FakeOrchestrator:
+        def __init__(self, *args, **kwargs):
+            captured.update(kwargs)
+
+        def run(self, **kwargs):
+            return {"status": "test"}
+
+    if initial is None:
+        monkeypatch.delenv("FUWFORGE_STRICT", raising=False)
+    else:
+        monkeypatch.setenv("FUWFORGE_STRICT", initial)
+    monkeypatch.setattr(controller, "FUWForgeOrchestrator", FakeOrchestrator)
+    monkeypatch.setattr(
+        controller.sys,
+        "argv",
+        ["fuwforge", "run", "--ticker", "TEST", "--provider", "mock", "--no-web-search", "--strict"],
+    )
+
+    controller.main()
+
+    assert captured["strict"] is True
+    assert os.environ.get("FUWFORGE_STRICT") == initial
     capsys.readouterr()
 
 

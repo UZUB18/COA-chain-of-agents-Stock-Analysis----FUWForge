@@ -116,8 +116,6 @@ def _build_params(args: argparse.Namespace) -> Tuple[OrchestratorParams, bool]:
     )
 
     strict = bool(getattr(args, "strict", False))
-    if strict:
-        os.environ["FUWFORGE_STRICT"] = "1"
 
     params = OrchestratorParams(
         company=company,
