@@ -298,10 +298,11 @@ def _llm_evaluate(
 
     theses_lines = []
     for item in bull_cases:
-        bid = item.get("id", "B")
-        thesis = item.get("thesis", "Thesis claim")
-        impact = item.get("impact", "")
-        theses_lines.append(f"- ID: {bid}, Thesis: \"{thesis}\", Expected impact: \"{impact}\"")
+        if isinstance(item, dict):
+            bid = item.get("id", "B")
+            thesis = item.get("thesis", "Thesis claim")
+            impact = item.get("impact", "")
+            theses_lines.append(f"- ID: {bid}, Thesis: \"{thesis}\", Expected impact: \"{impact}\"")
 
     theses_formatted = "\n".join(theses_lines)
 
@@ -309,10 +310,11 @@ def _llm_evaluate(
     if danger_zone:
         dz_lines = []
         for dz in danger_zone:
-            cat = dz.get("category", "")
-            flag = dz.get("flag", "")
-            note = dz.get("note", "")
-            dz_lines.append(f"- {flag} {cat}: {note}")
+            if isinstance(dz, dict):
+                cat = dz.get("category", "")
+                flag = dz.get("flag", "")
+                note = dz.get("note", "")
+                dz_lines.append(f"- {flag} {cat}: {note}")
         danger_block = "\nKNOWN COMPANY RISKS / DANGER ZONE:\n" + "\n".join(dz_lines) + "\n"
 
     prompt = f"""You are an adversarial equity research sentry for {company} ({ticker}).
@@ -395,11 +397,12 @@ Respond STRICTLY in JSON format with this exact structure:
     threatened: List[Dict[str, Any]] = []
 
     for item in bull_cases:
-        bid = item.get("id", "B")
-        score = _bounded_prob(raw_scores.get(bid), 0.05)
-        contradiction_scores[bid] = round(score, 4)
-        if score >= threshold:
-            threatened.append(item)
+        if isinstance(item, dict):
+            bid = item.get("id", "B")
+            score = _bounded_prob(raw_scores.get(bid), 0.05)
+            contradiction_scores[bid] = round(score, 4)
+            if score >= threshold:
+                threatened.append(item)
 
     requires_rerun = (action == "trigger_deep_rerun") or (len(threatened) > 0)
     return materiality, mat_prob, action, act_prob, contradiction_scores, threatened, requires_rerun
