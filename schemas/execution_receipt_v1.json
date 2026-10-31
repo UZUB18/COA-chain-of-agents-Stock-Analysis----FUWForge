@@ -34,6 +34,7 @@
       "enum": [
         "pending",
         "running",
+        "searching",
         "returned",
         "validated",
         "failed",

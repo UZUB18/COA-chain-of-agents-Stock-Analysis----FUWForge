@@ -20,7 +20,7 @@ import html
 import json
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -301,6 +301,7 @@ class PresentationModel:
     data_gaps: List[Dict[str, str]]
     sources: List[Dict[str, Any]]
     palette: Dict[str, Any]
+    targeted_searches: List[Dict[str, Any]] = field(default_factory=list)
 
 
 def extract_presentation_model(
@@ -440,6 +441,21 @@ def extract_presentation_model(
                         seen_urls.add(url)
                         sources.append(src)
 
+    # Extract targeted searches
+    targeted_searches: List[Dict[str, Any]] = []
+    for agent_id, env in artifacts_data.items():
+        if isinstance(env, dict):
+            metrics = env.get("metrics", {})
+            st = metrics.get("search_status")
+            if st and st != "not_triggered":
+                trig = metrics.get("search_trigger") or {}
+                targeted_searches.append({
+                    "agent": agent_id,
+                    "status": str(st),
+                    "reason": str(trig.get("reason", "N/A")),
+                    "checksum": str(metrics.get("search_bundle_checksum") or "N/A"),
+                })
+
     active_palette = palette or DEFAULT_PALETTE
 
     return PresentationModel(
@@ -458,6 +474,7 @@ def extract_presentation_model(
         data_gaps=data_gaps,
         sources=sources,
         palette=active_palette,
+        targeted_searches=targeted_searches,
     )
 
 
@@ -963,6 +980,30 @@ def generate_html_report(model: PresentationModel) -> str:
     else:
         gap_rows_html = '<tr><td colspan="3">No unexcused data gaps recorded.</td></tr>'
 
+    # Format Targeted Searches
+    ts_table_html = ""
+    if model.targeted_searches:
+        ts_rows = ""
+        for ts in model.targeted_searches:
+            ag = html.escape(ts["agent"])
+            st = html.escape(ts["status"])
+            rsn = html.escape(ts["reason"])
+            cks = html.escape(ts["checksum"])
+            ts_rows += f"<tr><td>{ag}</td><td><span class='pill pill-watch'>{st}</span></td><td>{rsn}</td><td><code>{cks}</code></td></tr>"
+        ts_table_html = f"""
+        <h3 style="margin-top: 1.5rem; font-size: 1rem;">Targeted Research Web Searches</h3>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr><th>Agent</th><th>Status</th><th>Reason / Trigger</th><th>Bundle Checksum</th></tr>
+            </thead>
+            <tbody>
+              {ts_rows}
+            </tbody>
+          </table>
+        </div>
+        """
+
     # Format Sources
     source_rows_html = ""
     if model.sources:
@@ -1126,6 +1167,7 @@ def generate_html_report(model: PresentationModel) -> str:
             </tbody>
           </table>
         </div>
+        {ts_table_html}
       </section>
 
       <section id="sources" class="card-section" aria-labelledby="heading-sources">

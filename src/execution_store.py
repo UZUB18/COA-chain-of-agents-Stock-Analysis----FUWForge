@@ -102,6 +102,7 @@ class ExecutionState(str, Enum):
 
     PENDING = "pending"
     RUNNING = "running"
+    SEARCHING = "searching"
     RETURNED = "returned"
     VALIDATED = "validated"
     FAILED = "failed"
@@ -396,9 +397,14 @@ class ExecutionStore:
         "begin_repair": frozenset({
             ExecutionState.RETURNED.value,
         }),
+        "begin_search": frozenset({
+            ExecutionState.RUNNING.value,
+            ExecutionState.RETURNED.value,
+        }),
         "mark_returned": frozenset({
             ExecutionState.PENDING.value,
             ExecutionState.RUNNING.value,
+            ExecutionState.SEARCHING.value,
             ExecutionState.RETURNED.value,
             ExecutionState.UNKNOWN_COMPLETION.value,
             ExecutionState.FAILED.value,
@@ -409,6 +415,7 @@ class ExecutionStore:
         "mark_failed": frozenset({
             ExecutionState.PENDING.value,
             ExecutionState.RUNNING.value,
+            ExecutionState.SEARCHING.value,
             ExecutionState.RETURNED.value,
             ExecutionState.UNKNOWN_COMPLETION.value,
             ExecutionState.FAILED.value,
@@ -416,17 +423,20 @@ class ExecutionStore:
         "mark_unknown_completion": frozenset({
             ExecutionState.PENDING.value,
             ExecutionState.RUNNING.value,
+            ExecutionState.SEARCHING.value,
             ExecutionState.RETURNED.value,
             ExecutionState.UNKNOWN_COMPLETION.value,
         }),
         "resolve_recovery": frozenset({
             ExecutionState.RUNNING.value,
+            ExecutionState.SEARCHING.value,
             ExecutionState.RETURNED.value,
             ExecutionState.UNKNOWN_COMPLETION.value,
             ExecutionState.FAILED.value,
         }),
         "reconcile_unvalidated_on_resume": frozenset({
             ExecutionState.RUNNING.value,
+            ExecutionState.SEARCHING.value,
             ExecutionState.RETURNED.value,
         }),
     }
@@ -773,6 +783,25 @@ class ExecutionStore:
             )
             if cursor.rowcount == 0:
                 raise ValueError(f"Illegal state transition on begin_repair for key {execution_key}")
+
+    def begin_search(self, execution_key: str) -> None:
+        """Mark receipt as searching during targeted search invocation."""
+        with self._conn:
+            row = self._conn.execute(
+                "SELECT state FROM execution_receipts WHERE execution_key = ?",
+                (execution_key,),
+            ).fetchone()
+            if not row:
+                raise ValueError(f"No execution receipt found for key {execution_key}")
+            self._check_transition("begin_search", row)
+            cursor = self._conn.execute(
+                """UPDATE execution_receipts
+                    SET state = ?, updated_at = ?
+                    WHERE execution_key = ? AND state = ?""",
+                (ExecutionState.SEARCHING.value, _now_iso(), execution_key, row["state"]),
+            )
+            if cursor.rowcount == 0:
+                raise ValueError(f"Illegal state transition on begin_search for key {execution_key}")
 
     def mark_returned(
         self,
@@ -1138,7 +1167,7 @@ class ExecutionStore:
             """
             SELECT execution_key, agent_id, state
             FROM execution_receipts
-            WHERE state IN ('running', 'returned')
+            WHERE state IN ('running', 'searching', 'returned')
             """
         )
         rows = cursor.fetchall()

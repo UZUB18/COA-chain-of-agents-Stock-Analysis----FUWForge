@@ -1080,6 +1080,8 @@ class ModelAgent(BaseAgent):
         attempts = 0
         usage_attempts: List[Optional[Dict[str, Any]]] = []
         started = time.perf_counter()
+        search_info: Optional[Dict[str, Any]] = None
+        search_performed = False
 
         # Durable runs permit one repair only after a response is recorded.
         retries = min(self.max_retries, 1) if context.on_provider_return else self.max_retries
@@ -1111,10 +1113,82 @@ class ModelAgent(BaseAgent):
                     expected_company=context.params.get("ticker"),
                     cutoff=context.params.get("analysis_date"),
                 )
+
+                # Conditional targeted web search
+                if not search_performed and attempt == 0:
+                    from src.targeted_search import (
+                        detect_search_trigger,
+                        format_untrusted_search_sources,
+                        perform_targeted_search,
+                        SearchOutcome,
+                    )
+                    trigger = detect_search_trigger(
+                        self.id,
+                        parsed_dict,
+                        contract.errors if not contract.valid else [],
+                        context.envelopes,
+                    )
+                    if trigger is not None:
+                        search_performed = True
+                        if context.on_search_start:
+                            context.on_search_start()
+                        outcome, b_dir, b_checksum, s_usage, accepted_sources = perform_targeted_search(
+                            trigger=trigger,
+                            output_root=context.workdir,
+                            execution_id=f"{getattr(context, 'run_id', 'run')}_{self.id}",
+                            ticker=context.params.get("ticker", ""),
+                            company=context.params.get("company", ""),
+                            analysis_date=context.params.get("analysis_date", ""),
+                            web_search_enabled=getattr(context, "web_search", True),
+                            is_mock=getattr(self.backend, "is_mock", False),
+                            is_controller=False,
+                            gemini_backend=getattr(context, "gemini_backend", None),
+                            existing_round=0,
+                        )
+                        search_info = {
+                            "status": outcome.value,
+                            "bundle_checksum": b_checksum,
+                            "trigger": trigger.to_dict(),
+                            "usage": s_usage,
+                        }
+                        if outcome == SearchOutcome.ACCEPTED_SOURCES and b_dir:
+                            for s in accepted_sources:
+                                context.source_documents.append({
+                                    "url": s["url"],
+                                    "title": s["title"],
+                                    "doc_date": s["published_date"],
+                                    "verification": "retrieved",
+                                })
+                            src_block = format_untrusted_search_sources(accepted_sources, b_dir)
+                            prompt = (
+                                f"{prompt}\n\n"
+                                f"{src_block}\n\n"
+                                f"Revise your analysis for {self.id} to address the following issue using the newly retrieved evidence:\n"
+                                f"{trigger.reason}"
+                            )
+                            raise ValueError(f"Targeted search retrieved sources for issue: {trigger.reason}")
+
                 if not contract.valid and envelope.gates.get("passed") is not False:
                     raise ValueError(
                         "Contract violations: " + "; ".join(contract.errors)
                     )
+
+                from src.targeted_search import verify_search_conflict, SearchConflictError
+                conflict = verify_search_conflict(envelope, context.envelopes)
+                if conflict:
+                    raise SearchConflictError(conflict)
+
+                if search_info is not None:
+                    envelope.metrics["search_status"] = search_info["status"]
+                    if search_info.get("bundle_checksum"):
+                        envelope.metrics["search_bundle_checksum"] = search_info["bundle_checksum"]
+                    if search_info.get("trigger"):
+                        envelope.metrics["search_trigger"] = search_info["trigger"]
+                    if search_info.get("usage"):
+                        envelope.metrics.setdefault("telemetry", {})["search_usage"] = search_info["usage"]
+                else:
+                    envelope.metrics["search_status"] = "not_triggered"
+
                 return AgentOutput(
                     envelope=envelope,
                     raw_response={
@@ -1133,7 +1207,9 @@ class ModelAgent(BaseAgent):
                 )
             except Exception as exc:
                 last_error = exc
-                retry = attempt < retries and (
+                from src.targeted_search import SearchConflictError
+                is_conflict = isinstance(exc, SearchConflictError)
+                retry = (not is_conflict) and attempt < retries and (
                     not context.on_provider_return
                     or (recorded_response and isinstance(exc, ValueError) and context.on_repair_start is not None)
                 )

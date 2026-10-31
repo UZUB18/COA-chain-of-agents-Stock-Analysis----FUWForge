@@ -81,6 +81,7 @@ class OrchestratorParams:
     independent_bear: bool = False
     html_report: bool = True
     brand_search: bool = False
+    web_search: bool = True
 
 
 @dataclass
@@ -811,12 +812,24 @@ class FUWForgeOrchestrator:
         ledger = copy.deepcopy({
             fact.id: fact for fact in self.evidence_pack.get_facts(as_of=params.analysis_date)
         }) if self.evidence_pack else {}
+        upstream_sources = list(self.evidence_pack.sources() if self.evidence_pack else [])
+        for up_env in snapshot.values():
+            ts_art = (up_env.artifacts or {}).get("_targeted_search")
+            if isinstance(ts_art, dict) and isinstance(ts_art.get("sources"), list):
+                for s in ts_art["sources"]:
+                    if isinstance(s, dict) and s.get("url"):
+                        upstream_sources.append({
+                            "url": s["url"],
+                            "title": s.get("title", "Web source"),
+                            "doc_date": s.get("published_date"),
+                            "verification": "retrieved",
+                        })
         context = AgentContext(
             run_id=run_id, params=copy.deepcopy(params.__dict__),
             depth_config=copy.deepcopy(depth_config), focus_overrides=copy.deepcopy(focus_overrides),
             frozen_checksum=frozen_checksum or "", workdir=output_root,
             provenance_path=provenance.path, envelopes=snapshot,
-            source_documents=self.evidence_pack.sources() if self.evidence_pack else [],
+            source_documents=upstream_sources,
             source_text=self.evidence_pack.prompt_text() if self.evidence_pack else "",
             evidence_checksum=self.evidence_pack.checksum if self.evidence_pack else "",
             fact_ledger=ledger,
@@ -828,6 +841,7 @@ class FUWForgeOrchestrator:
                 if self.evidence_pack and agent_id == "A3" else {}
             ),
             challenge_initial=copy.deepcopy(challenge_initial),
+            web_search=bool(getattr(params, "web_search", True)),
         )
         started = time.perf_counter()
         key = ""
@@ -963,6 +977,7 @@ class FUWForgeOrchestrator:
                 context.on_provider_return = lambda raw: store.mark_returned(
                     key, {"raw": str(raw)}, usage=getattr(raw, "usage", None))
                 context.on_repair_start = lambda error, prompt_hash: store.begin_repair(key, error, prompt_hash)
+                context.on_search_start = lambda: store.begin_search(key)
             print(f"[{_now_iso()}] [ORCH] Starting agent {agent_id} ({agent.name})...", flush=True)
             if on_dispatch is not None:
                 on_dispatch()
@@ -1237,6 +1252,15 @@ class FUWForgeOrchestrator:
             raise
 
         if mode != "controller" and not execution.reused:
+            bundle_cksum = env.metrics.get("search_bundle_checksum")
+            if bundle_cksum:
+                folded_evidence_hash = digest([context.evidence_checksum or None, bundle_cksum])
+                execution.execution_key = execution_key(
+                    provider=provider, model=model, prompt_sha256=request_hash,
+                    evidence_sha256=folded_evidence_hash, upstream=refs,
+                )
+                execution.raw_response["evidence_sha256"] = folded_evidence_hash
+
             # Seal the lineage captured at execution time. The parallel phase
             # collects all four results before accepting any, so reading
             # `envelopes` here would attribute earlier-accepted siblings as
@@ -1433,6 +1457,34 @@ class FUWForgeOrchestrator:
                 for field, reason in sorted(missing.items()):
                     rows.append(f"| {agent_id} | {field} | {cell(reason)} |")
             notice += "\n".join(rows) + "\n\n"
+
+        def cell_val(value: Any) -> str:
+            return str(value).replace(chr(124), chr(92) + chr(124)).replace(chr(10), chr(32))
+
+        targeted_searches = []
+        for agent_id, env in sorted(envelopes.items()):
+            m = env.metrics or {}
+            st = m.get("search_status")
+            if st and st != "not_triggered":
+                trig = m.get("search_trigger") or {}
+                usage = (m.get("telemetry") or {}).get("search_usage")
+                usage_str = str(usage.get("totalTokenCount")) if isinstance(usage, dict) and "totalTokenCount" in usage else "null"
+                targeted_searches.append({
+                    "agent": agent_id,
+                    "status": st,
+                    "reason": trig.get("reason", "N/A"),
+                    "checksum": m.get("search_bundle_checksum") or "N/A",
+                    "usage": usage_str,
+                })
+        if targeted_searches:
+            search_rows = [
+                "### Targeted Web Search",
+                "| Agent | Status | Trigger / Reason | Bundle Checksum | Token Usage |",
+                "| --- | --- | --- | --- | --- |",
+            ]
+            for s in targeted_searches:
+                search_rows.append(f"| {s['agent']} | {cell_val(s['status'])} | {cell_val(s['reason'])} | `{cell_val(s['checksum'])}` | {cell_val(s['usage'])} |")
+            notice += "\n".join(search_rows) + "\n\n"
         report_path.write_text(front_matter + notice + assembled_sections, encoding="utf-8")
 
         artifacts_path = (

@@ -41,6 +41,9 @@ class AgentContext:
     challenge_initial: Optional[Dict[str, Any]] = None
     on_provider_return: Optional[Callable[[str], Any]] = None
     on_repair_start: Optional[Callable[[str, str], Any]] = None
+    web_search: bool = True
+    on_search_start: Optional[Callable[[], Any]] = None
+    gemini_backend: Optional[Any] = None
 
 
 @dataclass

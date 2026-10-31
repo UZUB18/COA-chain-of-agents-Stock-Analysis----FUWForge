@@ -134,6 +134,7 @@ def _build_params(args: argparse.Namespace) -> Tuple[OrchestratorParams, bool]:
         independent_bear=bool(getattr(args, "independent_bear", False)),
         html_report=bool(getattr(args, "html_report", True)),
         brand_search=bool(getattr(args, "brand_search", False)),
+        web_search=bool(getattr(args, "web_search", True) is not False),
     )
     return params, strict
 
@@ -191,7 +192,7 @@ def cmd_run(args: argparse.Namespace) -> None:
     if resume and (getattr(args, "auto_sources", False) or web_enabled):
         raise ValueError("Resume cannot repeat automatic/paid source intake. Drop --auto-sources/--web-search; the run's evidence snapshot is reused.")
     if web_enabled and args.provider != "gemini":
-        raise ValueError("--web-search requires --provider gemini; other providers never incur Gemini research charges.")
+        raise ValueError("--web-search requires --provider gemini; other providers use separately configured Gemini credentials for conditional targeted search.")
     web_max_sources = getattr(args, "web_max_sources", 4)
     if not 1 <= web_max_sources <= 6:
         raise ValueError("--web-max-sources must be between 1 and 6.")
@@ -346,6 +347,7 @@ def _discovered_final_outputs(run_dir: Path) -> Dict[str, List[Path]]:
     discovered: Dict[str, List[Path]] = {}
     for pattern, label in (
         ("*_report.md", "report"),
+        ("*_report.html", "html_report"),
         ("*_artifacts.json", "artifacts"),
         ("*_provenance.log", "provenance"),
         ("run_summary.json", "summary"),

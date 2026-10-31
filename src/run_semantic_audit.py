@@ -33,6 +33,7 @@ Two rules the implementation holds to:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 from dataclasses import dataclass, field
@@ -354,6 +355,13 @@ def build_run_manifest(
             outputs[name] = _output_record(path, run_dir)
             break
 
+    ts_dir = run_dir / "targeted_search"
+    if ts_dir.is_dir():
+        for path in sorted(ts_dir.glob("**/*")):
+            if path.is_file():
+                rel = str(path.relative_to(run_dir))
+                outputs[f"targeted_search:{rel}"] = _output_record(path, run_dir)
+
     provenance_out: Dict[str, Any] = {}
     if "provenance" in outputs:
         prov_path = run_dir / outputs["provenance"]["path"]
@@ -600,6 +608,35 @@ def _load_fact_ledger(
         problems.append(
             "manifest records verified evidence pack, but evidence directory is missing from run directory"
         )
+
+    # Targeted search bundle verification
+    ts_dir = run_dir / "targeted_search"
+    if ts_dir.is_dir():
+        for exec_dir in sorted(ts_dir.iterdir()):
+            if not exec_dir.is_dir():
+                continue
+            manifest_file = exec_dir / "search_manifest.json"
+            if not manifest_file.is_file():
+                problems.append(f"targeted search bundle {exec_dir.name} is missing search_manifest.json")
+                continue
+            try:
+                m_data = json.loads(manifest_file.read_text(encoding="utf-8"))
+            except Exception as exc:
+                problems.append(f"targeted search bundle {exec_dir.name} manifest is malformed: {exc}")
+                continue
+            recorded_cksum = m_data.get("bundle_checksum")
+            clean_m = dict(m_data)
+            clean_m.pop("bundle_checksum", None)
+            calc_cksum = f"sha256:{hashlib.sha256(json.dumps(clean_m, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode('utf-8')).hexdigest()}"
+            if recorded_cksum != calc_cksum:
+                problems.append(f"targeted search bundle {exec_dir.name} checksum mismatch: recorded {recorded_cksum}, computed {calc_cksum}")
+            for src in m_data.get("sources", []):
+                raw_p = exec_dir / src.get("raw_path", "")
+                text_p = exec_dir / src.get("text_path", "")
+                if not raw_p.is_file() or checksum_file(raw_p) != src.get("raw_sha256"):
+                    problems.append(f"targeted search bundle {exec_dir.name} source {src.get('source_id')} raw bytes missing or corrupted")
+                if not text_p.is_file() or checksum_file(text_p) != src.get("text_sha256"):
+                    problems.append(f"targeted search bundle {exec_dir.name} source {src.get('source_id')} text bytes missing or corrupted")
 
     # 2. Top-level fact files
     for candidate in (
