@@ -455,6 +455,8 @@ def _check_bull_case(artifacts: Mapping[str, Any]) -> List[str]:
     if not isinstance(cases, list) or not cases:
         errors.append("BullCase must be a non-empty list")
         return errors
+    if not 3 <= len(cases) <= 5:
+        errors.append(f"BullCase must contain 3-5 theses, got {len(cases)}")
     for index, case in enumerate(cases, start=1):
         if not isinstance(case, dict):
             errors.append(f"BullCase[{index}] must be an object")
@@ -497,6 +499,11 @@ def _check_bear_rebuttals(rebuttals: Any, bull_ids: Optional[Set[str]]) -> List[
             errors.append(f"BearRebuttals[{index}].severity must be High|Med|Low")
         if not _is_text(item.get("counter")):
             errors.append(f"BearRebuttals[{index}].counter must be a non-empty string")
+    if bull_ids:
+        rebutted = {item.get("bull_id") for item in rebuttals if isinstance(item, dict)}
+        unanswered = sorted(bull_ids - rebutted)
+        if unanswered:
+            errors.append("BearRebuttals must rebut every bull thesis; missing " + ", ".join(unanswered))
     return errors
 
 

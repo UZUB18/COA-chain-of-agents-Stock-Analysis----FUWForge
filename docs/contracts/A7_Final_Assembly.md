@@ -61,7 +61,7 @@ Compile the validated artifacts into an audit-ready, reader-friendly report cove
 
 ## Rules & Checks
 
-- Scorecard math must show raw score × weight and recompute the overall total.
+- Scorecard math must show raw score × weight and recompute the overall total. The weights above are the `default` profile; `--weights` selects another profile (`resolve_weights`), so they are not fixed.
 - Table of contents links to each section by heading anchor.
 - Lay summary written in plain language (7th-grade readability) when required.
 - Ensure citations carry through from upstream sections.

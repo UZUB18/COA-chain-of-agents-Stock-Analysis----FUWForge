@@ -37,7 +37,7 @@ Describe the company’s business model, industry positioning, and peer landscap
 - Cite primary sources (10-K, investor day transcripts, regulatory filings) with doc dates.
 - Quantify statements (e.g., revenue mix percentages, market share estimates) or flag as undisclosed.
 - Ensure peers include at least three public tickers with rationale; add private comps if critical.
-- Validate concentration metrics: if unavailable, state “Not disclosed” explicitly.
+- Concentration metrics: either a disclosure object with a numeric `percent`, an explicit non-blank string (e.g. “Not disclosed”; the exact wording is not checked), or a documented null with a `metrics.missing_data` reason.
 - A provider response of `{"percent": null, "note": "reason"}` is normalized to a null artifact and a documented `missing_data` gap; the reason must be non-empty.
 - Echo `metrics.data_checksum` from A1.
 

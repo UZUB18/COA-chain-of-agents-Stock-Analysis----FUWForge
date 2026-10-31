@@ -44,7 +44,7 @@ Deliver quantitative forensics across financial statements, valuation history, a
 - Reconcile trailing metrics with A1 raw data tables to ensure consistency.
 - Apply MEAF: every claim backed by numbers (e.g., “Gross margin expanded +180 bps YoY”).
 - `HypeFlag` anchors to comparison of narrative vs fundamentals (cross-check with A5 social sentiment).
-- If Beneish M-Score not feasible (e.g., missing data), set `feasible=false` and explain in warnings.
+- If Beneish M-Score is not feasible (e.g., missing data), set `feasible=false` with an `unavailable_reason`; a null score needs a documented `BeneishM.score` gap in `metrics.missing_data`. The runner computes the score from its own indices when they are available.
 - `AltmanZ` is computed by the runner (`src/altman_inputs.py`, classic five-variable model) from typed SEC facts for one aligned annual balance sheet plus the verified completed-day market close times the latest reported shares outstanding. The runner's artifact replaces any model-written AltmanZ; when an input is missing (including legacy evidence packs without a versioned market history) the score is null with a documented `AltmanZ.score` gap. X4 (market equity / liabilities) is not bound to a filed fact and is disclosed as unverified in the audit.
 - `PEG_TTM` / `PEG_Fwd` are model-reported estimates; no runner calculator recomputes them.
 - Echo the checksum from A1.

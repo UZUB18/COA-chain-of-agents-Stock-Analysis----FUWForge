@@ -5,8 +5,8 @@ Facilitate a deliberate bull vs bear debate built on artifacts from A2–A5, the
 
 ## Agents
 
-- **A6B (Bull)**: Produce 3–5 quantified positives citing upstream artifacts.
-- **A6R (Bear)**: Challenge each bull point with probability and severity (FUW Danger-Zone mindset).
+- **A6B (Bull)**: Produce 3–5 quantified positives citing upstream artifacts (enforced: 3–5 `BullCase` entries, each with an id, thesis and at least one evidence citation).
+- **A6R (Bear)**: Challenge each bull point with probability and severity (FUW Danger-Zone mindset). Enforced: every `BullCase` id has at least one rebuttal and no rebuttal cites an unknown id (in the experimental independent pass, local `H*` ids are allowed).
 - **A6 (CIO)**: Resolve the debate, flag risks, and deliver 3-year scenarios with key drivers.
 
 ## Required Artifacts
@@ -42,8 +42,8 @@ Facilitate a deliberate bull vs bear debate built on artifacts from A2–A5, the
 
 - Each bull point must reference at least one upstream artifact.
 - Bear rebuttals must map 1:1 with bull IDs and quantify risk (probability, severity, expected impact).
-- Danger-Zone dashboard covers accounting, concentration, legal/regulatory, hype, and shock buffer.
-- Scenario table spans three fiscal years beyond the analysis date and states numeric drivers.
+- Danger-Zone dashboard should cover accounting, concentration, legal/regulatory, hype, and shock buffer. Enforced: a non-empty list whose entries each have category, flag and note strings; the category set is guidance, not checked.
+- Scenario table should span three fiscal years beyond the analysis date with numeric drivers. Enforced: Bull/Base/Bear objects each with Revenue and EPS; FCF per share, the horizon and driver detail are guidance, not checked.
 - Catalysts/headwinds grouped by time horizon (short/medium/long) when possible.
 - Echo checksum from A1.
 
