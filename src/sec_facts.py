@@ -138,6 +138,11 @@ class SealIntakeCoverage:
     priority_concepts_seen: Tuple[str, ...] = ()
     priority_concepts_missing_from_payload: Tuple[str, ...] = ()
     priority_concepts_dropped_by_limit: Tuple[str, ...] = ()
+    #: Custom/dimensional concepts automatic intake does not represent. They
+    #: are listed here, never emitted as placeholder facts.
+    deferred_concepts: Tuple[str, ...] = ()
+    records_excluded_missing_filing_date: int = 0
+    records_excluded_missing_accession: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -156,6 +161,9 @@ class SealIntakeCoverage:
             "priority_concepts_dropped_by_limit": list(
                 self.priority_concepts_dropped_by_limit
             ),
+            "deferred_concepts": list(self.deferred_concepts),
+            "records_excluded_missing_filing_date": self.records_excluded_missing_filing_date,
+            "records_excluded_missing_accession": self.records_excluded_missing_accession,
         }
 
 
@@ -238,15 +246,6 @@ def _values_equal(a: Optional[float], b: Optional[float]) -> bool:
 KNOWN_CURRENCIES = {
     "USD", "EUR", "GBP", "JPY", "CAD", "AUD", "CHF", "CNY", "HKD", "SEK", "NZD", "KRW", "SGD", "NOK", "MXN", "INR"
 }
-
-
-def is_arelle_available() -> bool:
-    """Return True if the Arelle XBRL library is available in the environment."""
-    try:
-        import arelle  # type: ignore # noqa: F401
-        return True
-    except ImportError:
-        return False
 
 
 def _safe_cik_str(cik: Union[str, int]) -> str:
@@ -370,6 +369,9 @@ def parse_sec_company_facts_report(
     raw_fact_groups: Dict[Tuple[str, str, str, str], List[Dict[str, Any]]] = {}
 
     count = 0
+    deferred_concepts: set = set()
+    excluded_missing_filing_date = 0
+    excluded_missing_accession = 0
     for taxonomy, concepts in facts_dict.items():
         if not isinstance(concepts, dict):
             continue
@@ -388,28 +390,11 @@ def parse_sec_company_facts_report(
             is_custom = taxonomy.lower() not in ("us-gaap", "dei", "ifrs-full", "invest", "srt")
             has_dimensions = bool(concept_body.get("dimensions") or concept_body.get("segment"))
 
-            if (is_custom or has_dimensions) and defer_dimensional and not is_arelle_available():
-                # Unsupported custom/dimensional XBRL concept deferred
-                period_key = "unsupported_dimensional"
-                group_key = (taxonomy, concept_name, "USD", period_key)
-                deferred_entry = {
-                    "taxonomy": taxonomy,
-                    "concept": concept_name,
-                    "unit": "USD",
-                    "currency": "USD",
-                    "val": None,
-                    "filed": "1970-01-01",
-                    "accn": "0000000000-00-000000",
-                    "form": "UNKNOWN",
-                    "start": None,
-                    "end": None,
-                    "instant": "1970-01-01",
-                    "basis": basis,
-                    "missing_reason": f"Deferred: unsupported custom or dimensional XBRL concept '{taxonomy}:{concept_name}' without standard representation",
-                    "dimensions": {"deferred": True, "reason": "unsupported_custom_dimensional_xbrl"},
-                    "metadata": {"deferred": True, "taxonomy": taxonomy},
-                }
-                raw_fact_groups.setdefault(group_key, []).append(deferred_entry)
+            if (is_custom or has_dimensions) and defer_dimensional:
+                # Automatic intake has no faithful representation for these.
+                # Record the gap in coverage; a dated placeholder fact would be
+                # "available" at every cutoff and could fill prompt slots.
+                deferred_concepts.add(f"{taxonomy}:{concept_name}")
                 continue
 
             for unit_key, fact_entries in units_dict.items():
@@ -432,8 +417,17 @@ def parse_sec_company_facts_report(
                             "Excluded SEC observation with unknown or malformed filing date: %s:%s",
                             taxonomy, concept_name,
                         )
+                        excluded_missing_filing_date += 1
                         continue
-                    accn = str(entry.get("accn") or entry.get("accessionNumber") or "0000320193-00-000000")
+                    accn = str(entry.get("accn") or entry.get("accessionNumber") or "").strip()
+                    if not accn:
+                        # Never borrow an accession: filing identity is evidence.
+                        logger.warning(
+                            "Excluded SEC observation with missing accession number: %s:%s",
+                            taxonomy, concept_name,
+                        )
+                        excluded_missing_accession += 1
+                        continue
                     form = str(entry.get("form") or "")
                     fy = entry.get("fy")
                     fp = entry.get("fp")
@@ -567,6 +561,9 @@ def parse_sec_company_facts_report(
             for concept in PRIORITY_CONCEPTS
             if concept in set(concepts_seen) and concept not in set(concepts_retained)
         ),
+        deferred_concepts=tuple(sorted(deferred_concepts)),
+        records_excluded_missing_filing_date=excluded_missing_filing_date,
+        records_excluded_missing_accession=excluded_missing_accession,
     )
 
     # 2. Build Fact objects with supersession chains for amendments/restatements

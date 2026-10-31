@@ -51,8 +51,11 @@ OUTPUT_SHAPING_MODULES: tuple[str, ...] = (
     "calculation_witness.py",
     "contracts.py",
     "data_gaps.py",
+    "evidence.py",
     "fact_binding.py",
+    "facts.py",
     "forensic_inputs.py",
+    "sec_facts.py",
     "utils/beneish.py",
     "utils/finance.py",
 )

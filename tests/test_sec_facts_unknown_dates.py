@@ -80,3 +80,27 @@ def test_offset_fixtures_sorted_by_utc_availability_for_supersession():
     facts = parse_sec_company_facts(payload, ticker="TEST")
     assert [fact.value for fact in facts] == [100, 200]
     assert facts[1].supersedes == facts[0].id
+
+
+@pytest.mark.parametrize("field, value", [("filed", None), ("accn", None), ("accn", ""), ("accn", "   ")])
+def test_missing_identity_is_excluded_and_counted(field, value, caplog):
+    from src.sec_facts import parse_sec_company_facts_report
+
+    payload = _payload()
+    entries = _entries(payload)
+    if value is None:
+        entries[0].pop(field)
+    else:
+        entries[0][field] = value
+    report = parse_sec_company_facts_report(payload, ticker="TEST")
+    assert all(f.filing_accession != "0000320193-00-000000" for f in report.facts)
+    assert len(report.facts) == len(entries) - 1
+    coverage = report.coverage
+    if field == "accn":
+        assert coverage.records_excluded_missing_accession == 1
+        assert coverage.records_excluded_missing_filing_date == 0
+        assert "missing accession number: us-gaap:Revenues" in caplog.text
+    else:
+        assert coverage.records_excluded_missing_filing_date == 1
+        assert coverage.records_excluded_missing_accession == 0
+        assert "unknown or malformed filing date: us-gaap:Revenues" in caplog.text

@@ -44,3 +44,11 @@ def test_duplicate_periods_do_not_crowd_out_prior_comparative():
     prior = _fact("prior", "Assets", 2023)
     selected, _ = _select_prompt_facts([old, prior, latest], limit=2)
     assert [f.id for f in selected] == ["later_filing", "prior"]
+
+
+def test_null_valued_facts_never_take_a_prompt_slot():
+    numeric = _fact("rev", concept="Revenues")
+    null = replace(_fact("deferred", concept="Assets"), value=None, missing_reason="not tagged")
+    selected, total = _select_prompt_facts([numeric, null])
+    assert [f.id for f in selected] == ["rev"]
+    assert total == 1

@@ -29,6 +29,7 @@ from src.utils.checksum import sha256_digest
 
 MAX_DOCUMENT_BYTES = 8 * 1024 * 1024
 MAX_DOCUMENTS = 16
+MAX_ATTACHMENTS = 16
 _ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
 _LAST_SEC_REQUEST = 0.0
 
@@ -244,6 +245,15 @@ def fetch_evidence(
     documents = config.get("documents")
     if not ticker or not isinstance(documents, list) or not 1 <= len(documents) <= MAX_DOCUMENTS:
         raise ValueError(f"Evidence manifest requires ticker and 1–{MAX_DOCUMENTS} documents.")
+    # Enforce the load-time limits before anything is written, so a pack that
+    # could never load is never created.
+    attachments = list(attachments or [])
+    if len(attachments) > MAX_ATTACHMENTS:
+        raise ValueError(f"Evidence packs allow at most {MAX_ATTACHMENTS} attachments.")
+    for spec in attachments:
+        filename = str(spec.get("name") or Path(spec["path"]).name)
+        if Path(filename).is_absolute() or ".." in Path(filename).parts:
+            raise ValueError("Evidence attachment filenames must be simple relative names.")
     output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=False)
     records = []
@@ -268,13 +278,9 @@ def fetch_evidence(
             **({"transform": document["transform"]} if document.get("transform") else {}),
         })
     attachment_records = []
-    for spec in attachments or []:
+    for spec in attachments:
         source_path = Path(spec["path"]).resolve()
-        name = str(spec["kind"]) + Path(source_path).suffix if spec.get("kind") else source_path.name
-        # Choose a simple, contained filename based on the provided name.
         filename = str(spec.get("name") or Path(source_path).name)
-        if Path(filename).is_absolute() or ".." in Path(filename).parts:
-            raise ValueError("Evidence attachment filenames must be simple relative names.")
         target = output_dir / filename
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source_path, target)
@@ -403,7 +409,8 @@ _PROMPT_CORE_CONCEPTS = (
 def _select_prompt_facts(facts, limit: int = 100):
     """Deterministic current-reported selection, preserving concept/period breadth."""
     superseded = {fact.supersedes for fact in facts if fact.supersedes}
-    active = [fact for fact in facts if fact.id not in superseded]
+    # Null-valued facts stay in the ledger but never occupy a prompt slot.
+    active = [fact for fact in facts if fact.id not in superseded and fact.value is not None]
     buckets = {}
     for fact in active:
         key = (fact.concept, fact.unit, str(fact.accounting_basis))
@@ -482,7 +489,7 @@ class EvidencePack:
             if sha256_digest(derived.encode("utf-8")) != document["text_sha256"]:
                 raise ValueError("Evidence text does not match extraction from downloaded bytes.")
         self.attachments = self.data.get("attachments", [])
-        if not isinstance(self.attachments, list) or len(self.attachments) > 16:
+        if not isinstance(self.attachments, list) or len(self.attachments) > MAX_ATTACHMENTS:
             raise ValueError("Evidence attachments require a bounded list.")
         attachment_files = set()
         document_files = {d[key] for d in self.documents for key in ("raw_file", "text_file")}
@@ -506,7 +513,7 @@ class EvidencePack:
 
     def _load_embedded_facts(self) -> List[Any]:
         """Load facts embedded directly in ``evidence.json`` under ``facts``."""
-        from src.facts import Fact
+        from src.facts import Fact, validate_fact
 
         embedded = self.data.get("facts")
         if embedded is None:
@@ -532,6 +539,13 @@ class EvidencePack:
                 raise ValueError(
                     f"Embedded fact at index {index} must be a Fact or dict, got "
                     f"{type(item).__name__}."
+                )
+            # Same bar as fact-ledger attachments: loadable is not valid.
+            problems = validate_fact(loaded[-1]).errors
+            if problems:
+                raise ValueError(
+                    f"Embedded fact at index {index} "
+                    f"({getattr(loaded[-1], 'id', '<unknown>')!r}) is invalid: " + "; ".join(problems)
                 )
         return loaded
 

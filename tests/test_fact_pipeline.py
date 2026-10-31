@@ -3,7 +3,7 @@ Comprehensive offline production-path tests for the fact pipeline:
 - SEC companyfacts ingestion with accession preservation, exact units/context/periods,
   available-at precision limitations, and amended original history.
 - Restatement / supersession tracking with point-in-time as-of resolution.
-- Arelle optional deferral of unsupported custom/dimensional XBRL concepts.
+- Deferral of unsupported custom/dimensional XBRL concepts into intake coverage.
 - Evidence fact ledger exposure and anti-look-ahead as-of filtering.
 - A1 / A3 prompt construction, epistemic discipline (no forecasts as reported).
 - A3 deterministic calculation linking with calculation witness and fact IDs.
@@ -38,8 +38,8 @@ from src.sec_facts import (
     AVAILABILITY_POLICY,
     EXTRACTOR_VERSION_SEC,
     ingest_company_facts_file,
-    is_arelle_available,
     parse_sec_company_facts,
+    parse_sec_company_facts_report,
 )
 from src.evidence import EvidencePack, download_public_document, fetch_evidence
 from src.agents.model import (
@@ -229,14 +229,22 @@ def test_amended_original_history_and_supersession():
     assert res_2024.value == 383280000000.0
 
 
-def test_custom_dimensional_deferral_without_fabrication():
-    facts = parse_sec_company_facts(SAMPLE_SEC_COMPANYFACTS, ticker="AAPL", defer_dimensional=True)
-    custom_facts = [f for f in facts if f.concept == "CustomProductRevenue"]
-    assert len(custom_facts) == 1
-    deferred = custom_facts[0]
-    assert deferred.value is None
-    assert deferred.is_unavailable()
-    assert "Deferred: unsupported custom or dimensional" in str(deferred.missing_reason)
+def test_custom_dimensional_deferral_without_fabrication(monkeypatch):
+    import sys
+    import types
+
+    def check():
+        report = parse_sec_company_facts_report(SAMPLE_SEC_COMPANYFACTS, ticker="AAPL", defer_dimensional=True)
+        assert not [f for f in report.facts if f.concept == "CustomProductRevenue"]
+        assert not [f for f in report.facts if f.availability_time.startswith("1970")]
+        assert report.coverage.deferred_concepts == ("custom-taxonomy:CustomProductRevenue",)
+        assert report.coverage.to_dict()["deferred_concepts"] == ["custom-taxonomy:CustomProductRevenue"]
+        return [f.id for f in report.facts]
+
+    without = check()
+    # Intake must not depend on which packages happen to be installed.
+    monkeypatch.setitem(sys.modules, "arelle", types.ModuleType("arelle"))
+    assert check() == without
 
 
 def test_load_fact_ledger_auto_ingests_sec_companyfacts(tmp_path):

@@ -226,6 +226,39 @@ def test_malformed_embedded_fact_is_rejected(tmp_path):
         EvidencePack(path, ticker=TICKER, analysis_date="2025-01-31")
 
 
+@pytest.mark.parametrize("field, value", [
+    ("filing_accession", ""),
+    ("availability_time", "yesterday"),
+    ("period_end", "2024-13-40"),
+])
+def test_embedded_fact_must_pass_fact_validation_like_attachments(tmp_path, field, value):
+    invalid = _valid_fact_dict()
+    invalid[field] = value
+    path = _base_pack(tmp_path, embedded_facts=[invalid])
+    with pytest.raises(ValueError, match="Embedded fact at index 0 .* is invalid"):
+        EvidencePack(path, ticker=TICKER, analysis_date="2025-01-31")
+
+
+def test_fetch_evidence_rejects_too_many_attachments_before_writing(tmp_path):
+    from src.evidence import MAX_ATTACHMENTS, fetch_evidence
+
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({
+        "ticker": TICKER,
+        "documents": [{"url": "https://example.com/a", "doc_date": "2025-01-01"}],
+    }), encoding="utf-8")
+    source = tmp_path / "facts.json"
+    source.write_text("[]", encoding="utf-8")
+    attachments = [
+        {"path": source, "kind": "fact_ledger", "name": f"facts_{i}.json"}
+        for i in range(MAX_ATTACHMENTS + 1)
+    ]
+    out = tmp_path / "out"
+    with pytest.raises(ValueError, match="at most 16 attachments"):
+        fetch_evidence(manifest, out, attachments=attachments)
+    assert not out.exists()
+
+
 # =================================================== 5. SEC routing correctness
 
 
