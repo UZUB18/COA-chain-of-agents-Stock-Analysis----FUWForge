@@ -125,7 +125,13 @@ class MockAgent(BaseAgent):
         )
         market_cap = round(price * shares_basic_val, 2)
 
-        data_checksum = context.frozen_checksum or checksum_json(params)
+        # Same derivation as ModelAgent: the evidence pack is part of the input.
+        if context.frozen_checksum:
+            data_checksum = context.frozen_checksum
+        elif context.evidence_checksum:
+            data_checksum = checksum_json({"params": params, "evidence_checksum": context.evidence_checksum})
+        else:
+            data_checksum = checksum_json(params)
 
         raw_data_pack = (
             f"### Raw Data Intake: {company} ({ticker})\n\n"
@@ -841,6 +847,8 @@ class MockAgent(BaseAgent):
                     fragility_score_10=round(
                         10.0 - float(scores.get("RiskInverse", 8.0)), 1
                     ),
+                    evidence_quality_score_10=9.0,
+                    data_completeness_score_10=9.0,
                 ),
             },
             "sources": [

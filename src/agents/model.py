@@ -62,32 +62,48 @@ def _now_iso() -> str:
     )
 
 
+_SCALE_SUFFIXES = (
+    ("trillion", 1e12), ("billion", 1e9), ("million", 1e6), ("thousand", 1e3),
+    ("tn", 1e12), ("bn", 1e9), ("mn", 1e6), ("mm", 1e6),
+    ("t", 1e12), ("b", 1e9), ("m", 1e6), ("k", 1e3),
+    ("x", 1.0),  # multiples such as "15x" P/E
+)
+
+
+def _parse_scaled(text: str) -> Optional[float]:
+    """Parse "1.2bn", "350 million", "12.5%" (percent sign stripped, no rescale).
+
+    Anything else that is not a plain number is unparseable (``None``); an
+    unknown suffix is never guessed at.
+    """
+    s = text.strip().replace(",", "").replace("$", "")
+    if s.endswith("%"):
+        s = s[:-1].strip()
+    else:
+        lowered = s.lower()
+        for suffix, multiplier in _SCALE_SUFFIXES:
+            if lowered.endswith(suffix):
+                number = s[: -len(suffix)].strip()
+                try:
+                    value = float(number) * multiplier
+                except ValueError:
+                    return None
+                return value if math.isfinite(value) else None
+    try:
+        value = float(s)
+    except ValueError:
+        return None
+    return value if math.isfinite(value) else None
+
+
 def _parse_numeric(val: Any, default_val: float = 0.0) -> float:
     if val is None or isinstance(val, bool):
         return default_val
     if isinstance(val, (int, float)):
         return float(val)
     if isinstance(val, str):
-        s = val.strip().replace(",", "").replace("$", "")
-        multiplier = 1.0
-        if s.endswith("%"):
-            s = s[:-1].strip()
-        elif s.lower().endswith("b"):
-            multiplier = 1e9
-            s = s[:-1].strip()
-        elif s.lower().endswith("m"):
-            multiplier = 1e6
-            s = s[:-1].strip()
-        elif s.lower().endswith("k"):
-            multiplier = 1e3
-            s = s[:-1].strip()
-        elif s.lower().endswith("t"):
-            multiplier = 1e12
-            s = s[:-1].strip()
-        try:
-            return float(s) * multiplier
-        except ValueError:
-            return default_val
+        parsed = _parse_scaled(val)
+        return default_val if parsed is None else parsed
     return default_val
 
 
@@ -122,27 +138,7 @@ def _parse_numeric_or_none(val: Any) -> Optional[float]:
     if isinstance(val, (int, float)):
         return float(val) if math.isfinite(val) else None
     if isinstance(val, str):
-        s = val.strip().replace(",", "").replace("$", "")
-        multiplier = 1.0
-        if s.endswith("%"):
-            s = s[:-1].strip()
-        elif s.lower().endswith("b"):
-            multiplier = 1e9
-            s = s[:-1].strip()
-        elif s.lower().endswith("m"):
-            multiplier = 1e6
-            s = s[:-1].strip()
-        elif s.lower().endswith("k"):
-            multiplier = 1e3
-            s = s[:-1].strip()
-        elif s.lower().endswith("t"):
-            multiplier = 1e12
-            s = s[:-1].strip()
-        try:
-            val_float = float(s) * multiplier
-            return val_float if math.isfinite(val_float) else None
-        except ValueError:
-            return None
+        return _parse_scaled(val)
     return None
 
 
@@ -203,6 +199,8 @@ def _normalize_beneish(
                     expected = runner_result["calculation_witness"]["inputs"][key]
                     if (isinstance(item, bool) or not isinstance(item, (int, float))
                             or not math.isfinite(item)
+                            # Models report indices to 6 decimals; 5e-7 is that
+                            # rounding allowance, documented in fact-binding-policy.md.
                             or not math.isclose(item, expected, rel_tol=0, abs_tol=5.000001e-7)):
                         raise ValueError(f"BeneishM index {key} disagrees with runner-computed input")
             return runner_result
@@ -1476,6 +1474,24 @@ class ModelAgent(BaseAgent):
             data["sections_md"][key] = section.rstrip() + "\n\n" + render_beneish_block(artifact)
             data["metrics"]["runner_beneish_block"] = True
 
+    def _adopt_runner_beneish(self, data: Dict[str, Any], context: AgentContext) -> None:
+        """Adopt the runner's deterministic Beneish result and render its block.
+
+        The A3 prompt requires the eight index ratios and tells the model the
+        runner recomputes the score from them, so validation must see the
+        recomputed artifact. Only a deterministic recomputation is adopted: an
+        unavailable or model-reported result is left exactly as written, so the
+        contract's own rules still decide.
+        """
+        if self.id != "A3" or not isinstance(data["artifacts"].get("BeneishM"), dict):
+            return
+        resolved_beneish = _normalize_beneish(
+            data["artifacts"]["BeneishM"], [], getattr(context, "forensic_inputs", None)
+        )
+        if resolved_beneish.get("provenance") == "deterministic":
+            data["artifacts"]["BeneishM"] = resolved_beneish
+        self._render_beneish_section(data)
+
     def _normalize_envelope(
         self, data: Dict[str, Any], context: AgentContext
     ) -> Dict[str, Any]:
@@ -1611,20 +1627,7 @@ class ModelAgent(BaseAgent):
                 return data
             if self.id == "A7":
                 data["artifacts"]["Scorecard"] = weighted_scorecard(data["artifacts"].get("Scorecard"), context.params.get("weights"))
-            if self.id == "A3" and isinstance(data["artifacts"].get("BeneishM"), dict):
-                # The A3 prompt requires the eight index ratios and tells the model
-                # the runner recomputes the score from them. Strict validation must
-                # therefore see the recomputed artifact, or a fully compliant
-                # response is rejected as an unlabelled legacy score and the run
-                # aborts. Only a deterministic recomputation is adopted: an
-                # unavailable or model-reported result is left exactly as written,
-                # so the contract's own strict rules still decide.
-                resolved_beneish = _normalize_beneish(
-                    data["artifacts"]["BeneishM"], [], getattr(context, "forensic_inputs", None)
-                )
-                if resolved_beneish.get("provenance") == "deterministic":
-                    data["artifacts"]["BeneishM"] = resolved_beneish
-                self._render_beneish_section(data)
+            self._adopt_runner_beneish(data, context)
             contract = validate_contract(
                 Envelope.from_dict(data), depth_config=context.depth_config,
                 envelopes=context.envelopes, strict=True,
@@ -1670,7 +1673,9 @@ class ModelAgent(BaseAgent):
         extra_warnings: List[str] = []
         if not preflight.errors and data["metrics"].get("missing_data"):
             # A documented null is intentionally unavailable, not a repair target.
+            # The runner's Beneish result still applies (B9).
             data["metrics"]["injected_defaults"] = injected
+            self._adopt_runner_beneish(data, context)
             return data
         if preflight.errors:
             injected.append("invalid_model_artifacts_or_sections")
@@ -1977,10 +1982,11 @@ class ModelAgent(BaseAgent):
                         item["bull_id"] = valid_bull_ids[i % len(valid_bull_ids)]
                     elif independent_phase and not bid:
                         item["bull_id"] = f"H{i + 1}"
-                    prob = str(item.get("probability") or "Med").capitalize()
-                    item["probability"] = prob if prob in ("High", "Med", "Low", "Medium") else "Med"
-                    sev = str(item.get("severity") or "Med").capitalize()
-                    item["severity"] = sev if sev in ("High", "Med", "Low", "Medium") else "Med"
+                    # The output schema enum is High|Med|Low; "Medium" means Med.
+                    prob = str(item.get("probability") or "Med").capitalize().replace("Medium", "Med")
+                    item["probability"] = prob if prob in ("High", "Med", "Low") else "Med"
+                    sev = str(item.get("severity") or "Med").capitalize().replace("Medium", "Med")
+                    item["severity"] = sev if sev in ("High", "Med", "Low") else "Med"
                     if not item.get("counter"):
                         item["counter"] = item.get("rebuttal") or item.get("thesis") or "Potential headwind."
 
@@ -2141,20 +2147,27 @@ class ModelAgent(BaseAgent):
                 fin_score = float(sc_dict.get("Financials", {}).get("score", 8.0))
                 risk_score = float(sc_dict.get("RiskInverse", {}).get("score", 7.5))
                 growth_score = float(sc_dict.get("Growth", {}).get("score", 7.0))
+                # Scorecard-derived scores are carried over; values the model
+                # never measured stay null with a documented reason.
                 fields = generate_comparison_fields(
                     quality_score_10=overall_score,
                     valuation_score_10=val_score,
-                    expected_5y_irr_base_pct=round(overall_score * 1.5, 1),
-                    downside_case_5y_irr_pct=round(-10.0 + overall_score, 1),
-                    fcf_yield_ttm_pct=4.2,
-                    roic_ttm_pct=22.5,
-                    net_debt_to_ebitda_val=0.5,
+                    expected_5y_irr_base_pct=None,
+                    downside_case_5y_irr_pct=None,
                     moat_score_10=moat_score,
                     reinvestment_runway_score_10=growth_score,
                     balance_sheet_score_10=fin_score,
                     fragility_score_10=round(10.0 - risk_score, 1),
                 )
                 artifacts["comparison_fields"] = fields
+                gaps = missing_data_map(data["metrics"].get("missing_data"))
+                for key, value in fields.items():
+                    if value is None:
+                        gaps.setdefault(
+                            f"comparison_fields.{key}",
+                            "Not supplied by the model; the runner does not estimate it.",
+                        )
+                data["metrics"]["missing_data"] = gaps
 
             # Runner-estimated completeness reflects upstream injected defaults.
             upstream_injected = sum(

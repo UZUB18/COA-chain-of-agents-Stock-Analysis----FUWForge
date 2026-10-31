@@ -313,7 +313,9 @@ def validate_witness(
             try:
                 calc_val = beneish_score(**{k: float(inputs[k]) for k in BENEISH_INPUT_KEYS})
                 if result is not None and isinstance(result, (int, float)) and not isinstance(result, bool):
-                    if abs(float(result) - calc_val) > 1e-9:
+                    # Exact: the runner records the same float this replay
+                    # recomputes from the same JSON-round-tripped inputs.
+                    if float(result) != calc_val:
                         errors.append(
                             f"Beneish arithmetic mismatch: recorded result {result!r} != recomputed {calc_val!r}"
                         )

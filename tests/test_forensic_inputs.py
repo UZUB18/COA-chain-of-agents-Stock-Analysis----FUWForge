@@ -724,3 +724,12 @@ def test_aligned_periods_52_53_week_drift():
     assert is_aligned is True
     assert aligned == ["2024-12-31", "2023-12-31"]
 
+
+
+def test_role_concepts_are_recorded_per_period(complete_ledger):
+    result = compute_forensic_inputs(dict(complete_ledger))
+    assert result.feasible, result.unavailable_reason
+    concepts = result.roles["sgi"]["concepts"]
+    assert set(concepts) == {"t1", "t0"}
+    assert concepts["t1"]["revenue"] == "Revenues"
+    assert concepts["t0"]["revenue"] == "Revenues"

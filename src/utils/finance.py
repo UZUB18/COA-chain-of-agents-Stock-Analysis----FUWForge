@@ -253,10 +253,10 @@ def return_driver_stack(
 
 
 def generate_comparison_fields(
-    quality_score_10: float,
-    valuation_score_10: float,
-    expected_5y_irr_base_pct: float,
-    downside_case_5y_irr_pct: float,
+    quality_score_10: Optional[float],
+    valuation_score_10: Optional[float],
+    expected_5y_irr_base_pct: Optional[float],
+    downside_case_5y_irr_pct: Optional[float],
     fcf_yield_ttm_pct: Optional[float] = None,
     roic_ttm_pct: Optional[float] = None,
     net_debt_to_ebitda_val: Optional[float] = None,
@@ -264,35 +264,31 @@ def generate_comparison_fields(
     reinvestment_runway_score_10: Optional[float] = None,
     balance_sheet_score_10: Optional[float] = None,
     fragility_score_10: Optional[float] = None,
-    evidence_quality_score_10: float = 9.0,
-    data_completeness_score_10: float = 9.0,
+    evidence_quality_score_10: Optional[float] = None,
+    data_completeness_score_10: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Produces the standardized 13-metric comparison vector from stock-analyst,
     enabling downstream multi-stock portfolio screeners and ranking tables.
+
+    A value that was not measured stays ``None``; the caller documents the gap.
     """
+
+    def r(value: Optional[float], places: int) -> Optional[float]:
+        return round(value, places) if value is not None else None
+
     return {
-        "quality_score_10": round(quality_score_10, 1),
-        "valuation_score_10": round(valuation_score_10, 1),
-        "expected_5y_irr_base_pct": round(expected_5y_irr_base_pct, 1),
-        "downside_case_5y_irr_pct": round(downside_case_5y_irr_pct, 1),
-        "fcf_yield_ttm_pct": round(fcf_yield_ttm_pct, 2)
-        if fcf_yield_ttm_pct is not None
-        else None,
-        "roic_ttm_pct": round(roic_ttm_pct, 1) if roic_ttm_pct is not None else None,
-        "net_debt_to_ebitda": round(net_debt_to_ebitda_val, 2)
-        if net_debt_to_ebitda_val is not None
-        else None,
-        "moat_score_10": round(moat_score_10, 1) if moat_score_10 is not None else None,
-        "reinvestment_runway_score_10": round(reinvestment_runway_score_10, 1)
-        if reinvestment_runway_score_10 is not None
-        else None,
-        "balance_sheet_score_10": round(balance_sheet_score_10, 1)
-        if balance_sheet_score_10 is not None
-        else None,
-        "fragility_score_10": round(fragility_score_10, 1)
-        if fragility_score_10 is not None
-        else None,
-        "evidence_quality_score_10": round(evidence_quality_score_10, 1),
-        "data_completeness_score_10": round(data_completeness_score_10, 1),
+        "quality_score_10": r(quality_score_10, 1),
+        "valuation_score_10": r(valuation_score_10, 1),
+        "expected_5y_irr_base_pct": r(expected_5y_irr_base_pct, 1),
+        "downside_case_5y_irr_pct": r(downside_case_5y_irr_pct, 1),
+        "fcf_yield_ttm_pct": r(fcf_yield_ttm_pct, 2),
+        "roic_ttm_pct": r(roic_ttm_pct, 1),
+        "net_debt_to_ebitda": r(net_debt_to_ebitda_val, 2),
+        "moat_score_10": r(moat_score_10, 1),
+        "reinvestment_runway_score_10": r(reinvestment_runway_score_10, 1),
+        "balance_sheet_score_10": r(balance_sheet_score_10, 1),
+        "fragility_score_10": r(fragility_score_10, 1),
+        "evidence_quality_score_10": r(evidence_quality_score_10, 1),
+        "data_completeness_score_10": r(data_completeness_score_10, 1),
     }

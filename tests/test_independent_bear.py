@@ -263,3 +263,20 @@ def test_beneish_threshold_is_not_described_as_proof_of_fraud():
     assert "screening signal" in source
     for phrase in ("proves fraud", "proof of fraud", "confirms fraud", "fraudulent"):
         assert phrase not in source, f"unfounded fraud claim in beneish module: {phrase}"
+
+
+def test_medium_is_normalized_to_the_schema_enum(a6r_agent, tmp_path):
+    context = _context(tmp_path, None)
+    payload = {
+        "schema_version": "2.1",
+        "agent": {"id": "A6R", "name": "Bear"},
+        "gates": {"passed": True, "notes": []},
+        "sections_md": {"SECTION_11_BEAR_CASE": "bear"},
+        "artifacts": {"BearRebuttals": [
+            {"bull_id": "B1", "probability": "medium", "severity": "Medium", "counter": "r1"},
+        ]},
+        "sources": [], "warnings": [], "metrics": {"data_checksum": "abc123"}, "confidence": 0.8,
+    }
+    out = a6r_agent._normalize_envelope(payload, context)
+    item = out["artifacts"]["BearRebuttals"][0]
+    assert (item["probability"], item["severity"]) == ("Med", "Med")

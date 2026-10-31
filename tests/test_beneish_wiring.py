@@ -423,3 +423,21 @@ def test_strict_path_rejects_an_unlabelled_bare_score(tmp_path):
         _strict_a3_agent()._normalize_envelope(payload, _strict_context(tmp_path))
 
     assert "unlabelled legacy score" in str(excinfo.value)
+
+
+def test_lenient_path_with_documented_gap_still_adopts_runner_beneish(tmp_path):
+    """B9: a valid A3 response that documents a gap took an early return that
+    skipped the runner's Beneish recomputation and section-4 block."""
+    payload = _raw_a3_payload({"indices": {**ALL_ONE, "tata": -0.0202}, "score": -1.89})
+    payload["artifacts"]["HypeFlag"] = None
+    payload["metrics"]["missing_data"] = [{"field": "HypeFlag", "reason": "No forward estimates in evidence."}]
+    agent = _strict_a3_agent()
+    agent.strict = False
+
+    out = agent._normalize_envelope(payload, _strict_context(tmp_path))
+
+    beneish = out["artifacts"]["BeneishM"]
+    assert beneish["provenance"] == "deterministic"
+    assert beneish["score"] != -1.89
+    assert out["metrics"].get("runner_beneish_block") is True
+    assert f"Beneish M-Score: **{beneish['score']}**" in out["sections_md"]["SECTION_4_FINANCIAL_FORENSICS"]

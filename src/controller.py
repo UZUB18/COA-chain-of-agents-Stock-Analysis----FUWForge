@@ -1089,11 +1089,12 @@ def _load_a7(
             q_score = overall.get("score", 7.0)
             v_score = (scorecard.get("Valuation") or {}).get("score", 7.0)
             m_score = (scorecard.get("Moat") or {}).get("score", 7.0)
+            # Only scorecard values are known; IRRs and the rest stay unmeasured.
             fields = generate_comparison_fields(
                 quality_score_10=float(q_score),
                 valuation_score_10=float(v_score),
-                expected_5y_irr_base_pct=10.0,
-                downside_case_5y_irr_pct=-5.0,
+                expected_5y_irr_base_pct=None,
+                downside_case_5y_irr_pct=None,
                 moat_score_10=float(m_score),
             )
         else:

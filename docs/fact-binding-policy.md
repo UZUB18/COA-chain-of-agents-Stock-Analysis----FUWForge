@@ -87,6 +87,20 @@ Three properties make this safe:
 future caller with a genuine rounding relationship can declare one without
 reinventing the comparison.
 
+### 2.3a Calculation replay and model-reported indices
+
+These are not fact bindings, but they are the other numeric comparisons a run
+reports:
+
+- **Beneish replay is exact.** `calculation_witness.py` recomputes the score
+  from the witness inputs and requires the recorded result to be the identical
+  float. The runner produced it with the same function from the same
+  JSON-round-tripped inputs, so no allowance is needed.
+- **Model-reported Beneish indices** are compared with the runner's own index
+  values with an absolute allowance of `5e-7` (`agents/model.py`). Models report
+  indices to six decimal places; this is that rounding allowance, not a
+  tolerance for different numbers. A larger disagreement rejects the response.
+
 ### 2.4 Rejected outright
 
 Non-numeric values, booleans, `NaN`, and infinities cannot bind to anything. A
@@ -115,7 +129,8 @@ is not a currency.
 ### 3.1 Scale suffixes are a mismatch, not a conversion
 
 `USD` and `USD thousand` share a dimension but differ by 1000x. They are
-reported as a scale mismatch naming the factor:
+reported as a scale mismatch naming the factor. A percent is a ratio with scale
+0.01, so `percent` against `ratio` (12.5 vs 0.125) is a scale mismatch too:
 
 ```
 scale mismatch: witness unit 'USD' vs fact unit 'USD thousand' differ by a factor of 1000

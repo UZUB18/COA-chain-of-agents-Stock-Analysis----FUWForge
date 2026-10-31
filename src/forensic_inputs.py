@@ -698,9 +698,11 @@ def compute_forensic_inputs(
                 if role in facts["t0"]
             },
         }
+        # Keyed per period: a role can resolve to a different concept in t1
+        # than in t0, and a flat map kept only one of them.
         roles_out[index]["concepts"] = {
-            **{role: concepts["t1"].get(role, "") for role in _INDEX_ROLES[index][0]},
-            **{role: concepts["t0"].get(role, "") for role in _INDEX_ROLES[index][1]},
+            "t1": {role: concepts["t1"].get(role, "") for role in _INDEX_ROLES[index][0]},
+            "t0": {role: concepts["t0"].get(role, "") for role in _INDEX_ROLES[index][1]},
         }
 
     return ForensicInputsResult(

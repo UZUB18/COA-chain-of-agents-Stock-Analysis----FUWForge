@@ -865,3 +865,21 @@ def test_replay_beneish_rejects_swapped_source_identity():
         expected_company="ACME",
     )
     assert problems and any("company" in p.lower() for p in problems), problems
+
+
+def test_binding_dict_records_named_derivation_constants():
+    from src.fact_binding import Derivation, InputBinding
+
+    derivation = Derivation(expression="(a / b) - one", operand_fact_ids=("fa", "fb"),
+                            operand_names=("a", "b"), constants={"one": 1.0})
+    data = InputBinding(input_key="gmi", derivation=derivation).to_dict()
+    assert data["derivation"]["constants"] == {"one": 1.0}
+
+
+def test_percent_and_ratio_are_a_scale_mismatch_not_equal_units():
+    from src.fact_binding import describe_unit_mismatch, units_compatible
+
+    assert not units_compatible("percent", "ratio")
+    assert "scale mismatch" in describe_unit_mismatch("ratio", "percent")
+    assert units_compatible("percent", "pct")
+    assert units_compatible("ratio", "pure")

@@ -170,7 +170,9 @@ def test_financial_calculations():
     assert len(fields) == 13
     assert fields["quality_score_10"] == 8.5
     assert fields["roic_ttm_pct"] == 24.5
-    assert fields["evidence_quality_score_10"] == 9.0
+    # Unmeasured scores stay null; they are never defaulted.
+    assert fields["evidence_quality_score_10"] is None
+    assert fields["data_completeness_score_10"] is None
 
 
 def test_epistemic_tagging_and_focus_routing_in_prompts():
@@ -406,5 +408,13 @@ def test_a7_comparison_fields_normalization():
         assert "expected_5y_irr_base_pct" in fields
         assert "evidence_quality_score_10" in fields
         assert fields["quality_score_10"] > 0
+        # Values the model never measured are null and documented, not invented.
+        gaps = env.metrics.get("missing_data")
+        gap_paths = {g["field"] for g in gaps} if isinstance(gaps, list) else set(gaps or {})
+        for key in ("roic_ttm_pct", "fcf_yield_ttm_pct", "net_debt_to_ebitda",
+                    "expected_5y_irr_base_pct", "downside_case_5y_irr_pct",
+                    "evidence_quality_score_10", "data_completeness_score_10"):
+            assert fields[key] is None, key
+            assert f"comparison_fields.{key}" in gap_paths, key
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)

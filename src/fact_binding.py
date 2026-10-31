@@ -196,7 +196,7 @@ def unit_dimension(unit: Any) -> str:
         return DIM_UNKNOWN
     if base in ("ratio", "pure", "x", "multiple", "times", "index", "factor"):
         return DIM_RATIO
-    if base in ("percent", "percentage", "pct", "%", "percent_change"):
+    if base in _PERCENT_UNITS:
         return DIM_RATIO
     upper = _clean(unit).strip().upper()
     if upper in _CURRENCY_CODES:
@@ -240,9 +240,19 @@ def unit_currency(unit: Any) -> Optional[str]:
     return None
 
 
+_PERCENT_UNITS = ("percent", "percentage", "pct", "%", "percent_change")
+
+
 def unit_scale(unit: Any) -> Optional[float]:
-    """Return the numeric scale multiplier implied by a unit label."""
-    _, multiplier = _split_scale(_clean(unit))
+    """Return the numeric scale multiplier implied by a unit label.
+
+    A percent is a ratio scaled by 0.01, so 12.5 (percent) and 0.125 (ratio)
+    are the same dimension but not interchangeable values: they are reported
+    as a scale mismatch, never silently accepted as equal units.
+    """
+    base, multiplier = _split_scale(_clean(unit))
+    if base in _PERCENT_UNITS:
+        return 0.01 * (multiplier or 1.0)
     return multiplier
 
 
@@ -1099,6 +1109,7 @@ class InputBinding:
                     "operand_fields": list(self.derivation.operand_fields),
                     "result_value": self.derivation.result_value,
                     "operand_names": list(self.derivation.operand_names),
+                    "constants": dict(self.derivation.constants),
                 }
                 if self.derivation
                 else None
