@@ -1365,12 +1365,15 @@ def cmd_bundle_evidence(args: argparse.Namespace) -> None:
                 manifest_date = rm.get("analysis_date")
             except Exception:
                 pass
-        if not manifest_date and (run_path / "summary.json").is_file():
-            try:
-                sm = json.loads((run_path / "summary.json").read_text(encoding="utf-8"))
-                manifest_date = sm.get("params", {}).get("analysis_date") or sm.get("analysis_date")
-            except Exception:
-                pass
+        for sum_name in ("run_summary.json", "summary.json"):
+            if not manifest_date and (run_path / sum_name).is_file():
+                try:
+                    sm = json.loads((run_path / sum_name).read_text(encoding="utf-8"))
+                    manifest_date = sm.get("params", {}).get("analysis_date") or sm.get("analysis_date")
+                    if manifest_date:
+                        break
+                except Exception:
+                    pass
     elif (run_path / "evidence.json").is_file():
         ev_path = run_path / "evidence.json"
         if (run_path / "run_manifest.json").is_file():
@@ -1379,6 +1382,15 @@ def cmd_bundle_evidence(args: argparse.Namespace) -> None:
                 manifest_date = rm.get("analysis_date")
             except Exception:
                 pass
+        for sum_name in ("run_summary.json", "summary.json"):
+            if not manifest_date and (run_path / sum_name).is_file():
+                try:
+                    sm = json.loads((run_path / sum_name).read_text(encoding="utf-8"))
+                    manifest_date = sm.get("params", {}).get("analysis_date") or sm.get("analysis_date")
+                    if manifest_date:
+                        break
+                except Exception:
+                    pass
     else:
         raise SystemExit(
             f"evidence.json not found in {run_path} (checked {run_path / 'evidence' / 'evidence.json'} and {run_path / 'evidence.json'})."

@@ -178,16 +178,16 @@ def markdown_to_semantic_html(markdown_text: str) -> str:
     """
     lines = markdown_text.splitlines()
     html_parts: List[str] = []
-    in_list = False
+    list_tag: Optional[str] = None
     in_table = False
     table_headers: List[str] = []
     table_rows: List[List[str]] = []
 
     def _flush_list():
-        nonlocal in_list
-        if in_list:
-            html_parts.append("</ul>")
-            in_list = False
+        nonlocal list_tag
+        if list_tag:
+            html_parts.append(f"</{list_tag}>")
+            list_tag = None
 
     def _flush_table():
         nonlocal in_table, table_headers, table_rows
@@ -253,9 +253,10 @@ def markdown_to_semantic_html(markdown_text: str) -> str:
 
         # Bullet list
         if stripped.startswith(("- ", "* ", "+ ")):
-            if not in_list:
+            if list_tag != "ul":
+                _flush_list()
                 html_parts.append("<ul>")
-                in_list = True
+                list_tag = "ul"
             item_text = stripped[2:].strip()
             html_parts.append(f"<li>{_render_inline_markdown(item_text)}</li>")
             continue
@@ -263,9 +264,10 @@ def markdown_to_semantic_html(markdown_text: str) -> str:
         # Numbered list
         num_match = re.match(r"^(\d+)\.\s+(.*)$", stripped)
         if num_match:
-            if not in_list:
+            if list_tag != "ol":
+                _flush_list()
                 html_parts.append("<ol>")
-                in_list = True
+                list_tag = "ol"
             html_parts.append(f"<li>{_render_inline_markdown(num_match.group(2))}</li>")
             continue
 
@@ -398,13 +400,18 @@ def extract_presentation_model(
                     elif k == "generated_at" and not generated_at:
                         generated_at = v
 
-    # Extract blockquote notices from body
+    # Extract leading blockquote notices from top of body (before headings or content)
     clean_body_lines: List[str] = []
+    in_leading_notices = True
     for line in body_markdown.splitlines():
-        if line.strip().startswith(">"):
-            front_matter_notices.append(line.strip().lstrip(">").strip())
-        else:
-            clean_body_lines.append(line)
+        stripped = line.strip()
+        if in_leading_notices:
+            if stripped.startswith(">"):
+                front_matter_notices.append(stripped.lstrip(">").strip())
+                continue
+            elif stripped:
+                in_leading_notices = False
+        clean_body_lines.append(line)
 
     rendered_report_html = markdown_to_semantic_html("\n".join(clean_body_lines))
 
@@ -850,6 +857,18 @@ footer.site-footer {{
 """
 
 
+_FORENSIC_STATUS = {
+    "Safe Zone": "status-safe", "Unlikely Manipulator": "status-safe",
+    "Grey Zone": "status-warning",
+    "Distress Zone": "status-danger", "High Manipulation Risk": "status-danger",
+}
+
+
+def _forensic_status_class(label: Any) -> str:
+    """Colour only labels the calculators actually emit; anything else stays neutral."""
+    return _FORENSIC_STATUS.get(str(label), "status-neutral")
+
+
 def generate_html_report(model: PresentationModel) -> str:
     palette = model.palette
     css = _render_css(palette)
@@ -871,12 +890,12 @@ def generate_html_report(model: PresentationModel) -> str:
     # Forensics
     altman = a3.get("AltmanZ", {})
     altman_score = altman.get("score")
-    altman_class = altman.get("classification") or ("Safe Zone" if altman_score and altman_score > 3.0 else "Unavailable")
+    altman_class = altman.get("classification") or "Unavailable"  # never infer a label the calculator did not emit
     altman_str = f"{altman_score:.2f}" if isinstance(altman_score, (int, float)) else "Unavailable"
 
     beneish = a3.get("BeneishM", {})
     beneish_score = beneish.get("score")
-    beneish_class = beneish.get("classification") or ("Unlikely Manipulator" if beneish_score and beneish_score < -1.78 else "Unavailable")
+    beneish_class = beneish.get("classification") or "Unavailable"
     beneish_str = f"{beneish_score:.2f}" if isinstance(beneish_score, (int, float)) else "Unavailable"
 
     # Overall Score & Recommendation
@@ -1020,23 +1039,23 @@ def generate_html_report(model: PresentationModel) -> str:
         <div class="metrics-strip">
           <div class="metric-card">
             <div class="metric-name">Share Price</div>
-            <div class="metric-val">{price_str}</div>
-            <div class="metric-status status-neutral">Basic Shares: {shares_str}</div>
+            <div class="metric-val">{html.escape(str(price_str))}</div>
+            <div class="metric-status status-neutral">Basic Shares: {html.escape(str(shares_str))}</div>
           </div>
           <div class="metric-card">
             <div class="metric-name">Market Capitalization</div>
-            <div class="metric-val">{cap_str}</div>
+            <div class="metric-val">{html.escape(str(cap_str))}</div>
             <div class="metric-status status-neutral">Implied Equity Value</div>
           </div>
           <div class="metric-card">
             <div class="metric-name">Expected 5Y IRR</div>
-            <div class="metric-val">{irr_str}</div>
+            <div class="metric-val">{html.escape(str(irr_str))}</div>
             <div class="metric-status status-neutral">Base Scenario</div>
           </div>
           <div class="metric-card">
             <div class="metric-name">Quality Score</div>
-            <div class="metric-val">{quality_score if quality_score is not None else "N/A"}/10</div>
-            <div class="metric-status status-neutral">Valuation: {valuation_score if valuation_score is not None else "N/A"}/10</div>
+            <div class="metric-val">{html.escape(str(quality_score if quality_score is not None else "N/A"))}/10</div>
+            <div class="metric-status status-neutral">Valuation: {html.escape(str(valuation_score if valuation_score is not None else "N/A"))}/10</div>
           </div>
         </div>
       </section>
@@ -1046,13 +1065,13 @@ def generate_html_report(model: PresentationModel) -> str:
         <div class="metrics-strip">
           <div class="metric-card">
             <div class="metric-name">Altman Z-Score</div>
-            <div class="metric-val">{altman_str}</div>
-            <div class="metric-status status-safe">{html.escape(str(altman_class))}</div>
+            <div class="metric-val">{html.escape(str(altman_str))}</div>
+            <div class="metric-status {_forensic_status_class(altman_class)}">{html.escape(str(altman_class))}</div>
           </div>
           <div class="metric-card">
             <div class="metric-name">Beneish M-Score</div>
-            <div class="metric-val">{beneish_str}</div>
-            <div class="metric-status status-safe">{html.escape(str(beneish_class))}</div>
+            <div class="metric-val">{html.escape(str(beneish_str))}</div>
+            <div class="metric-status {_forensic_status_class(beneish_class)}">{html.escape(str(beneish_class))}</div>
           </div>
         </div>
       </section>

@@ -353,3 +353,75 @@ def test_mixed_vintage_and_non_reconciling_numbers_rejected():
     assert bad_table[0]["reconciles"] is False
     assert bad_table[0]["discrepancy"] == 10.0
     assert bad_table[0]["status"] == "unreconciled"
+
+
+def test_older_reconciling_filing_does_not_outrank_latest_filing():
+    """A superseded filing must not become canonical just because it reconciles."""
+    from src.facts import Fact, build_reconciled_income_table
+
+    def fact(i, concept, value, accn, avail):
+        return Fact(
+            id=i, company="TEST", concept=concept, unit="USD", value=value,
+            filing_accession=accn, availability_time=avail, retrieval_time=avail,
+            source_location={}, accounting_basis="US-GAAP", extractor_version="v1",
+            period_start="2023-01-01", period_end="2023-12-31",
+        )
+
+    old = "2024-02-01T00:00:00Z"
+    new = "2025-02-01T00:00:00Z"
+    facts = [
+        fact("o1", "Revenues", 100.0, "accn_old", old),
+        fact("o2", "CostOfRevenue", 40.0, "accn_old", old),
+        fact("o3", "GrossProfit", 60.0, "accn_old", old),
+        fact("n1", "Revenues", 110.0, "accn_new", new),  # restated, no GP tagged
+        fact("n2", "CostOfRevenue", 45.0, "accn_new", new),
+    ]
+    row = build_reconciled_income_table(facts, "2025-06-01", company="TEST")[0]
+    assert row["filing_accession"] == "accn_new" and row["revenue"] == 110.0
+    assert row["status"] == "partial"
+    # Before the restatement was available, the original filing is the canonical row.
+    row = build_reconciled_income_table(facts, "2024-06-01", company="TEST")[0]
+    assert row["filing_accession"] == "accn_old" and row["reconciles"] is True
+
+
+def test_period_start_mismatch_and_dimensions_preference():
+    """Different period_starts are not mixed, and consolidated facts are preferred over segments."""
+    from src.facts import Fact, build_reconciled_income_table
+
+    t = "2024-02-01T00:00:00Z"
+    # Case 1: period_start mismatch (e.g. 3-month vs 12-month)
+    f_rev_annual = Fact(
+        id="r1", company="TST", concept="Revenues", unit="USD", value=1000.0,
+        filing_accession="accn_1", availability_time=t, retrieval_time=t,
+        source_location={}, accounting_basis="US-GAAP", extractor_version="v1",
+        period_start="2023-01-01", period_end="2023-12-31",
+    )
+    f_cost_quarter = Fact(
+        id="c1", company="TST", concept="CostOfRevenue", unit="USD", value=200.0,
+        filing_accession="accn_1", availability_time=t, retrieval_time=t,
+        source_location={}, accounting_basis="US-GAAP", extractor_version="v1",
+        period_start="2023-10-01", period_end="2023-12-31",  # 3-month period start
+    )
+    table = build_reconciled_income_table([f_rev_annual, f_cost_quarter], "2024-06-01", company="TST")
+    # Because period_start mismatched, cost_fact was rejected for unit/period compatibility
+    assert len(table) == 1
+    assert table[0]["cost_of_revenue"] is None
+
+    # Case 2: Dimension breakdown should not displace consolidated revenue
+    f_rev_segment = Fact(
+        id="r_seg", company="TST", concept="Revenues", unit="USD", value=300.0,
+        filing_accession="accn_dim", availability_time=t, retrieval_time=t,
+        source_location={}, accounting_basis="US-GAAP", extractor_version="v1",
+        period_start="2023-01-01", period_end="2023-12-31",
+        dimensions={"Segment": "NorthAmerica"},
+    )
+    f_rev_total = Fact(
+        id="r_tot", company="TST", concept="Revenues", unit="USD", value=1000.0,
+        filing_accession="accn_dim", availability_time=t, retrieval_time=t,
+        source_location={}, accounting_basis="US-GAAP", extractor_version="v1",
+        period_start="2023-01-01", period_end="2023-12-31",
+        dimensions=None,
+    )
+    table_dim = build_reconciled_income_table([f_rev_segment, f_rev_total], "2024-06-01", company="TST")
+    assert len(table_dim) == 1
+    assert table_dim[0]["revenue"] == 1000.0  # Chose consolidated, not 300.0 segment

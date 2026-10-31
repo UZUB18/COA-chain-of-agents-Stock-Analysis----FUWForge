@@ -134,6 +134,7 @@ def _create_evidence_pack(
     pack_data: Dict[str, Any] = {
         "schema_version": "1",
         "ticker": ticker.upper(),
+        "analysis_date": analysis_date,
         "documents": documents,
         "attachments": attachments or [],
     }

@@ -58,26 +58,15 @@ def is_checkout_workspace() -> bool:
 
 
 def resolve_env_path() -> Optional[Path]:
-    """Find the project .env file checking overrides, cwd parents, and checkout root."""
-    override = os.environ.get("FUWFORGE_ENV_PATH") or os.environ.get("DOTENV_PATH")
-    if override and Path(override).is_file():
-        return Path(override).resolve()
+    """Project .env: explicit override, else the checkout root, else the CWD.
 
-    try:
-        cur = Path.cwd().resolve()
-        for p in [cur, *cur.parents]:
-            candidate = p / ".env"
-            if candidate.is_file():
-                return candidate
-    except Exception:
-        pass
-
-    for p in [_CHECKOUT_ROOT, *_CHECKOUT_ROOT.parents]:
-        candidate = p / ".env"
-        if candidate.is_file():
-            return candidate
-
-    return None
+    Deliberately no parent-directory walk, so an unrelated ``~/.env`` (or another
+    project's keys) is never picked up implicitly.
+    """
+    override = os.environ.get("FUWFORGE_ENV_PATH")
+    candidates = [Path(override)] if override else []
+    candidates += [_CHECKOUT_ROOT / ".env", Path.cwd() / ".env"]
+    return next((c.resolve() for c in candidates if c.is_file()), None)
 
 
 def get_resource_path(

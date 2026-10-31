@@ -795,14 +795,40 @@ def build_reconciled_income_table(
         for f in period_facts:
             accn = f.filing_accession or "unknown"
             bucket = by_accession.setdefault(accn, {})
+            has_dim = bool(f.dimensions)
             if f.concept in REVENUE_CONCEPTS:
-                if "rev" not in bucket or REVENUE_CONCEPTS.index(f.concept) < REVENUE_CONCEPTS.index(bucket["rev"].concept):
+                prev = bucket.get("rev")
+                if prev is None:
                     bucket["rev"] = f
+                else:
+                    prev_dim = bool(prev.dimensions)
+                    if (prev_dim and not has_dim) or (
+                        prev_dim == has_dim
+                        and REVENUE_CONCEPTS.index(f.concept) < REVENUE_CONCEPTS.index(prev.concept)
+                    ):
+                        bucket["rev"] = f
             elif f.concept in COST_CONCEPTS:
-                if "cost" not in bucket or COST_CONCEPTS.index(f.concept) < COST_CONCEPTS.index(bucket["cost"].concept):
+                prev = bucket.get("cost")
+                if prev is None:
                     bucket["cost"] = f
+                else:
+                    prev_dim = bool(prev.dimensions)
+                    if (prev_dim and not has_dim) or (
+                        prev_dim == has_dim
+                        and COST_CONCEPTS.index(f.concept) < COST_CONCEPTS.index(prev.concept)
+                    ):
+                        bucket["cost"] = f
             elif f.concept in GROSS_PROFIT_CONCEPTS:
-                bucket["gp"] = f
+                prev = bucket.get("gp")
+                if prev is None:
+                    bucket["gp"] = f
+                else:
+                    prev_dim = bool(prev.dimensions)
+                    if (prev_dim and not has_dim) or (
+                        prev_dim == has_dim
+                        and GROSS_PROFIT_CONCEPTS.index(f.concept) < GROSS_PROFIT_CONCEPTS.index(prev.concept)
+                    ):
+                        bucket["gp"] = f
 
         candidate_rows: List[Dict[str, Any]] = []
         for accn, components in by_accession.items():
@@ -822,6 +848,9 @@ def build_reconciled_income_table(
             for comp in (rev_fact, cost_fact, gp_fact):
                 if comp:
                     if comp.unit != currency or str(comp.accounting_basis.value if hasattr(comp.accounting_basis, "value") else comp.accounting_basis) != basis:
+                        unit_mismatch = True
+                        break
+                    if ref_fact.period_start and comp.period_start and comp.period_start != ref_fact.period_start:
                         unit_mismatch = True
                         break
 
@@ -858,9 +887,9 @@ def build_reconciled_income_table(
             continue
 
         def _cand_sort_key(r: Dict[str, Any]):
-            is_rec = 1 if r["reconciles"] else 0
-            avail = r["availability_time"] or ""
-            return (is_rec, avail)
+            # Latest filing wins even if it does not reconcile: an older
+            # reconciling filing is superseded and must not be shown as canonical.
+            return (r["availability_time"] or "", 1 if r["reconciles"] else 0)
 
         candidate_rows.sort(key=_cand_sort_key, reverse=True)
         rows.append(candidate_rows[0])
