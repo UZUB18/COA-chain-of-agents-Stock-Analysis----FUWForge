@@ -263,3 +263,93 @@ def test_as_of_filtering_in_parser_respects_conservative_availability():
         as_of="2025-03-01T00:00:00Z",
     )
     assert len(facts) == 1
+
+
+def test_meli_vintage_reconciled_income_table():
+    """MELI Task 3: Stop mixing historical filing versions in the financial table."""
+    from src.facts import build_reconciled_income_table, render_reconciled_income_table_md
+
+    facts = _parse("meli_vintage", ticker="MELI")
+
+    # 1. Before the 2024 filing: cutoff 2023-06-01
+    table_early = build_reconciled_income_table(facts, "2023-06-01", company="MELI")
+    assert len(table_early) == 1
+    row_early = table_early[0]
+    assert row_early["period_end"] == "2022-12-31"
+    assert row_early["filing_accession"] == "0001065280-23-000050"
+    assert row_early["revenue"] == 10537000000.0
+    assert row_early["cost_of_revenue"] == 5582000000.0
+    assert row_early["gross_profit"] == 4955000000.0
+    assert row_early["reconciles"] is True
+    assert row_early["status"] == "reconciled"
+
+    # 2. After the 2024 filing: cutoff 2024-06-01
+    table_late = build_reconciled_income_table(facts, "2024-06-01", company="MELI")
+    assert len(table_late) == 1
+    row_late = table_late[0]
+    assert row_late["period_end"] == "2022-12-31"
+    assert row_late["filing_accession"] == "0001065280-24-000060"
+    assert row_late["revenue"] == 10780000000.0
+    assert row_late["cost_of_revenue"] == 5582000000.0
+    assert row_late["gross_profit"] == 5198000000.0
+    assert row_late["reconciles"] is True
+    assert row_late["status"] == "reconciled"
+
+    # Render table to markdown
+    md = render_reconciled_income_table_md(table_late)
+    assert "0001065280-24-000060" in md
+    assert "10,780,000,000.00" in md
+    assert "5,582,000,000.00" in md
+    assert "5,198,000,000.00" in md
+    assert "Yes" in md
+
+
+def test_mixed_vintage_and_non_reconciling_numbers_rejected():
+    """Verify that values across different accessions are never mixed into one row."""
+    from src.facts import Fact, build_reconciled_income_table
+
+    # Fact 1 from accn1: Revenue = 100
+    f_rev = Fact(
+        id="f1", company="TEST", concept="Revenues", unit="USD", value=100.0,
+        filing_accession="accn_1", availability_time="2024-01-01T00:00:00Z",
+        retrieval_time="2024-01-01T00:00:00Z", source_location={}, accounting_basis="US-GAAP",
+        extractor_version="v1", period_start="2023-01-01", period_end="2023-12-31",
+    )
+    # Fact 2 from accn2: GrossProfit = 60
+    f_gp = Fact(
+        id="f2", company="TEST", concept="GrossProfit", unit="USD", value=60.0,
+        filing_accession="accn_2", availability_time="2024-02-01T00:00:00Z",
+        retrieval_time="2024-02-01T00:00:00Z", source_location={}, accounting_basis="US-GAAP",
+        extractor_version="v1", period_start="2023-01-01", period_end="2023-12-31",
+    )
+    # Neither accession has a complete set, so they must NOT be combined into a pseudo-reconciled row!
+    table = build_reconciled_income_table([f_rev, f_gp], "2024-06-01", company="TEST")
+    assert len(table) == 1
+    # The chosen best row is partial, NOT a synthesized mixed row combining accn_1 and accn_2
+    assert table[0]["reconciles"] is False
+    assert (table[0]["revenue"] is None) or (table[0]["gross_profit"] is None)
+
+    # Fact 3, 4, 5 in same accession with arithmetic discrepancy: 100 - 40 != 50
+    f3 = Fact(
+        id="f3", company="BAD", concept="Revenues", unit="USD", value=100.0,
+        filing_accession="accn_bad", availability_time="2024-01-01T00:00:00Z",
+        retrieval_time="2024-01-01T00:00:00Z", source_location={}, accounting_basis="US-GAAP",
+        extractor_version="v1", period_start="2023-01-01", period_end="2023-12-31",
+    )
+    f4 = Fact(
+        id="f4", company="BAD", concept="CostOfRevenue", unit="USD", value=40.0,
+        filing_accession="accn_bad", availability_time="2024-01-01T00:00:00Z",
+        retrieval_time="2024-01-01T00:00:00Z", source_location={}, accounting_basis="US-GAAP",
+        extractor_version="v1", period_start="2023-01-01", period_end="2023-12-31",
+    )
+    f5 = Fact(
+        id="f5", company="BAD", concept="GrossProfit", unit="USD", value=50.0,
+        filing_accession="accn_bad", availability_time="2024-01-01T00:00:00Z",
+        retrieval_time="2024-01-01T00:00:00Z", source_location={}, accounting_basis="US-GAAP",
+        extractor_version="v1", period_start="2023-01-01", period_end="2023-12-31",
+    )
+    bad_table = build_reconciled_income_table([f3, f4, f5], "2024-06-01", company="BAD")
+    assert len(bad_table) == 1
+    assert bad_table[0]["reconciles"] is False
+    assert bad_table[0]["discrepancy"] == 10.0
+    assert bad_table[0]["status"] == "unreconciled"

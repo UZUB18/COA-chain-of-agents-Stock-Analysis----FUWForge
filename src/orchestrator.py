@@ -1360,6 +1360,15 @@ class FUWForgeOrchestrator:
         assembled_sections = self._assemble_sections(
             envelopes, depth_config=depth_config
         )
+        if self.evidence_pack and getattr(self.evidence_pack, "facts", None):
+            from src.facts import build_reconciled_income_table, render_reconciled_income_table_md
+
+            income_table = build_reconciled_income_table(
+                self.evidence_pack.facts, params.analysis_date, company=params.ticker
+            )
+            income_table_md = render_reconciled_income_table_md(income_table)
+            if income_table_md and "Canonical Annual Income Summary" not in assembled_sections:
+                assembled_sections = assembled_sections + "\n\n" + income_table_md + "\n"
         # The report is the artifact a reader forwards; it must name the backend
         # that produced it. Without this, a fixture-generated "Buy" rating is
         # byte-for-byte indistinguishable in its header from a live analysis.

@@ -732,3 +732,170 @@ def load_fact_ledger(source: Union[str, Path, Iterable[Any]]) -> List[Fact]:
         raise TypeError(f"Unsupported source type: {type(source).__name__}")
 
     return facts
+
+
+REVENUE_CONCEPTS: Tuple[str, ...] = (
+    "Revenues",
+    "RevenueFromContractWithCustomerExcludingAssessedTax",
+    "SalesRevenueNet",
+)
+
+COST_CONCEPTS: Tuple[str, ...] = (
+    "CostOfGoodsAndServicesSold",
+    "CostOfRevenue",
+)
+
+GROSS_PROFIT_CONCEPTS: Tuple[str, ...] = (
+    "GrossProfit",
+)
+
+
+def build_reconciled_income_table(
+    facts: Iterable[Union[Fact, Mapping[str, Any]]],
+    cutoff: Union[str, datetime, date],
+    *,
+    company: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Build a canonical annual revenue, cost, and gross profit table without mixing filing vintages.
+
+    Only presents a row as reconciled when company, annual period, unit/currency, accounting basis,
+    and filing accession provenance are compatible. Prefers the latest consistent filing available
+    by the cutoff date. Refuses to combine values from different filing vintages.
+    """
+    parsed: List[Fact] = []
+    for item in facts:
+        f = item if isinstance(item, Fact) else Fact.from_dict(item)
+        if company and f.company.upper() != company.upper():
+            continue
+        if not usable_as_of(f, cutoff):
+            continue
+        f_kind = f.kind.value if isinstance(f.kind, FactKind) else str(f.kind).lower()
+        if f_kind in (FactKind.FORECAST.value, FactKind.ESTIMATE.value):
+            continue
+        if f.value is None or not math.isfinite(f.value):
+            continue
+        if not (f.period_start and f.period_end):
+            continue
+        try:
+            days = (date.fromisoformat(f.period_end) - date.fromisoformat(f.period_start)).days
+            if not (330 <= days <= 400):
+                continue
+        except Exception:
+            continue
+        parsed.append(f)
+
+    by_period: Dict[str, List[Fact]] = {}
+    for f in parsed:
+        by_period.setdefault(f.period_end, []).append(f)
+
+    rows: List[Dict[str, Any]] = []
+    for period_end in sorted(by_period.keys(), reverse=True):
+        period_facts = by_period[period_end]
+        by_accession: Dict[str, Dict[str, Fact]] = {}
+        for f in period_facts:
+            accn = f.filing_accession or "unknown"
+            bucket = by_accession.setdefault(accn, {})
+            if f.concept in REVENUE_CONCEPTS:
+                if "rev" not in bucket or REVENUE_CONCEPTS.index(f.concept) < REVENUE_CONCEPTS.index(bucket["rev"].concept):
+                    bucket["rev"] = f
+            elif f.concept in COST_CONCEPTS:
+                if "cost" not in bucket or COST_CONCEPTS.index(f.concept) < COST_CONCEPTS.index(bucket["cost"].concept):
+                    bucket["cost"] = f
+            elif f.concept in GROSS_PROFIT_CONCEPTS:
+                bucket["gp"] = f
+
+        candidate_rows: List[Dict[str, Any]] = []
+        for accn, components in by_accession.items():
+            rev_fact = components.get("rev")
+            cost_fact = components.get("cost")
+            gp_fact = components.get("gp")
+
+            if not (rev_fact or gp_fact):
+                continue
+
+            ref_fact = rev_fact or gp_fact
+            currency = ref_fact.unit or "USD"
+            basis = str(ref_fact.accounting_basis.value if hasattr(ref_fact.accounting_basis, "value") else ref_fact.accounting_basis)
+            filing_time = ref_fact.availability_time or ""
+
+            unit_mismatch = False
+            for comp in (rev_fact, cost_fact, gp_fact):
+                if comp:
+                    if comp.unit != currency or str(comp.accounting_basis.value if hasattr(comp.accounting_basis, "value") else comp.accounting_basis) != basis:
+                        unit_mismatch = True
+                        break
+
+            if unit_mismatch:
+                continue
+
+            reconciled = False
+            discrepancy = None
+            if rev_fact is not None and cost_fact is not None and gp_fact is not None:
+                diff = rev_fact.value - cost_fact.value
+                discrepancy = round(abs(diff - gp_fact.value), 4)
+                reconciled = discrepancy <= 1e-4
+
+            candidate_rows.append({
+                "period_end": period_end,
+                "period_start": ref_fact.period_start,
+                "company": ref_fact.company,
+                "currency": currency,
+                "accounting_basis": basis,
+                "filing_accession": accn,
+                "availability_time": filing_time,
+                "revenue": rev_fact.value if rev_fact else None,
+                "revenue_concept": rev_fact.concept if rev_fact else None,
+                "cost_of_revenue": cost_fact.value if cost_fact else None,
+                "cost_concept": cost_fact.concept if cost_fact else None,
+                "gross_profit": gp_fact.value if gp_fact else None,
+                "gross_profit_concept": gp_fact.concept if gp_fact else None,
+                "reconciles": reconciled,
+                "discrepancy": discrepancy,
+                "status": "reconciled" if reconciled else ("unreconciled" if (rev_fact and cost_fact and gp_fact) else "partial"),
+            })
+
+        if not candidate_rows:
+            continue
+
+        def _cand_sort_key(r: Dict[str, Any]):
+            is_rec = 1 if r["reconciles"] else 0
+            avail = r["availability_time"] or ""
+            return (is_rec, avail)
+
+        candidate_rows.sort(key=_cand_sort_key, reverse=True)
+        rows.append(candidate_rows[0])
+
+    return rows
+
+
+def render_reconciled_income_table_md(table: List[Dict[str, Any]]) -> str:
+    """Render canonical annual financial table in markdown with provenance and reconciliation status."""
+    if not table:
+        return ""
+
+    lines = [
+        "### Canonical Annual Income Summary (SEC Facts — Non-Mixed Vintages)",
+        "| Fiscal Period | Accession | Basis | Currency | Revenue | Cost of Goods / Services | Gross Profit | Reconciled |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for row in table:
+        period = f"{row.get('period_start')} to {row.get('period_end')}" if row.get("period_start") else str(row.get("period_end"))
+        accn = str(row.get("filing_accession") or "N/A")
+        basis = str(row.get("accounting_basis") or "US-GAAP")
+        curr = str(row.get("currency") or "USD")
+
+        rev = f"{row['revenue']:,.2f}" if row.get("revenue") is not None else "Unavailable"
+        cost = f"{row['cost_of_revenue']:,.2f}" if row.get("cost_of_revenue") is not None else "Unavailable"
+        gp = f"{row['gross_profit']:,.2f}" if row.get("gross_profit") is not None else "Unavailable"
+
+        if row.get("reconciles"):
+            status_text = "Yes"
+        elif row.get("revenue") is not None and row.get("cost_of_revenue") is not None and row.get("gross_profit") is not None:
+            status_text = f"No (Diff: {row.get('discrepancy')})"
+        else:
+            status_text = "Partial / Unavailable"
+
+        lines.append(f"| {period} | {accn} | {basis} | {curr} | {rev} | {cost} | {gp} | {status_text} |")
+
+    lines.append("\n*Note: Each row is constructed strictly from a single filing accession to prevent mixed-vintage distortions (Rev - Cost = Gross Profit).*\n")
+    return "\n".join(lines)

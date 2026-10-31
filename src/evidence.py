@@ -940,6 +940,8 @@ class EvidencePack:
         if self.facts:
             usable = self.get_facts(as_of=self.analysis_date, allow_forecasts=False)
             if usable:
+                from src.facts import build_reconciled_income_table, render_reconciled_income_table_md
+
                 selected, active_count = _select_prompt_facts(usable)
                 fact_payload = [
                     {
@@ -962,5 +964,9 @@ class EvidencePack:
                     "and recent annual periods are prioritized; the complete ledger remains available for binding.\n\n"
                     + json.dumps(fact_payload, indent=2)
                 )
+                income_table = build_reconciled_income_table(usable, self.analysis_date, company=self.data.get("ticker"))
+                income_table_md = render_reconciled_income_table_md(income_table)
+                if income_table_md:
+                    fact_block = income_table_md + "\n\n" + fact_block
                 chunks.append(html.escape(fact_block, quote=False))
         return "\n\n".join(chunks)

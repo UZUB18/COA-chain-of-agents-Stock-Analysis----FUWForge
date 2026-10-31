@@ -901,7 +901,7 @@ Structural Decision Gate: If company exhibits critical accounting opacity, going
 Tasks:
 1. Gather filings-first data (10-K, 10-Q, price timestamp) date-bounded on or before {analysis_date}.
 2. Reconcile reported facts from primary SEC filings. Never treat forward-looking guidance or forecasts as reported facts. Tag factual filing figures with [Fact], forward guidance with [Estimate].
-3. Render sections_md.RAW_DATA_PACK with units, currency, as-of dates, financial tables.
+3. Render sections_md.RAW_DATA_PACK with units, currency, as-of dates, financial tables. Use the canonical Reconciled Annual Income table from typed SEC facts; do not combine numbers from different filing versions.
 4. Emit required artifacts: price_timestamp_eet (string ISO; a date-only YYYY-MM-DD value when the price source is a daily bar — never invent a time of day), shares_basic (positive number), shares_diluted (positive number), market_cap_check (object with numeric price, shares, cap where cap ≈ price * shares).
 5. Generate metrics.data_checksum (a SHA-256 hash or "{computed_checksum}").
 6. Set gates.passed=true if sufficient data, or false with MISSING_DATA_TABLE.
