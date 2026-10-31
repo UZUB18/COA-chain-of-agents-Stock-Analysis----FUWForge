@@ -18,7 +18,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.orchestrator import FUWForgeOrchestrator, OrchestratorParams
 from src.run_audit import verify_run
-from src.utils.checksum import envelope_content_checksum
+from src.utils.checksum import envelope_checksum, envelope_content_checksum
 
 
 def _run(root: Path, tmp: Path, ticker: str = "AUDIT") -> dict:
@@ -58,7 +58,7 @@ def test_run_artifacts_and_verification():
             data = json.loads(
                 (tmp / f"{agent_id}_envelope.json").read_text(encoding="utf-8")
             )
-            assert data["content_checksum"] == envelope_content_checksum(data)
+            assert data["content_checksum"] == envelope_checksum(data)
         a7 = json.loads((tmp / "a7_envelope.json").read_text(encoding="utf-8"))
         # Lineage records what A7 actually consumed, in canonical (sorted)
         # order. Acceptance order is a storage choice and is not evidence of

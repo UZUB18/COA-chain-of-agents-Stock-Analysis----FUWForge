@@ -50,7 +50,7 @@ from src.execution_store import (
     validate_receipt,
 )
 from src.orchestrator import FUWForgeOrchestrator, OrchestratorParams
-from src.utils.checksum import envelope_content_checksum
+from src.utils.checksum import envelope_checksum, envelope_content_checksum
 
 
 CHECKSUM_A1 = "sha256:" + "a" * 64
@@ -1035,7 +1035,7 @@ def test_inconsistent_validated_receipt_preserves_run_tree(tmp_path, corruption)
                 "FROM execution_receipts WHERE agent_id = 'A1'"
             ).fetchone()
             envelope = json.loads(envelope_json)
-            assert envelope_content_checksum(envelope) == accepted_checksum
+            assert envelope_checksum(envelope) == accepted_checksum
             if corruption == "embedded_checksum_missing":
                 envelope.pop("content_checksum")
             else:

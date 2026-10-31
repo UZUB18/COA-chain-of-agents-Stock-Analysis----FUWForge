@@ -39,7 +39,7 @@ from src.envelope import Envelope
 from src.orchestrator import FUWForgeOrchestrator, OrchestratorParams
 from src.run_audit import semantic_audit, verify_run_semantic
 from src.utils.beneish import BENEISH_INPUT_KEYS, beneish_score
-from src.utils.checksum import checksum_file, envelope_content_checksum, sha256_digest
+from src.utils.checksum import checksum_file, envelope_checksum, envelope_content_checksum, sha256_digest
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 TICKER = "ZERO"
@@ -63,7 +63,7 @@ def _create_mock_run(tmp: Path, ticker: str = TICKER) -> Path:
 
 def _reseal(path: Path) -> None:
     data = json.loads(path.read_text(encoding="utf-8"))
-    data["content_checksum"] = envelope_content_checksum(data)
+    data["content_checksum"] = envelope_checksum(data)
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 

@@ -77,11 +77,29 @@ def extract_thesis_state(run_dir: Path) -> Tuple[str, str, List[Dict[str, Any]],
 
     # Fallback to *_artifacts.json or a1_envelope.json if missing
     if not bull_cases:
-        for art_file in run_dir.glob("*_artifacts.json"):
+        for art_file in sorted(run_dir.glob("*_artifacts.json")):
             try:
                 data = json.loads(art_file.read_text(encoding="utf-8"))
-                if "BullCase" in data:
+                if "A6B" in data and isinstance(data["A6B"], dict):
+                    a6b_env = data["A6B"]
+                    bull_cases = a6b_env.get("artifacts", {}).get("BullCase", [])
+                    p = a6b_env.get("params", {})
+                    if p.get("ticker"):
+                        ticker = p["ticker"]
+                        company = p.get("company", company)
+                elif "BullCase" in data:
                     bull_cases = data["BullCase"]
+                if "A6" in data and isinstance(data["A6"], dict) and not danger_zone:
+                    danger_zone = data["A6"].get("artifacts", {}).get("DangerZoneDashboard", [])
+                if ticker == "UNKNOWN":
+                    for env_val in data.values():
+                        if isinstance(env_val, dict) and "params" in env_val:
+                            p = env_val.get("params", {})
+                            if p.get("ticker"):
+                                ticker = p["ticker"]
+                                company = p.get("company", company)
+                                break
+                if bull_cases:
                     break
             except Exception:
                 pass

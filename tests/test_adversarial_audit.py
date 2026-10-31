@@ -68,10 +68,10 @@ def _good_run(tmp: Path) -> Path:
 
 def _reseal(path: Path) -> None:
     """Recompute the content checksum after an edit: a *consistent* tamper."""
-    from src.utils.checksum import envelope_content_checksum
+    from src.utils.checksum import envelope_checksum
 
     data = json.loads(path.read_text(encoding="utf-8"))
-    data["content_checksum"] = envelope_content_checksum(data)
+    data["content_checksum"] = envelope_checksum(data)
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 

@@ -37,7 +37,7 @@ from src.facts import AccountingBasis, Fact, FactKind
 from src.run_audit import build_run_manifest, semantic_audit, verify_run_semantic
 from src.run_semantic_audit import _load_fact_ledger
 from src.utils.beneish import BENEISH_INPUT_KEYS, beneish_score
-from src.utils.checksum import checksum_file, envelope_content_checksum, sha256_digest
+from src.utils.checksum import checksum_file, envelope_checksum, envelope_content_checksum, sha256_digest
 
 
 TICKER = "SEM"
@@ -63,7 +63,7 @@ def _good_run(tmp: Path, ticker: str = TICKER) -> Path:
 
 def _reseal(path: Path) -> None:
     data = json.loads(path.read_text(encoding="utf-8"))
-    data["content_checksum"] = envelope_content_checksum(data)
+    data["content_checksum"] = envelope_checksum(data)
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 

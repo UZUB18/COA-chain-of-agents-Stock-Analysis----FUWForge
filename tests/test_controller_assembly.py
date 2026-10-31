@@ -171,7 +171,19 @@ def test_controller_assembly():
                             "thesis": "High margin expansion",
                             "evidence": ["A3.AltmanZ"],
                             "impact": "EPS +5%",
-                        }
+                        },
+                        {
+                            "id": "B2",
+                            "thesis": "Operating Margin Leverage",
+                            "evidence": ["A3.OCF_vs_NI_Flag"],
+                            "impact": "Operating margin +200 bps",
+                        },
+                        {
+                            "id": "B3",
+                            "thesis": "Capital Return Acceleration",
+                            "evidence": ["A5.SentimentSplit"],
+                            "impact": "FCF per share +12% annualized",
+                        },
                     ]
                 },
                 sections={"SECTION_10_BULL_CASE": "# Section 10: Bull Case"},
@@ -187,7 +199,19 @@ def test_controller_assembly():
                             "probability": "Med",
                             "severity": "High",
                             "counter": "Valuation compression risk",
-                        }
+                        },
+                        {
+                            "bull_id": "B2",
+                            "probability": "Low",
+                            "severity": "High",
+                            "counter": "AI compute capex and engineer hiring costs could compress gross margins.",
+                        },
+                        {
+                            "bull_id": "B3",
+                            "probability": "Med",
+                            "severity": "Med",
+                            "counter": "Multiple de-rating could offset share repurchases if revenue guidance softens.",
+                        },
                     ]
                 },
                 sections={"SECTION_11_BEAR_CASE": "# Section 11: Bear Rebuttals"},

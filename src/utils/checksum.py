@@ -82,6 +82,14 @@ class UnknownChecksumScheme(ValueError):
     """An envelope declares a checksum scheme this code does not implement."""
 
 
+class NonCanonicalEnvelope(UnknownChecksumScheme):
+    """A v2 envelope holds values (NaN/Infinity) with no canonical form.
+
+    Subclasses :class:`UnknownChecksumScheme` so every verifier that already
+    fails closed on an unverifiable checksum also fails closed here.
+    """
+
+
 def canonical_json(data: Any) -> str:
     """Injective canonical JSON: sorted keys, no whitespace, no NaN/Infinity."""
     return json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
@@ -95,7 +103,11 @@ def envelope_content_checksum_v2(envelope_dict: Any) -> str:
     if isinstance(metrics, dict):
         for key in TELEMETRY_METRICS:
             metrics.pop(key, None)
-    return sha256_digest(canonical_json(payload).encode("utf-8"))
+    try:
+        canonical = canonical_json(payload)
+    except ValueError as exc:  # NaN/Infinity: no v2 canonical form exists
+        raise NonCanonicalEnvelope(f"envelope is not canonical JSON ({exc})") from None
+    return sha256_digest(canonical.encode("utf-8"))
 
 
 def checksum_scheme_of(envelope_dict: Any) -> Optional[str]:

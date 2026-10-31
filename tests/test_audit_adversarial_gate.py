@@ -124,6 +124,7 @@ def test_graph_uses_run_identity_and_cutoff_when_envelope_params_absent(tmp_path
 def test_core_replay_handles_nonfinite_and_overflow_without_false_pass(tmp_path, location, bad):
     _create_mock_run(tmp_path)
     data = json.loads((tmp_path / "a3_envelope.json").read_text())
+    data.pop("checksum_scheme", None)
     beneish = data["artifacts"]["BeneishM"]
     if location == "input":
         beneish["calculation_witness"]["inputs"]["dsri"] = bad
@@ -136,6 +137,19 @@ def test_core_replay_handles_nonfinite_and_overflow_without_false_pass(tmp_path,
     assert not report.valid
     assert report.levels["calculation_replay"] == "failed"
     assert report.witnesses_replayed == 0
+
+
+def test_v2_envelope_with_nonfinite_value_fails_closed_not_crash(tmp_path):
+    """A v2 envelope holding NaN has no canonical form; audit must fail, not raise."""
+    _create_mock_run(tmp_path)
+    path = tmp_path / "a3_envelope.json"
+    data = json.loads(path.read_text())
+    assert data.get("checksum_scheme")  # v2 envelope
+    data["artifacts"]["BeneishM"]["score"] = float("nan")
+    path.write_text(json.dumps(data))
+    report = semantic_audit(tmp_path)
+    assert not report.valid
+    assert report.levels["envelope_integrity"] == "failed"
 
 
 @pytest.mark.parametrize("provenance,result", [("deterministic", 999.0), ("unavailable", None)])

@@ -301,7 +301,19 @@ def test_model_agent_normalization_and_retry():
                             "thesis": "Datacenter revenue growth",
                             "evidence": ["A3.AltmanZ"],
                             "impact": "EPS +20%",
-                        }
+                        },
+                        {
+                            "id": "B2",
+                            "thesis": "Operating margin leverage",
+                            "evidence": ["A3.OCF_vs_NI_Flag"],
+                            "impact": "Operating margin +200 bps",
+                        },
+                        {
+                            "id": "B3",
+                            "thesis": "Capital return acceleration",
+                            "evidence": ["A5.SentimentSplit"],
+                            "impact": "FCF per share +12%",
+                        },
                     ]
                 },
             }
@@ -329,7 +341,7 @@ def test_model_agent_normalization_and_retry():
         assert envelope.metrics["data_checksum"] == "sha256:fixedchecksum12345"
         assert len(envelope.sources) >= 1
         assert "SECTION_10_BULL_CASE" in envelope.sections_md
-        assert len(envelope.artifacts["BullCase"]) == 1
+        assert len(envelope.artifacts["BullCase"]) == 3
 
         print("  [PASS] test_model_agent_normalization_and_retry")
     finally:

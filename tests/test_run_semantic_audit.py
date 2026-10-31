@@ -68,10 +68,10 @@ def _reseal(path: Path) -> None:
     Used to model a *consistent* tamper: the attacker edits content and
     re-seals, so hash verification passes and only semantic checks can catch it.
     """
-    from src.utils.checksum import envelope_content_checksum
+    from src.utils.checksum import envelope_checksum
 
     data = json.loads(path.read_text(encoding="utf-8"))
-    data["content_checksum"] = envelope_content_checksum(data)
+    data["content_checksum"] = envelope_checksum(data)
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
@@ -106,11 +106,15 @@ def _snapshot_run(run_dir: Path) -> dict[str, bytes]:
 
 def _run_with_injected_default(tmp: Path) -> Path:
     _good_run(tmp)
-    path = _envelope_path(tmp, "A2")
+    path = _envelope_path(tmp, "A7")
     data = json.loads(path.read_text(encoding="utf-8"))
     data.setdefault("metrics", {})["injected_defaults"] = ["test-default"]
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
     _reseal(path)
+    manifest_path = tmp / "run_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["roles"]["A7"] = json.loads(path.read_text(encoding="utf-8"))["content_checksum"]
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     return tmp
 
 
@@ -121,6 +125,10 @@ def _run_with_unexpected_section(tmp: Path) -> Path:
     data["sections_md"]["SECTION_999_UNEXPECTED"] = "Unexpected content."
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
     _reseal(path)
+    manifest_path = tmp / "run_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["roles"]["A7"] = json.loads(path.read_text(encoding="utf-8"))["content_checksum"]
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     return tmp
 
 
@@ -1095,12 +1103,12 @@ def test_seal_leaves_rejected_halted_diagnostics_unaccepted(
 
 
 def test_sealed_unrecorded_rejected_envelope_is_not_a_diagnostic(tmp_path):
-    from src.utils.checksum import envelope_content_checksum
+    from src.utils.checksum import envelope_checksum
 
     _halt_at_a7_gate(tmp_path)
     a7_path = _envelope_path(tmp_path, "A7")
     a7 = json.loads(a7_path.read_text(encoding="utf-8"))
-    a7["content_checksum"] = envelope_content_checksum(a7)
+    a7["content_checksum"] = envelope_checksum(a7)
     a7_path.write_text(json.dumps(a7, indent=2), encoding="utf-8")
     before = _snapshot_run(tmp_path)
 
