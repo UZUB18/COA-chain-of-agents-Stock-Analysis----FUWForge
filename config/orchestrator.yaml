@@ -3,5 +3,5 @@
 # The phase sequence (A1 -> A2-A5 -> A6B/A6R/A6 -> A7) is implemented in
 # src/orchestrator.py; this file only holds tunables.
 run_settings:
-  max_retries: 3
+  max_retries: 2
   retry_backoff_seconds: 15

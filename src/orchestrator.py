@@ -70,13 +70,6 @@ def _strict_mode() -> bool:
     )
 
 
-#: Placeholder digest for an absent prompt/evidence hash. It is a real SHA-256
-#: value so execution-identity computation stays total, but it must never be
-#: confused with a recorded hash: an agent with no prompt hash or no evidence
-#: pack still gets a distinct identity from one that has either.
-_EMPTY_SHA256 = "0" * 64
-
-
 @dataclass
 class OrchestratorParams:
     company: str
@@ -1468,32 +1461,6 @@ class FUWForgeOrchestrator:
             except Exception as exc:  # noqa: BLE001 - HTML failure must never invalidate core Markdown
                 provenance.append("ORCH", f"HTML presentation could not be rendered: {exc}")
                 provenance.flush()
-
-        # Bind the exact final bytes into a run manifest so an independent audit
-        # can detect a report or artifact bundle edited after sealing.
-        try:
-            from src.run_semantic_audit import build_run_manifest
-
-            manifest = build_run_manifest(
-                output_root,
-                envelopes,
-                run_id=run_id,
-                ticker=params.ticker,
-                analysis_date=params.analysis_date,
-                status="completed",
-                summary={
-                    "provider": provider_name,
-                    "model": model_name,
-                    "checksum": checksum,
-                    "evidence_checksum": (self.evidence_pack.checksum if self.evidence_pack else None),
-                    "params": params.__dict__,
-                },
-            )
-            manifest_path = output_root / "run_manifest.json"
-            manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-        except Exception as exc:  # noqa: BLE001 - never fail a run over the manifest
-            provenance.append("ORCH", f"Run manifest could not be written: {exc}")
-            provenance.flush()
 
         outputs = {
             "report": str(report_path),
