@@ -328,18 +328,18 @@ Severity is a judgment; verify before fixing. ✔ = re-checked against code by h
 - **B9** ~~A3 lenient early return~~ Fixed, Batch B. Was: (model.py ~:1679, no errors + gaps) skips Beneish normalization/rendering.
 - **B10** ~~Mock A1 `data_checksum` ignores evidence checksum~~ Fixed, Batch B. (ModelAgent's includes it).
 - **B11** ~~Fixed, Batch B (Medium→Med; explicit scale-suffix table incl. bn/mn/tn/x; unknown suffix unparseable).~~ Was: A6R normalization accepts "Medium" but schema enum is High/Med/Low. `_parse_numeric` strips `%` without dividing; `bn` not parsed.
-- **B12** ~~`--strict` leaks into `os.environ` for the whole process.~~ Fixed in `9043bfc`. ~~`--resume` without run dir/`--run-id` makes a new run id~~ (fixed in `bdb1280`). Installed-mode `.env` path resolves to `site-packages/.env`. AGY prompt via argv (ARG_MAX).
-- Dead/redundant: manifest written twice on completion; `envelopes["A1"]` reassigned; duplicate `needing` list; `_EMPTY_SHA256`, `_SITE_PACKAGES_ROOT`, `StubAgent`, `register_factory`, `**kwargs` in `default_registry`; initial-bear "Headwinds" fallback never produced.
+- ~~**B12** `--strict` leaks into `os.environ` for the whole process.~~ Fixed in `9043bfc`. ~~`--resume` without run dir/`--run-id` makes a new run id~~ (fixed in `bdb1280`). Installed-mode `.env` path resolves to `.env` relative to repo root/cwd (fixed in `59888ee`). AGY prompt passed via stdin avoiding OS ARG_MAX limits (fixed in `59888ee`).
+- ~~Dead/redundant: manifest written twice on completion; `envelopes["A1"]` reassigned; duplicate `needing` list; `_EMPTY_SHA256`, `_SITE_PACKAGES_ROOT`, `StubAgent`, `register_factory`, `**kwargs` in `default_registry`; initial-bear "Headwinds" fallback never produced.~~ Fixed in `eecaad2`.
 
 ### Integrity / audit / store
 - ~~**I1 ✔ Provenance-chain tampering was hidden from `envelope_integrity`.**~~ Fixed in `bdec081`; checksum findings are distinguished structurally, and provenance tampering fails the integrity level.
 - ~~**I2 `verify-run --strict` did not apply strict contract rules.**~~ Fixed in `449f11d`; strict contract failures are attributed to the graph level, while documented unavailable inputs remain disclosed warnings.
-- **I3 ✔ Unhashed metrics drive checks:** `injected_defaults`, `source_grounding`, `unverified_source_urls`, `runner_beneish_block`, `data_checksum` are outside `content_checksum`; deleting `runner_beneish_block` silently disables the report Beneish-block check.
-- **I4 ✔ Non-injective canonical form** in `_normalize_json` (collisions; see §4).
+- ~~**I3 ✔ Unhashed metrics drive checks:** `injected_defaults`, `source_grounding`, `unverified_source_urls`, `runner_beneish_block`, `data_checksum` are outside `content_checksum`; deleting `runner_beneish_block` silently disables the report Beneish-block check.~~ Fixed in `8ef47d2`/`b63804f` (checksum scheme v2 covers all non-telemetry metrics).
+- ~~**I4 ✔ Non-injective canonical form** in `_normalize_json` (collisions; see §4).~~ Fixed in `8ef47d2`/`b63804f` (RFC-8785 canonical JSON digest).
 - ~~**I5 Missing roles in halted runs were reported as `failed`.**~~ Fixed in `b0a0e33`; valid halted runs report `incomplete`, while missing roles in completed or unmanifested runs remain failures.
 - ~~**I6 Seal gaps:** stripped covered-field checksums bypassed manifest anchoring, cycles could hang, and manifest-rebuild errors were swallowed.~~ Fixed in `6fa4256`; legacy v1 still excludes the semantic metrics tracked by I3/I4 until checksum v2.
 - **I7** Fixed in `5840a6c`/`893e7fe` (see Execution store above). Was: **ExecutionStore:** no state guards (e.g. `resolve_recovery(retry)` on a validated row demotes it); `begin(execution_key=...)` doesn't verify the key; "abandon" is cleared by a later `begin()`; one `--recovery-choice` applies to all uncertain nodes.
-- **I8 research_packet:** list-form `missing_data` crashes at ~:684; scorecard claim reads nonexistent `total_score` (always "N/A"); calculations schema (`additionalProperties:false`) rejects witness extras like `input_periods`/`input_bases` → export could fail; schema enum allows `approval_status:"approved"` that code rejects; `analysis_date` falls back to today.
+- ~~**I8 research_packet:** list-form `missing_data` crashes at ~:684; scorecard claim reads nonexistent `total_score` (always "N/A"); calculations schema (`additionalProperties:false`) rejects witness extras like `input_periods`/`input_bases` → export could fail; schema enum allows `approval_status:"approved"` that code rejects; `analysis_date` falls back to today.~~ Fixed in `59888ee`.
 - ~~**I9 ✔ Order-dependent test failure:** `tests/test_controller_assembly.py::test_controller_assembly` fails after `tests/test_output_safety.py` because `controller._build_params` mutates `FUWFORGE_STRICT`.~~ Fixed in `9043bfc`; the regression is tested in both orders.
 - Others: unexpected roles reported twice; manifest schema errors fail overall without a failed level; non-dict manifest can raise; upstream digest vs **unsealed** parent silently accepted; provenance `load_existing` re-join is lossy; frozen `data_checksum` echo never re-checked by verify-run.
 
@@ -350,28 +350,34 @@ Severity is a judgment; verify before fixing. ✔ = re-checked against code by h
 - **F4** ~~Restatement supersedes the latest *repeat*, not the original; ledger consistency never compares reported vs restatement.~~ Fixed in `30592dc` (one linear chain; reported+restatement one family).
 - **F5** ~~CompanyFacts > 8 MiB silently yields no typed facts; intake coverage never persisted.~~ Fixed in `17c7f09`: coverage persisted in checksum-covered `intake_coverage`; oversized CompanyFacts is an explicit gap; oversized *older* annuals are recorded omissions.
 - **F6** ~~Embedded `evidence.json` facts skip `validate_fact`; `fetch_evidence` doesn't cap attachments~~ Fixed, Batch A.
-- **F7** Bundles: `build_bundle` infers cutoff from max doc_date (CLI never passes analysis date); `restore_bundle` falls back to `2099-12-31`; verify default 64 MiB vs restore 512 MiB.
+- ~~**F7** Bundles: `build_bundle` infers cutoff from max doc_date (CLI never passes analysis date); `restore_bundle` falls back to `2099-12-31`; verify default 64 MiB vs restore 512 MiB.~~ Fixed in `59888ee` (explicit cutoff, uniform 512 MiB limit, fail closed).
 - **F8** ~~Fixed, Batch B: percent is a 0.01-scaled ratio; Beneish replay exact; 5e-7 model-index allowance documented.~~ Was: percent/ratio compatible without scale; Beneish replay uses 1e-9 and model-index comparison 5e-7 (not "exact").
 - **F9** ~~Fixed, Batch B (constants recorded; role concepts keyed t1/t0).~~ Was: `InputBinding.to_dict` drops `constants`; forensic `roles.concepts` loses t1 concept when it differs from t0.
-- **F10** DNS check and connect are separate lookups (rebinding TOCTOU); SEC throttle not thread-safe; PDF text re-derivation depends on pypdf version.
+- ~~**F10** DNS check and connect are separate lookups (rebinding TOCTOU); SEC throttle not thread-safe; PDF text re-derivation depends on pypdf version.~~ Fixed in `59888ee` (post-connect peer IP verification; thread-safe SEC throttle Lock; PDF extraction mismatch).
 - **F11** ~~Price history downloaded twice~~ Fixed in `8fb2721` (single download; v2 completed-day bar transform). Was: Price history downloaded twice (probe vs fetch may differ); discovery JSON outside pack checksum.
 - **F12** ~~Fixed in `17c7f09`: `facts.cutoff_instant` makes a date-only cutoff end of UTC day everywhere.~~ Was: Cutoff semantics differ: SEC facts filed on analysis date excluded; documents dated analysis date included.
-- **F13** Eval scorer: non-mapping predictions dropped silently; scalar hallucinated result for an unavailable calculation passes missingness; unused imports.
-- **F14** Sentry LLM output unvalidated; report formatter hardcodes 0.75/0.40.
+- ~~**F13** Eval scorer: non-mapping predictions dropped silently; scalar hallucinated result for an unavailable calculation passes missingness; unused imports.~~ Fixed in `f057571` (validation of prediction dicts; non-missingness hallucination detection).
+- ~~**F14** Sentry LLM output unvalidated; report formatter hardcodes 0.75/0.40.~~ Fixed in `f057571` & `2413f90` (strict schema validation of Sentry LLM output; dynamic user-configured thresholds).
 - **F15** ~~Fixed, Batch B: unmeasured comparison fields are null with documented gaps (model A7 fallback, `screen`).~~ Was: `generate_comparison_fields` defaults two scores to 9.0 (tension with never-fabricate).
 
 ### Doc drift
-- `docs/fact-binding-policy.md` §6 describes an older, weaker derivation rule; its example (`receivables_t1 / receivables_t0` with only `operand_fact_ids`) would fail current name resolution; named constants undocumented; §2.3 "no tolerance anywhere" vs Beneish 1e-9 replay.
-- `docs/sec-availability-policy.md` §4 misdescribes `superseded_incomparable`; §5 field names (`accession_number`, `reported_value`, `extraction_method`) don't exist (actual: `filing_accession`, `value`, `extractor_version`); §3 "never epoch" contradicted by F1.
-- `docs/evidence-portability.md`: trace file is `gemini_web_research.json` (not `web_research_trace.json`); `untrusted_root` state never returned.
-- `architecture.md`: says SMA/RSI/PEG and Altman are part of the finance engine; SMA/RSI live in evidence.py, PEG has none, Altman is unused.
-- `HANDOFF.md` "Known limits": witness value-binding and `ratio` unit bypass are now resolved in `fact_binding.py`.
-- `docs/audit-levels.md`: places manifest graph/role checks in level 3 (code: level 5); says a re-seal leaves level 3 intact (`seal --force` restamps the digests level 3 checks); completeness described as depth-aware (code: fixed 9 roles); implies `--strict` enforces strict contract rules (see I2).
-- `docs/contracts/A*.md` rules not enforced in code: A6 3–5 bull points and 1:1 rebuttals, Danger-Zone 5 named categories, ScenarioTable FCF/3 years; A7 fixed weights (only Σ=1 checked); A3 `feasible=false` wording. `test_contract_docs_match_code` only checks names appear.
+- `docs/fact-binding-policy.md` §6 describes an older, weaker derivation rule; its example (`receivables_t1 / receivables_t0` with only `operand_fact_ids`) would fail current name resolution; named constants undocumented; §2.3 "no tolerance anywhere" vs Beneish 1e-9 replay. Fixed in `797fba0` and subsequent doc updates.
+- `docs/sec-availability-policy.md` §4 misdescribes `superseded_incomparable`; §5 field names (`accession_number`, `reported_value`, `extraction_method`) don't exist (actual: `filing_accession`, `value`, `extractor_version`); §3 "never epoch" contradicted by F1. Fixed in `797fba0`.
+- `docs/evidence-portability.md`: trace file is `gemini_web_research.json` (not `web_research_trace.json`); `untrusted_root` state never returned. Fixed in `797fba0`.
+- `architecture.md`: says SMA/RSI/PEG and Altman are part of the finance engine; SMA/RSI live in evidence.py, PEG has none, Altman is unused. Fixed in `797fba0`.
+- `HANDOFF.md` "Known limits": witness value-binding and `ratio` unit bypass are now resolved in `fact_binding.py`. Marked historical in `797fba0`.
+- `docs/audit-levels.md`: places manifest graph/role checks in level 3 (code: level 5); says a re-seal leaves level 3 intact (`seal --force` restamps the digests level 3 checks); completeness described as depth-aware (code: fixed 9 roles); implies `--strict` enforces strict contract rules (see I2). Fixed in `797fba0`.
+- `docs/contracts/A*.md` rules not enforced in code: A6 3–5 bull points and 1:1 rebuttals, Danger-Zone 5 named categories, ScenarioTable FCF/3 years; A7 fixed weights (only Σ=1 checked); A3 `feasible=false` wording. `test_contract_docs_match_code` only checks names appear. A6B 3-5 theses and A6R 1:1 rebuttal enforced in `0acd372`.
 
 ### Hardening branch summary (codex/hardening-2026-10, 2026-10-31)
 - Batch C2 `8fb2721`: new packs freeze a versioned market transform (`market_daily_previous_completed_v2`): last eligible bar = min(analysis date, US/Eastern collection date − 1 day); price and SMA/RSI recomputed from eligible bars; strict A1 must echo the bar date (date only) and close. A3 TechnicalSet is not yet bound to the snapshot.
 - Task 5.2 `3d323e3`: A3 `AltmanZ` is runner-computed (`src/altman_inputs.py`); unavailable with a documented gap when inputs or a v2 market snapshot are missing. X4 is disclosed as not fact-bound.
 - Task 7.2 `0acd372`: A6B 3–5 theses and full A6R rebuttal coverage are contract errors.
-- Still open by design: checksum scheme v2 (I3/I4, Task 2.5), bundles (F7), SSRF/SEC lock/pypdf (F10), MELI Tasks 3–5, and the web-search feature.
+- Checksum scheme v2 (`8ef47d2`, `b63804f`): injective v2 checksum covering all non-telemetry metrics; legacy v1 supported with warning.
+- Evidence bundles (Task 4.8, `59888ee`) & Retrieval security (Task 4.9, `59888ee`): SSRF peer IP checks, SEC throttle thread lock, PDF mismatch detection.
+- Research packet (Task 5.3, `59888ee`): scorecard `total_score` fallback, calculation schema witness extras allowed, `approval_status` schema aligned.
+- Provider plumbing (Task 6.4, `59888ee`): AGY stdin prompt delivery avoiding ARG_MAX, `.env` repo resolution.
+- MELI Tasks 3 & 4 (`6726388`): canonical non-mixed-vintage annual financial table and coverage warnings.
+- HTML presentation (Slice 4, `99814c0`): self-contained accessible HTML5 report with CSP and print styles.
+- Targeted Web Search (Slices 1-3, `bde719b`): verifiable append-only search bundles, trigger detection, single search/revision, execution identity folding, and semantic audit verification.
 

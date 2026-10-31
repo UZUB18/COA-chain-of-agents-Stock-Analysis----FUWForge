@@ -215,18 +215,58 @@ source of the value:
 "derivations": {
   "dsri": {
     "expression": "receivables_t1 / receivables_t0",
+    "operand_names": ["receivables_t1", "receivables_t0"],
     "operand_fact_ids": ["fact_ar_2024", "fact_ar_2023"],
     "result_value": 1.42
   }
 }
 ```
 
+Alternatively, the operands may be declared as an `operands` dictionary mapping
+variable names directly to fact IDs:
+
+```json
+"derivations": {
+  "dsri": {
+    "expression": "receivables_t1 / receivables_t0",
+    "operands": {
+      "receivables_t1": "fact_ar_2024",
+      "receivables_t0": "fact_ar_2023"
+    },
+    "result_value": 1.42
+  }
+}
+```
+
+Where a derivation formula requires a fixed mathematical baseline (such as 1.0
+when calculating relative change: `(margin_t0 / margin_t1) - one`), numeric
+literals in the expression are disallowed to ensure all inputs are explicit.
+Instead, declare them in a `constants` dictionary:
+
+```json
+"derivations": {
+  "growth": {
+    "expression": "(revenue_t1 / revenue_t0) - one",
+    "operands": {
+      "revenue_t1": "fact_rev_2024",
+      "revenue_t0": "fact_rev_2023"
+    },
+    "constants": {
+      "one": 1.0
+    },
+    "result_value": 0.15
+  }
+}
+```
+
 Requirements:
 
-1. An expression must be present (non-empty).
+1. An expression must be present (non-empty safe AST arithmetic: `+`, `-`, `*`, `/`, `(...)`).
 2. At least one operand fact ID must be present.
-3. **Every** operand fact ID must exist in the ledger.
-4. The claimed input value must equal `result_value`.
+3. Every operand variable used in `expression` must resolve to a declared operand fact or constant.
+4. Every declared operand fact must exist in the ledger and be used in the expression (no unused operands).
+5. Constant names must be non-empty and map to finite numeric values. Numeric literals in expression strings are rejected.
+6. The claimed input value must equal `result_value` (and match recomputed AST value).
 
 Because the cited fact is an operand, the operand's unit is not compared
 against the derived ratio's unit — that would be a category error, and it is
