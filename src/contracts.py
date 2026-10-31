@@ -921,7 +921,7 @@ def validate_contract(
             else:
                 errors.append(f"{loc}: {err}")
 
-    if envelope.metrics.get("source_grounding") == "unverified" or any(source.get("verification") == "unverified" for source in envelope.sources):
+    if envelope.metrics.get("source_grounding") == "unverified" or any(isinstance(source, dict) and source.get("verification") == "unverified" for source in envelope.sources):
         message = "source grounding is unverified: no runner-retrieved document evidence"
         if strict:
             errors.append("strict mode: " + message)
@@ -934,7 +934,12 @@ def validate_contract(
         else:
             warnings.append(message)
 
-    injected = [str(key) for key in (envelope.metrics.get("injected_defaults") or [])]
+    raw_defaults = envelope.metrics.get("injected_defaults") or []
+    try:
+        injected = [str(key) for key in raw_defaults]
+    except TypeError:
+        # Not a collection: still a record that defaults were injected.
+        injected = [str(raw_defaults)]
     if injected:
         message = "normalization injected defaults for: " + ", ".join(injected)
         if strict:

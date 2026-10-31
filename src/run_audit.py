@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 from typing import Dict, List
 
-from src.envelope import Envelope
+from src.envelope import Envelope, envelope_shape_errors
 from src.provenance import verify_chain
 from src.resources import get_schema_path
 from src.utils.checksum import envelope_content_checksum
@@ -50,8 +50,14 @@ __all__ = [
 def verify_run(run_dir: Path, strict: bool = False) -> ValidationResult:
     errors: List[str] = []
     warnings: List[str] = []
+    warning_levels: Dict[str, str] = {}
     envelope_checksum_errors: List[str] = []
     run_dir = Path(run_dir)
+
+    def add_warning(level: str, warning: str) -> None:
+        if warning not in warnings:
+            warnings.append(warning)
+        warning_levels.setdefault(warning, level)
 
     if not run_dir.is_dir():
         return ValidationResult(valid=False, errors=[f"not a directory: {run_dir}"])
@@ -81,7 +87,17 @@ def verify_run(run_dir: Path, strict: bool = False) -> ValidationResult:
         schema_result = validator.validate(data)
         errors.extend(f"{path.name}: {err}" for err in schema_result.errors)
 
-        agent_id = str((data.get("agent") or {}).get("id") or path.stem.replace("_envelope", "").upper())
+        shape_errors = envelope_shape_errors(data)
+        if shape_errors:
+            # A damaged envelope is reported and left out of the audit (the
+            # schema findings above are kept); it is never built, so no later
+            # check can trip over its fields.
+            errors.extend(
+                f"{path.name}: {err} (envelope excluded from the audit)"
+                for err in shape_errors
+            )
+            continue
+        agent_id = data["agent"]["id"]
         if agent_id in envelopes:
             errors.append(f"duplicate role ID '{agent_id}' appears in more than one envelope ({path.name})")
             continue
@@ -99,7 +115,8 @@ def verify_run(run_dir: Path, strict: bool = False) -> ValidationResult:
             else:
                 checksums[agent_id] = actual
         else:
-            warnings.append(
+            add_warning(
+                "envelope_integrity",
                 f"{path.name}: no content_checksum (legacy or unsealed; run `controller seal`)"
             )
 
@@ -157,7 +174,7 @@ def verify_run(run_dir: Path, strict: bool = False) -> ValidationResult:
                 continue
             ref_agent = reference.get("agent")
             ref_checksum = reference.get("content_checksum")
-            if not ref_agent:
+            if not isinstance(ref_agent, str) or not ref_agent:
                 errors.append(f"{agent_id}: upstream entry missing agent id")
                 continue
             if ref_agent == agent_id:
@@ -172,7 +189,8 @@ def verify_run(run_dir: Path, strict: bool = False) -> ValidationResult:
                         f"{agent_id}: upstream {ref_agent} checksum does not match the referenced envelope"
                     )
             elif ref_agent in envelopes:
-                warnings.append(
+                add_warning(
+                    "graph_and_contracts",
                     f"{agent_id}: upstream {ref_agent} referenced but unsealed"
                 )
             else:
@@ -182,15 +200,15 @@ def verify_run(run_dir: Path, strict: bool = False) -> ValidationResult:
 
     provenance_files = sorted(run_dir.glob("*_provenance.log"))
     if not provenance_files:
-        warnings.append("no provenance log found")
+        add_warning("envelope_integrity", "no provenance log found")
     for prov_path in provenance_files:
         chain_result = verify_chain(prov_path)
         errors.extend(f"{prov_path.name}: {err}" for err in chain_result.errors)
 
     if not list(run_dir.glob("*_report.md")):
-        warnings.append("no assembled report found")
+        add_warning("final_artifacts", "no assembled report found")
     if not list(run_dir.glob("*_artifacts.json")):
-        warnings.append("no artifacts bundle found")
+        add_warning("final_artifacts", "no artifacts bundle found")
 
     if strict:
         errors.extend(f"strict: {warning}" for warning in warnings)
@@ -200,5 +218,6 @@ def verify_run(run_dir: Path, strict: bool = False) -> ValidationResult:
         errors=errors,
         warnings=warnings,
         envelope_checksum_errors=envelope_checksum_errors,
+        warning_levels=warning_levels,
     )
 

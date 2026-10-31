@@ -41,7 +41,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Set, Tuple, Union
 
 from src.contracts import AGENT_IDS, _collect_embedded_witnesses, validate_contract
-from src.envelope import Envelope
+from src.envelope import Envelope, envelope_shape_errors
 from src.fact_binding import binding_failures, binding_notes, verify_witness_bindings
 from src.resources import get_config_dir, get_schema_path
 from src.utils.checksum import checksum_file, envelope_content_checksum
@@ -70,8 +70,12 @@ class AuditReport:
     levels: Dict[str, str] = field(default_factory=dict)
     errors: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
+    #: Level that owns each warning when strict mode promotes it.
+    warning_levels: Dict[str, str] = field(default_factory=dict)
     #: Warnings that remain informational under ``--strict``.
     strict_exempt_warnings: Set[str] = field(default_factory=set)
+    #: Levels that failed through an error while retaining a descriptive state.
+    hard_error_levels: Set[str] = field(default_factory=set)
     #: What a level could NOT establish. These are not defects and are not
     #: escalated by ``--strict``: they state the boundary of what was verified,
     #: so "the arithmetic replayed" is never confused with "every input was
@@ -173,7 +177,32 @@ class AuditReport:
         }
 
     def failed_levels(self) -> List[str]:
-        return [name for name, state in self.levels.items() if state == "failed"]
+        failed = {
+            name for name, state in self.levels.items() if state == "failed"
+        } | self.hard_error_levels
+        return [name for name in AUDIT_LEVELS if name in failed]
+
+    def add_warning(self, level: str, warning: str) -> None:
+        if warning not in self.warnings:
+            self.warnings.append(warning)
+        self.warning_levels.setdefault(warning, level)
+
+    def promote_strict_warnings(self) -> None:
+        for warning in self.warnings:
+            if warning in self.strict_exempt_warnings:
+                continue
+            owner = self.warning_levels.get(warning)
+            if owner is None:
+                unattributed = (
+                    f"{warning} (unattributed warning; refusing to assign an "
+                    "audit level)"
+                )
+                if unattributed not in self.errors:
+                    self.errors.append(unattributed)
+                continue
+            if warning not in self.errors:
+                self.errors.append(warning)
+            self.levels[owner] = "failed"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -367,25 +396,20 @@ def build_run_manifest(
         except Exception:
             bundle_manifest_sha256 = None
 
-    if pack_checksum:
-        evidence_state = "source_bytes_verified"
-    else:
-        ev_file = run_dir / "evidence" / "evidence.json"
-        if ev_file.is_file():
-            try:
-                from src.evidence import EvidencePack
+    ev_file = run_dir / "evidence" / "evidence.json"
+    if ev_file.is_file():
+        try:
+            from src.evidence import EvidencePack
 
-                first = next(iter(envelopes.values())) if envelopes else None
-                if first:
-                    pack = EvidencePack(
-                        ev_file,
-                        ticker=first.params.get("ticker", ticker),
-                        analysis_date=first.params.get("analysis_date", analysis_date),
-                    )
-                    pack_checksum = pack.checksum
-                    evidence_state = "source_bytes_verified"
-            except Exception:
-                evidence_state = "source_bytes_unavailable"
+            pack = EvidencePack(
+                ev_file,
+                ticker=ticker,
+                analysis_date=analysis_date,
+            )
+            pack_checksum = pack.checksum
+            evidence_state = "source_bytes_verified"
+        except Exception:
+            evidence_state = "source_bytes_unavailable"
 
     config: Dict[str, Any] = {
         "provider": summary.get("provider")
@@ -476,7 +500,8 @@ def _load_fact_ledger(
 
     run_dir = Path(run_dir)
     if manifest is None:
-        manifest = _load_manifest(run_dir)
+        loaded_manifest, _manifest_problem = _load_manifest(run_dir)
+        manifest = loaded_manifest if isinstance(loaded_manifest, dict) else None
 
     if ticker is None or analysis_date is None:
         if manifest:
@@ -867,7 +892,12 @@ def _is_rejected_halt_diagnostic(
     env: Envelope,
 ) -> bool:
     """Return true only for an explicitly rejected, unaccepted halt diagnostic."""
-    if not isinstance(manifest, dict) or manifest.get("status") != "halted":
+    status = manifest.get("status") if isinstance(manifest, Mapping) else None
+    if (
+        not isinstance(manifest, Mapping)
+        or not isinstance(status, str)
+        or status not in {"halted", "incomplete"}
+    ):
         return False
     roles = manifest.get("roles")
     return (
@@ -898,7 +928,8 @@ def semantic_audit(
             report.levels[level] = "failed"
         return report
 
-    manifest = _load_manifest(run_dir)
+    loaded_manifest, manifest_problem = _load_manifest(run_dir)
+    manifest = loaded_manifest if isinstance(loaded_manifest, dict) else None
 
     validator = EnvelopeValidator(get_schema_path("envelope_v2_1.json"))
     envelopes: Dict[str, Envelope] = {}
@@ -910,9 +941,13 @@ def semantic_audit(
     duplicate_role_errors: List[str] = []
 
     envelope_files = sorted(run_dir.glob("*_envelope.json"))
+    manifest_status = (
+        manifest.get("status") if isinstance(manifest, dict) else None
+    )
     empty_halted_run = (
         isinstance(manifest, dict)
-        and manifest.get("status") == "halted"
+        and isinstance(manifest_status, str)
+        and manifest_status in {"halted", "incomplete"}
         and manifest.get("roles") == {}
         and not envelope_files
     )
@@ -930,9 +965,16 @@ def semantic_audit(
             integrity_errors.append(f"{path.name}: envelope root is not a dictionary")
             continue
 
-        agent_id = str((data.get("agent") or {}).get("id") or "")
-        if not agent_id:
-            agent_id = path.stem.replace("_envelope", "").upper()
+        shape_errors = envelope_shape_errors(data)
+        if shape_errors:
+            # Reported and left out of the audit; ``verify_run`` below adds the
+            # schema findings for the same file.
+            integrity_errors.extend(
+                f"{path.name}: {err} (envelope excluded from the audit)"
+                for err in shape_errors
+            )
+            continue
+        agent_id = data["agent"]["id"]
 
         if agent_id in envelopes:
             # A duplicate role makes the run's role set ambiguous. It is a
@@ -961,7 +1003,7 @@ def semantic_audit(
                 f"{path.name}: no content_checksum "
                 "(legacy or unsealed; run `controller seal`)"
             )
-            report.warnings.append(warning)
+            report.add_warning("envelope_integrity", warning)
             if _is_rejected_halt_diagnostic(manifest, agent_id, env):
                 report.strict_exempt_warnings.add(warning)
 
@@ -975,11 +1017,19 @@ def semantic_audit(
         err
         for err in chain_result.errors
         if err not in envelope_checksum_errors
+        and err not in integrity_errors
         and not (
             empty_halted_run and err == "no *_envelope.json files found"
         )
     )
-    report.warnings.extend(chain_result.warnings)
+    for warning in chain_result.warnings:
+        owner = chain_result.warning_levels.get(warning)
+        if owner is None:
+            integrity_errors.append(
+                f"{warning} (unattributed verification warning)"
+            )
+            continue
+        report.add_warning(owner, warning)
     report.levels["envelope_integrity"] = (
         "failed"
         if integrity_errors
@@ -993,8 +1043,12 @@ def semantic_audit(
     ticker = None
     analysis_date = None
     if manifest:
-        ticker = manifest.get("ticker")
-        analysis_date = manifest.get("analysis_date")
+        manifest_ticker = manifest.get("ticker")
+        manifest_cutoff = manifest.get("analysis_date")
+        if isinstance(manifest_ticker, str) and manifest_ticker:
+            ticker = manifest_ticker
+        if isinstance(manifest_cutoff, str) and manifest_cutoff:
+            analysis_date = manifest_cutoff
     if not ticker or not analysis_date:
         if "A1" in envelopes and envelopes["A1"].params:
             ticker = ticker or envelopes["A1"].params.get("ticker")
@@ -1038,6 +1092,7 @@ def semantic_audit(
     if not retrieved and not evidence_dir.exists():
         if manifest_claims_evidence:
             report.levels["source_reconstruction"] = "source_bytes_unavailable"
+            report.hard_error_levels.add("source_reconstruction")
             report.errors.append(
                 "source reconstruction unavailable: manifest records verified evidence pack, "
                 "but evidence directory is missing from run directory"
@@ -1074,6 +1129,7 @@ def semantic_audit(
             report.levels["source_reconstruction"] = "source_bytes_verified"
         except Exception as exc:  # noqa: BLE001 - reported, not raised
             report.levels["source_reconstruction"] = "source_bytes_unavailable"
+            report.hard_error_levels.add("source_reconstruction")
             report.errors.append(
                 f"source reconstruction unavailable: {exc} (a run whose source "
                 "bytes cannot be restored is not fully auditable)"
@@ -1096,7 +1152,7 @@ def semantic_audit(
 
     # Level 3 — graph and contracts.
     graph_errors = _audit_graph(
-        envelopes, run_dir, report, fact_ledger=fact_ledger,
+        envelopes, run_dir, report, manifest=manifest, fact_ledger=fact_ledger,
         expected_company=expected_company, cutoff=analysis_date, strict=strict,
     )
     graph_errors = list(duplicate_role_errors) + graph_errors
@@ -1268,34 +1324,42 @@ def semantic_audit(
         report.levels["calculation_replay"] = "not_applicable"
 
     # Level 5 — final artifacts bound to the manifest.
-    artifact_errors = _audit_final_artifacts(run_dir, envelopes, report)
+    artifact_errors = _audit_final_artifacts(
+        run_dir, envelopes, report, manifest, manifest_problem
+    )
     report.errors.extend(artifact_errors)
     report.levels["final_artifacts"] = "failed" if artifact_errors else "passed"
 
     # Level 6 — completeness.
-    manifest = manifest or _load_manifest(run_dir)
     expected = set(EXPECTED_ROLES)
-    report.halted = bool(manifest and manifest.get("status") == "halted")
+    manifest_status = (
+        manifest.get("status") if isinstance(manifest, dict) else None
+    )
+    incomplete_run = (
+        isinstance(manifest_status, str)
+        and manifest_status in {"halted", "incomplete"}
+    )
+    report.halted = manifest_status == "halted"
     manifest_roles = (
         manifest.get("roles")
-        if report.halted and isinstance(manifest.get("roles"), dict)
+        if incomplete_run and isinstance(manifest.get("roles"), dict)
         else {}
     )
     accepted_present = (
         set(envelopes).intersection(manifest_roles)
-        if report.halted
+        if incomplete_run
         else set(envelopes)
     )
     missing = sorted(expected - accepted_present)
     unexpected = sorted(set(envelopes) - expected)
-    report.complete = not report.halted and not missing and not unexpected
+    report.complete = not incomplete_run and not missing and not unexpected
     if unexpected:
         report.levels["completeness"] = "failed"
         report.errors.append(
             "run contains unexpected role(s): " + ", ".join(unexpected)
         )
     if missing:
-        if report.halted:
+        if incomplete_run:
             if "completeness" not in report.levels:
                 report.levels["completeness"] = "incomplete"
         else:
@@ -1303,18 +1367,20 @@ def semantic_audit(
             suffix = (
                 f"contradicts a {manifest.get('status')} manifest"
                 if manifest
+                else "manifest is malformed"
+                if manifest_problem
                 else "manifest is absent"
             )
             report.errors.append(
                 "run is incomplete: missing required role(s): "
                 f"{', '.join(missing)}; {suffix}"
             )
-    elif not unexpected and report.halted:
+    elif not unexpected and incomplete_run:
         report.levels["completeness"] = "incomplete"
     elif not unexpected:
         report.levels["completeness"] = "passed"
 
-    if report.halted:
+    if incomplete_run:
         expected_absence_warnings = {
             "no assembled report found",
             "no artifacts bundle found",
@@ -1327,8 +1393,8 @@ def semantic_audit(
             if warning in expected_absence_warnings
         )
 
-    if manifest:
-        report.errors.extend(validate_run_manifest(manifest))
+    if strict:
+        report.promote_strict_warnings()
 
     return report
 
@@ -1337,6 +1403,8 @@ def _audit_graph(
     envelopes: Dict[str, Envelope],
     run_dir: Path,
     report: AuditReport,
+    *,
+    manifest: Optional[Mapping[str, Any]] = None,
     fact_ledger: Optional[Mapping[str, Any]] = None,
     expected_company: Optional[str] = None,
     cutoff: Optional[str] = None,
@@ -1344,14 +1412,14 @@ def _audit_graph(
 ) -> List[str]:
     """Validate consumed-parent lineage and machine-checkable contracts."""
     errors: List[str] = []
-    manifest = _load_manifest(run_dir)
     depth_config = None
     for path in sorted(run_dir.glob("run_summary.json")):
         try:
             summary = json.loads(path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
+        except (OSError, ValueError, RecursionError):
             break
-        depth = (summary.get("params") or {}).get("depth")
+        summary_params = summary.get("params") if isinstance(summary, dict) else None
+        depth = summary_params.get("depth") if isinstance(summary_params, dict) else None
         if depth:
             try:
                 from src.config import load_depth_modes
@@ -1365,10 +1433,6 @@ def _audit_graph(
     # Build adjacency for cycle detection
     graph_adj: Dict[str, List[str]] = {}
     for agent_id, env in envelopes.items():
-        if agent_id not in EXPECTED_ROLES:
-            errors.append(
-                f"unexpected role ID '{agent_id}' found in run envelopes; expected only standard roles ({', '.join(EXPECTED_ROLES)})"
-            )
         parents: List[str] = []
         for entry in env.upstream or []:
             if isinstance(entry, dict) and entry.get("agent"):
@@ -1380,6 +1444,22 @@ def _audit_graph(
     for cycle in cycles:
         errors.append(f"cycle detected in upstream graph: {' -> '.join(cycle)}")
 
+    a1 = envelopes.get("A1")
+    if a1 and not _is_rejected_halt_diagnostic(manifest, "A1", a1):
+        frozen_checksum = a1.metrics.get("data_checksum")
+        if not frozen_checksum:
+            errors.append("A1: frozen metrics.data_checksum is missing")
+        else:
+            for agent_id, env in sorted(envelopes.items()):
+                if _is_rejected_halt_diagnostic(manifest, agent_id, env):
+                    continue
+                actual = env.metrics.get("data_checksum")
+                if actual != frozen_checksum:
+                    errors.append(
+                        f"{agent_id}: metrics.data_checksum {actual!r} does not echo "
+                        f"A1 frozen checksum {frozen_checksum!r}"
+                    )
+
     # Lineage must be internally consistent and reference only present roles.
     for agent_id, env in sorted(envelopes.items()):
         seen = set()
@@ -1389,7 +1469,7 @@ def _audit_graph(
                 continue
             parent = entry.get("agent")
             checksum = entry.get("content_checksum")
-            if not parent:
+            if not isinstance(parent, str) or not parent:
                 errors.append(f"{agent_id}: upstream entry without an agent id")
                 continue
             if parent == agent_id:
@@ -1405,7 +1485,10 @@ def _audit_graph(
                     f"{agent_id}: upstream {parent} referenced but its envelope is "
                     "missing from the run"
                 )
-            elif envelopes[parent].content_checksum and checksum != envelopes[parent].content_checksum:
+            elif (
+                envelopes[parent].content_checksum
+                and checksum != envelopes[parent].content_checksum
+            ):
                 errors.append(
                     f"{agent_id}: upstream {parent} checksum does not match the "
                     "referenced envelope"
@@ -1418,7 +1501,13 @@ def _audit_graph(
         lineage = (env.artifacts or {}).get("_execution_lineage")
         if not isinstance(lineage, dict):
             continue
-        recorded = sorted(str(entry) for entry in (lineage.get("consumed_upstream") or []))
+        consumed = lineage.get("consumed_upstream") or []
+        if not isinstance(consumed, list):
+            errors.append(
+                f"{agent_id}: _execution_lineage.consumed_upstream must be an array"
+            )
+            continue
+        recorded = sorted(str(entry) for entry in consumed)
         claimed = sorted(str(entry.get("agent")) for entry in (env.upstream or []) if isinstance(entry, dict) and entry.get("agent"))
         if claimed and claimed != recorded:
             # A non-empty sealed upstream that contradicts the execution record
@@ -1432,7 +1521,8 @@ def _audit_graph(
             # Lineage was stripped (legacy/unsealed): the executed parents are
             # known but the envelope no longer records them. Flag as a warning,
             # not a hard failure — this is the legacy-import case.
-            report.warnings.append(
+            report.add_warning(
+                "graph_and_contracts",
                 f"{agent_id}: sealed upstream is empty but execution recorded "
                 f"parents {recorded}; recorded lineage appears to have been "
                 "stripped (legacy or re-sealed envelope)"
@@ -1452,7 +1542,7 @@ def _audit_graph(
         for entry in env.upstream or []:
             if isinstance(entry, dict):
                 parent = entry.get("agent")
-                if parent in envelopes:
+                if isinstance(parent, str) and parent in envelopes:
                     upstream_envelopes[parent] = envelopes[parent]
 
         kwargs: Dict[str, Any] = {
@@ -1473,36 +1563,45 @@ def _audit_graph(
         errors.extend(f"{agent_id} contract: {err}" for err in result.errors)
         for warning in result.warnings:
             message = f"{agent_id} contract: {warning}"
-            report.warnings.append(message)
-            if strict:
-                if warning in result.strict_exempt_warnings:
-                    report.strict_exempt_warnings.add(message)
-                else:
-                    errors.append(message)
+            report.add_warning("graph_and_contracts", message)
+            if warning in result.strict_exempt_warnings:
+                report.strict_exempt_warnings.add(message)
 
     return errors
 
 
 def _audit_final_artifacts(
-    run_dir: Path, envelopes: Dict[str, Envelope], report: AuditReport
+    run_dir: Path,
+    envelopes: Dict[str, Envelope],
+    report: AuditReport,
+    manifest: Optional[Dict[str, Any]],
+    manifest_problem: Optional[str],
 ) -> List[str]:
     """Bind the exact final report and artifact bundle bytes to the manifest."""
     errors: List[str] = []
-    manifest = _load_manifest(run_dir)
-    if not manifest:
+    if manifest_problem:
+        return [manifest_problem]
+    if manifest is None:
         errors.append(
             "run_manifest.json is missing; the final report and artifact bundle "
             "are not bound to a trusted run root"
         )
         return errors
 
-    if not isinstance(manifest, dict):
-        return ["run_manifest.json is malformed (expected object)"]
+    errors.extend(validate_run_manifest(manifest))
 
     outputs = manifest.get("outputs")
     if not isinstance(outputs, dict):
         errors.append("run_manifest.json 'outputs' field must be an object")
         return errors
+
+    if manifest.get("status") == "completed":
+        for name in ("artifacts", "provenance", "report", "summary"):
+            if name not in outputs:
+                errors.append(
+                    f"{name}: completed run is missing its required "
+                    "manifest-bound output record"
+                )
 
     for name, record in outputs.items():
         if not isinstance(record, dict):
@@ -1536,6 +1635,8 @@ def _audit_final_artifacts(
 
         artifact = a3.artifacts.get("BeneishM")
         section = a3.sections_md.get("SECTION_4_FINANCIAL_FORENSICS", "")
+        if not isinstance(section, str):
+            section = ""
         block = render_beneish_block(artifact) if isinstance(artifact, dict) else ""
         record = outputs.get("report")
         safe, path = _is_safe_path(run_dir, record.get("path")) if isinstance(record, dict) and isinstance(record.get("path"), str) else (False, None)
@@ -1581,7 +1682,11 @@ def _audit_final_artifacts(
                 if isinstance(entry, dict) and entry.get("agent")
             )
             if agent_id in manifest_graph:
-                m_parents = sorted(str(p) for p in (manifest_graph[agent_id] or []))
+                recorded_parents = manifest_graph[agent_id]
+                if not isinstance(recorded_parents, list):
+                    # Manifest schema validation owns the finding.
+                    continue
+                m_parents = sorted(str(p) for p in recorded_parents)
                 if env_parents == m_parents:
                     continue
                 if not env_parents and m_parents:
@@ -1591,7 +1696,8 @@ def _audit_final_artifacts(
                     # _audit_graph does: unavailable, not failed. A manifest
                     # that claims parents an envelope never recorded is not
                     # evidence of a fabricated dependency edge.
-                    report.warnings.append(
+                    report.add_warning(
+                        "final_artifacts",
                         f"manifest graph for '{agent_id}' records parents "
                         f"{m_parents} but the envelope records no upstream; "
                         "graph lineage is unavailable until the run is sealed"
@@ -1607,14 +1713,23 @@ def _audit_final_artifacts(
 
 
 
-def _load_manifest(run_dir: Path) -> Optional[Dict[str, Any]]:
+def _load_manifest(
+    run_dir: Path,
+) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     path = run_dir / "run_manifest.json"
     if not path.is_file():
-        return None
+        return None, None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return None
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return None, f"run_manifest.json is malformed (invalid JSON: {exc})"
+    except (OSError, ValueError, RecursionError) as exc:
+        # ValueError covers undecodable bytes and the int-digit parser cap;
+        # RecursionError covers pathologically deep nesting.
+        return None, f"run_manifest.json is malformed or unreadable ({exc})"
+    if not isinstance(manifest, dict):
+        return None, "run_manifest.json is malformed (expected object)"
+    return manifest, None
 
 
 def verify_run_semantic(
@@ -1630,12 +1745,9 @@ def verify_run_semantic(
     )
     errors = list(report.errors)
     warnings = list(report.warnings)
-    if strict:
-        errors.extend(
-            warning
-            for warning in warnings
-            if warning not in report.strict_exempt_warnings and warning not in errors
-        )
-        if not report.complete:
-            errors.append("strict: run is incomplete")
+    if strict and not report.complete:
+        # The report itself stays honest (``overall_state`` is "incomplete" with
+        # no manufactured error); only this pass/fail view treats an incomplete
+        # run as a strict failure, as the CLI exit code does.
+        errors.append("strict: run is incomplete")
     return ValidationResult(valid=not errors, errors=errors, warnings=warnings)

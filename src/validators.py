@@ -25,6 +25,8 @@ class ValidationResult:
     #: Informational warnings that strict mode must continue to report without
     #: treating them as defects.
     strict_exempt_warnings: List[str] = field(default_factory=list)
+    #: Owning audit level for each warning, recorded where the warning is added.
+    warning_levels: Dict[str, str] = field(default_factory=dict)
 
 
 class EnvelopeValidator:

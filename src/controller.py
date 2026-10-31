@@ -263,13 +263,6 @@ def cmd_verify_run(args: argparse.Namespace) -> None:
         require_source_backed=require_source_backed,
         strict=args.strict,
     )
-    if args.strict:
-        report.errors.extend(
-            warning
-            for warning in report.warnings
-            if warning not in report.strict_exempt_warnings
-            and warning not in report.errors
-        )
 
     if getattr(args, "json", False):
         print(json.dumps(report.to_dict(), indent=2))

@@ -76,6 +76,38 @@ class Envelope:
         self.timestamp = datetime.utcnow().isoformat(timespec="seconds") + "Z"
 
 
+_OBJECT_FIELDS = ("params", "gates", "sections_md", "artifacts", "metrics")
+_ARRAY_FIELDS = ("sources", "warnings", "upstream")
+
+
+def envelope_shape_errors(data: Mapping[str, Any]) -> List[str]:
+    """
+    Describe why ``data`` cannot be held in an :class:`Envelope`.
+
+    ``Envelope.from_dict`` coerces its containers with ``dict()`` and
+    ``list()``. A wrong type either raises (``metrics: 42``) or is silently
+    reshaped (a string becomes a list of characters), so a caller that loads
+    an untrusted file must check the shape first and report the damage instead
+    of building the envelope. An absent optional field is not reported here;
+    the JSON schema owns missing fields.
+    """
+    errors: List[str] = []
+    agent = data.get("agent")
+    if not isinstance(agent, dict):
+        errors.append("agent must be an object")
+    else:
+        agent_id = agent.get("id")
+        if not isinstance(agent_id, str) or not agent_id:
+            errors.append("agent.id must be a non-empty string")
+    for field_name in _OBJECT_FIELDS:
+        if field_name in data and not isinstance(data[field_name], dict):
+            errors.append(f"{field_name} must be an object")
+    for field_name in _ARRAY_FIELDS:
+        if field_name in data and not isinstance(data[field_name], list):
+            errors.append(f"{field_name} must be an array")
+    return errors
+
+
 def merge_sections(envelopes: List[Envelope]) -> Dict[str, str]:
     merged: MutableMapping[str, str] = {}
     for env in envelopes:

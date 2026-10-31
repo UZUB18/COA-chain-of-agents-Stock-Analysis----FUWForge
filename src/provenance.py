@@ -98,9 +98,13 @@ def verify_chain(path: Path) -> ValidationResult:
     errors: List[str] = []
     chain_tail = ""
     seen: List[str] = []
-    for line_number, line in enumerate(
-        path.read_text(encoding="utf-8").splitlines(), start=1
-    ):
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError) as exc:
+        return ValidationResult(
+            valid=False, errors=[f"provenance log unreadable: {exc}"]
+        )
+    for line_number, line in enumerate(lines, start=1):
         if not line.strip():
             continue
         if "|" not in line:

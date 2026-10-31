@@ -357,6 +357,388 @@ def test_swapped_parent_hash_is_caught_by_graph_validation():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_missing_parent_is_caught_by_graph_validation():
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_missing_parent_"))
+    try:
+        _good_run(tmp)
+        path = _envelope_path(tmp, "A3")
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["upstream"] = [{"agent": "Z9", "content_checksum": "sha256:" + "0" * 64}]
+        path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+        report = semantic_audit(tmp)
+        assert report.levels["graph_and_contracts"] == "failed"
+        assert any(
+            "upstream Z9 referenced but its envelope is missing" in error
+            for error in report.errors
+        ), report.errors
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@pytest.mark.parametrize("bad_agent", [42, []], ids=["integer", "list"])
+def test_malformed_agent_container_never_raises(bad_agent):
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_agent_shape_"))
+    try:
+        _good_run(tmp)
+        path = _envelope_path(tmp, "A3")
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["agent"] = bad_agent
+        path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+        integrity = verify_run(tmp)
+        assert not integrity.valid
+        assert any(
+            "agent" in error.lower() and "object" in error.lower()
+            for error in integrity.errors
+        ), integrity.errors
+
+        report = semantic_audit(tmp)
+        assert report.levels["envelope_integrity"] == "failed"
+        assert any(
+            "agent" in error.lower() and "object" in error.lower()
+            for error in report.errors
+        ), report.errors
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+_OBJECT_FIELDS = ("params", "gates", "sections_md", "artifacts", "metrics")
+_ARRAY_FIELDS = ("sources", "warnings", "upstream")
+# ``dict()``/``list()`` raise on the first three of each and silently reshape the
+# rest (a list of pairs becomes a dict, a string becomes its characters).
+_WRONG_FOR_OBJECT = {
+    "integer": 42,
+    "null": None,
+    "list": [],
+    "pairs": [["key", "value"]],
+    "string": "text",
+}
+_WRONG_FOR_ARRAY = {
+    "integer": 42,
+    "null": None,
+    "object": {},
+    "keys": {"key": "value"},
+    "string": "text",
+}
+_MALFORMED_CONTAINER_CASES = [
+    pytest.param(field, bad, id=f"{field}-{label}")
+    for field, wrong in (
+        *((name, _WRONG_FOR_OBJECT) for name in _OBJECT_FIELDS),
+        *((name, _WRONG_FOR_ARRAY) for name in _ARRAY_FIELDS),
+    )
+    for label, bad in wrong.items()
+]
+
+
+def _run_with_malformed_a1_field(run_dir: Path, field: str, bad) -> Path:
+    _good_run(run_dir)
+    path = _envelope_path(run_dir, "A1")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data[field] = bad
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    return run_dir
+
+
+def _assert_malformed_field_reported(errors, field: str) -> None:
+    assert any(
+        error.startswith("a1_envelope.json: ")
+        and field in error
+        and "must be an" in error
+        for error in errors
+    ), errors
+    # The schema's own finding is kept, not replaced by the structural one.
+    assert any(
+        error.startswith("a1_envelope.json: ") and "is not of type" in error
+        for error in errors
+    ), errors
+
+
+@pytest.mark.parametrize("field,bad", _MALFORMED_CONTAINER_CASES)
+def test_verify_run_reports_malformed_envelope_container(tmp_path, field, bad):
+    run_dir = _run_with_malformed_a1_field(tmp_path / "run", field, bad)
+
+    result = verify_run(run_dir)
+
+    assert not result.valid
+    _assert_malformed_field_reported(result.errors, field)
+
+
+@pytest.mark.parametrize("field,bad", _MALFORMED_CONTAINER_CASES)
+def test_semantic_audit_reports_malformed_envelope_container(tmp_path, field, bad):
+    run_dir = _run_with_malformed_a1_field(tmp_path / "run", field, bad)
+
+    report = semantic_audit(run_dir)
+
+    assert report.levels["envelope_integrity"] == "failed"
+    assert "envelope_integrity" in report.failed_levels()
+    assert report.overall_state == "failed"
+    _assert_malformed_field_reported(report.errors, field)
+
+
+@pytest.mark.parametrize("entry_point", [verify_run, semantic_audit])
+def test_malformed_envelope_container_does_not_mask_independent_failures(
+    tmp_path, entry_point
+):
+    run_dir = _run_with_malformed_a1_field(tmp_path / "run", "metrics", 42)
+    a3_path = _envelope_path(run_dir, "A3")
+    a3 = json.loads(a3_path.read_text(encoding="utf-8"))
+    a3["sections_md"]["TAMPERED"] = "changed after sealing"
+    a3_path.write_text(json.dumps(a3, indent=2), encoding="utf-8")
+    prov_path = next(run_dir.glob("*_provenance.log"))
+    lines = prov_path.read_text(encoding="utf-8").splitlines()
+    lines[0] = lines[0].replace("accepted", "rewritten")
+    prov_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    outcome = entry_point(run_dir)
+    errors = outcome.errors
+
+    assert any(
+        error.startswith("a1_envelope.json: ") and "metrics" in error
+        for error in errors
+    ), errors
+    assert any(
+        "a3_envelope.json" in error and "content checksum mismatch" in error
+        for error in errors
+    ), errors
+    assert any(
+        "provenance" in error and "mismatch" in error for error in errors
+    ), errors
+
+
+def _set_first_section(data, value):
+    data["sections_md"][sorted(data["sections_md"])[0]] = value
+
+
+_MALFORMED_ENTRY_CASES = [
+    pytest.param(lambda d: d.update(sources=[42]), id="sources-integer-entry"),
+    pytest.param(lambda d: d.update(sources=[None]), id="sources-null-entry"),
+    pytest.param(lambda d: d.update(sources=["text"]), id="sources-string-entry"),
+    pytest.param(lambda d: d["sources"].append(42), id="sources-extra-integer-entry"),
+    pytest.param(lambda d: d.update(upstream=[42]), id="upstream-integer-entry"),
+    pytest.param(lambda d: d.update(upstream=[None]), id="upstream-null-entry"),
+    pytest.param(lambda d: d.update(warnings=[42]), id="warnings-integer-entry"),
+    pytest.param(lambda d: _set_first_section(d, 42), id="sections-integer-value"),
+    pytest.param(lambda d: _set_first_section(d, None), id="sections-null-value"),
+]
+
+
+@pytest.mark.parametrize("entry_point", [verify_run, semantic_audit])
+@pytest.mark.parametrize("mutate", _MALFORMED_ENTRY_CASES)
+def test_malformed_envelope_entries_are_reported_not_raised(
+    tmp_path, entry_point, mutate
+):
+    run_dir = _good_run(tmp_path / "run")
+    path = _envelope_path(run_dir, "A1")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    mutate(data)
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+    outcome = entry_point(run_dir)
+
+    assert any(
+        error.startswith("a1_envelope.json: ") and "is not of type" in error
+        for error in outcome.errors
+    ), outcome.errors
+    if entry_point is semantic_audit:
+        assert outcome.levels["envelope_integrity"] == "failed"
+    else:
+        assert not outcome.valid
+
+
+def _beneish_block_with_section(section):
+    def mutate(data):
+        data["metrics"]["runner_beneish_block"] = True
+        data["sections_md"]["SECTION_4_FINANCIAL_FORENSICS"] = section
+
+    return mutate
+
+
+# Values inside otherwise well-shaped containers. Each used to raise from deep
+# inside an audit; ``expected`` is the finding that must be reported instead.
+_INNER_CORRUPTION_CASES = [
+    pytest.param(
+        "A3",
+        lambda d: d["artifacts"]["_execution_lineage"].update(consumed_upstream=42),
+        "consumed_upstream",
+        id="lineage-consumed-upstream-integer",
+    ),
+    pytest.param(
+        "A3",
+        lambda d: d["artifacts"]["_execution_lineage"].update(consumed_upstream=True),
+        "consumed_upstream",
+        id="lineage-consumed-upstream-boolean",
+    ),
+    pytest.param(
+        "A3",
+        lambda d: d["upstream"][0].update(agent=[1]),
+        "is not of type 'string'",
+        id="upstream-agent-list",
+    ),
+    pytest.param(
+        "A3",
+        lambda d: d["upstream"][0].update(agent={"a": 1}),
+        "is not of type 'string'",
+        id="upstream-agent-object",
+    ),
+    pytest.param(
+        "A3",
+        _beneish_block_with_section(42),
+        "report Beneish block does not match",
+        id="beneish-section-integer",
+    ),
+    pytest.param(
+        "A3",
+        _beneish_block_with_section(None),
+        "report Beneish block does not match",
+        id="beneish-section-null",
+    ),
+    pytest.param(
+        "A2",
+        lambda d: d["metrics"].update(injected_defaults=42),
+        "injected defaults",
+        id="injected-defaults-integer",
+    ),
+]
+
+
+@pytest.mark.parametrize("role,mutate,expected", _INNER_CORRUPTION_CASES)
+def test_malformed_values_inside_envelope_containers_are_reported_not_raised(
+    tmp_path, role, mutate, expected
+):
+    run_dir = _good_run(tmp_path / "run")
+    path = _envelope_path(run_dir, role)
+    data = json.loads(path.read_text(encoding="utf-8"))
+    mutate(data)
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    _reseal(path)
+
+    integrity = verify_run(run_dir, strict=True)
+    report = semantic_audit(run_dir, strict=True)
+
+    assert any(expected in error for error in integrity.errors + report.errors), (
+        integrity.errors,
+        report.errors,
+    )
+    assert report.overall_state == "failed"
+
+
+def test_malformed_run_summary_is_not_an_audit_crash(tmp_path):
+    payloads = ("[]", "42", "null", '{"params": 42}', '{"params": [1]}')
+    for index, payload in enumerate(payloads):
+        run_dir = _good_run(tmp_path / f"run{index}")
+        (run_dir / "run_summary.json").write_text(payload, encoding="utf-8")
+        verify_run(run_dir)
+        report = semantic_audit(run_dir)
+        # The manifest pinned the summary's bytes, so the edit is still caught.
+        assert report.levels["final_artifacts"] == "failed", payload
+    run_dir = _good_run(tmp_path / "binary")
+    (run_dir / "run_summary.json").write_bytes(b"\xff\xfe not utf-8")
+    assert semantic_audit(run_dir).levels["final_artifacts"] == "failed"
+
+
+def test_malformed_envelope_field_is_attributed_to_the_damaged_file(tmp_path):
+    """Two damaged envelopes are both named; neither hides the other."""
+    run_dir = _good_run(tmp_path / "run")
+    for agent, field, bad in (("A2", "gates", 42), ("A4", "sources", "text")):
+        path = _envelope_path(run_dir, agent)
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data[field] = bad
+        path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+    for errors in (verify_run(run_dir).errors, semantic_audit(run_dir).errors):
+        assert any(
+            e.startswith("a2_envelope.json: ") and "gates must be an object" in e
+            for e in errors
+        ), errors
+        assert any(
+            e.startswith("a4_envelope.json: ") and "sources must be an array" in e
+            for e in errors
+        ), errors
+
+
+def test_unsealed_parent_is_warned_by_graph_validation():
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_unsealed_"))
+    try:
+        _good_run(tmp)
+        a1_path = _envelope_path(tmp, "A1")
+        a1 = json.loads(a1_path.read_text(encoding="utf-8"))
+        a1.pop("content_checksum", None)
+        a1_path.write_text(json.dumps(a1, indent=2), encoding="utf-8")
+
+        integrity = verify_run(tmp)
+        expected_unsealed = [
+            warning
+            for warning in integrity.warnings
+            if "upstream A1 referenced but unsealed" in warning
+        ]
+        assert expected_unsealed
+
+        report = semantic_audit(tmp)
+        unsealed = [
+            warning
+            for warning in report.warnings
+            if "upstream A1 referenced but unsealed" in warning
+        ]
+        assert unsealed == expected_unsealed
+        assert "graph_and_contracts" not in report.failed_levels()
+
+        strict_report = semantic_audit(tmp, strict=True)
+        assert "envelope_integrity" in strict_report.failed_levels()
+        assert "graph_and_contracts" in strict_report.failed_levels()
+
+        strict_wrapper = verify_run_semantic(tmp, strict=True)
+        assert not strict_wrapper.valid
+        assert any(
+            "upstream A1 referenced but unsealed" in warning
+            for warning in strict_wrapper.warnings
+        )
+
+        cli = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "src.controller",
+                "verify-run",
+                str(tmp),
+                "--strict",
+                "--json",
+            ],
+            cwd=PROJECT_ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        assert cli.returncode != 0, cli.stdout + cli.stderr
+        audit = json.loads(cli.stdout)
+        assert {"envelope_integrity", "graph_and_contracts"}.issubset(
+            audit["failed_levels"]
+        ), audit
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_mismatched_frozen_data_checksum_fails_graph_validation():
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_frozen_"))
+    try:
+        _good_run(tmp)
+        path = _envelope_path(tmp, "A5")
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["metrics"]["data_checksum"] = "sha256:not-the-frozen-checksum"
+        path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        _reseal(path)
+
+        report = semantic_audit(tmp)
+        assert report.levels["graph_and_contracts"] == "failed"
+        assert any(
+            "A5: metrics.data_checksum" in error
+            and "does not echo A1 frozen checksum" in error
+            for error in report.errors
+        ), report.errors
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 # ------------------------------------------------------- final-artifact level
 
 
@@ -388,6 +770,101 @@ def test_changed_artifact_bundle_after_sealing_is_caught():
         report = semantic_audit(tmp)
         assert not report.valid
         assert report.levels.get("final_artifacts") != "passed"
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        ("{", "invalid JSON"),
+        (json.dumps([]), "expected object"),
+    ],
+    ids=["invalid-json", "list"],
+)
+def test_malformed_manifest_fails_final_artifacts_without_raising(payload, message):
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_manifest_shape_"))
+    try:
+        _good_run(tmp)
+        (tmp / "run_manifest.json").write_text(payload, encoding="utf-8")
+
+        report = semantic_audit(tmp)
+        assert report.levels["final_artifacts"] == "failed"
+        assert "final_artifacts" in report.failed_levels()
+        assert any(
+            "run_manifest.json is malformed" in error and message in error
+            for error in report.errors
+        )
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@pytest.mark.parametrize(
+    "shape",
+    ["missing-run-id", "non-string-status", "non-list-graph-row"],
+)
+def test_manifest_schema_error_is_attributed_to_final_artifacts(shape):
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_manifest_schema_"))
+    try:
+        _good_run(tmp)
+        manifest_path = tmp / "run_manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if shape == "missing-run-id":
+            manifest.pop("run_id")
+        elif shape == "non-string-status":
+            manifest["status"] = []
+        else:
+            manifest["graph"]["A2"] = 42
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+        report = semantic_audit(tmp)
+        assert report.levels["final_artifacts"] == "failed"
+        assert report.failed_levels() == ["final_artifacts"]
+        assert any("run manifest:" in error for error in report.errors)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@pytest.mark.parametrize(
+    "label", ["report", "artifacts", "summary", "provenance"]
+)
+@pytest.mark.parametrize("remove_file", [False, True], ids=["file-present", "file-absent"])
+def test_completed_run_requires_manifest_bound_outputs(label, remove_file):
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_required_output_"))
+    try:
+        _good_run(tmp)
+        manifest_path = tmp / "run_manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        record = manifest["outputs"].pop(label)
+        if remove_file:
+            (tmp / record["path"]).unlink()
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+        report = semantic_audit(tmp)
+        assert report.levels["final_artifacts"] == "failed"
+        assert any(
+            error.startswith(f"{label}: completed run is missing")
+            and "manifest-bound output record" in error
+            for error in report.errors
+        ), report.errors
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@pytest.mark.parametrize("label", ["report", "artifacts"])
+def test_completed_run_requires_recorded_output_file(label):
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_required_file_"))
+    try:
+        _good_run(tmp)
+        manifest = json.loads((tmp / "run_manifest.json").read_text(encoding="utf-8"))
+        (tmp / manifest["outputs"][label]["path"]).unlink()
+
+        report = semantic_audit(tmp)
+        assert report.levels["final_artifacts"] == "failed"
+        assert any(
+            f"{label}: recorded output is missing" in error
+            for error in report.errors
+        ), report.errors
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -484,6 +961,29 @@ def test_genuine_halted_subgraph_is_incomplete_without_missing_role_error():
         assert not report.complete, "a halted run must not be reported as complete"
         assert report.halted
         assert report.levels["completeness"] == "incomplete"
+        assert report.levels["final_artifacts"] == "passed"
+        assert report.overall_state == "incomplete"
+        assert report.failed_levels() == []
+        assert not any("missing required role" in error for error in report.errors)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_incomplete_status_uses_halted_role_and_output_policy():
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_incomplete_status_"))
+    try:
+        _halt_before_a6(tmp)
+        manifest_path = tmp / "run_manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["status"] = "incomplete"
+        manifest["complete"] = False
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+        report = semantic_audit(tmp)
+        assert report.halted is False
+        assert report.complete is False
+        assert report.levels["completeness"] == "incomplete"
+        assert report.levels["final_artifacts"] == "passed"
         assert report.overall_state == "incomplete"
         assert report.failed_levels() == []
         assert not any("missing required role" in error for error in report.errors)
@@ -956,6 +1456,9 @@ def test_unexpected_role_still_fails_halted_run():
         assert report.levels["completeness"] == "failed"
         assert report.overall_state == "failed"
         assert any("unexpected role(s): Z9" in error for error in report.errors)
+        assert sum(
+            "unexpected role" in error.lower() for error in report.errors
+        ) == 1
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -986,6 +1489,63 @@ def test_verify_run_semantic_is_a_thin_compatible_wrapper():
         assert result.valid, result.errors
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+@pytest.mark.parametrize(
+    "halt",
+    [
+        _halt_before_a6,
+        _halt_at_a1_gate,
+        _halt_at_a7_gate,
+        _halt_during_a1_dispatch,
+    ],
+    ids=["partial-halt", "a1-gate-halt", "a7-gate-halt", "empty-halt"],
+)
+def test_strict_wrapper_rejects_incomplete_run_while_report_stays_honest(
+    tmp_path, halt
+):
+    run_dir = halt(tmp_path / "run")
+
+    report = semantic_audit(run_dir, strict=True)
+    assert report.overall_state == "incomplete"
+    assert report.failed_levels() == []
+    assert "strict: run is incomplete" not in report.errors
+
+    assert verify_run_semantic(run_dir, strict=False).valid
+
+    strict = verify_run_semantic(run_dir, strict=True)
+    assert not strict.valid
+    assert "strict: run is incomplete" in strict.errors
+
+    cli = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "src.controller",
+            "verify-run",
+            str(run_dir),
+            "--strict",
+            "--json",
+        ],
+        cwd=PROJECT_ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    assert cli.returncode != 0, cli.stdout + cli.stderr
+    audit = json.loads(cli.stdout)
+    assert audit["overall_state"] == "incomplete"
+    assert audit["failed_levels"] == []
+    assert "strict: run is incomplete" not in audit["errors"]
+
+
+def test_strict_wrapper_accepts_a_complete_run(tmp_path):
+    run_dir = _good_run(tmp_path / "run")
+
+    result = verify_run_semantic(run_dir, strict=True)
+
+    assert result.valid, result.errors
+    assert "strict: run is incomplete" not in result.errors
 
 
 def test_lenient_audit_reports_contract_warnings_without_failing_graph():
@@ -1115,5 +1675,114 @@ def test_strict_documented_data_gap_remains_warning_across_entry_points():
         assert audit["levels"]["graph_and_contracts"] == "passed"
         assert any(expected in warning for warning in audit["warnings"])
         assert not any(expected in error for error in audit["errors"])
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_strict_warning_only_run_fails_its_owner_level_across_entry_points():
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_warning_only_"))
+    try:
+        _halt_before_a6(tmp)
+        manifest_path = tmp / "run_manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        provenance = manifest["outputs"].pop("provenance", None)
+        if isinstance(provenance, dict):
+            (tmp / provenance["path"]).unlink(missing_ok=True)
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+        report = semantic_audit(tmp, strict=True)
+        assert "envelope_integrity" in report.failed_levels()
+        assert any("no provenance log found" in error for error in report.errors)
+
+        wrapper = verify_run_semantic(tmp, strict=True)
+        assert not wrapper.valid
+        assert any("no provenance log found" in error for error in wrapper.errors)
+
+        cli = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "src.controller",
+                "verify-run",
+                str(tmp),
+                "--strict",
+                "--json",
+            ],
+            cwd=PROJECT_ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        assert cli.returncode != 0, cli.stdout + cli.stderr
+        audit = json.loads(cli.stdout)
+        assert "envelope_integrity" in audit["failed_levels"]
+        assert any("no provenance log found" in error for error in audit["errors"])
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+_PATHOLOGICAL_JSON = {
+    "deep-nest": "[" * 200000,
+    "huge-int": '{"a": ' + "9" * 6000 + "}",
+}
+
+
+@pytest.mark.parametrize("name", ["run_manifest.json", "run_summary.json"])
+@pytest.mark.parametrize("kind", sorted(_PATHOLOGICAL_JSON))
+def test_pathological_json_in_manifest_or_summary_fails_without_raising(name, kind):
+    """Parser limits (recursion depth, int digit cap) are damage, not crashes."""
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_pathological_"))
+    try:
+        _good_run(tmp)
+        (tmp / name).write_text(_PATHOLOGICAL_JSON[kind], encoding="utf-8")
+
+        report = semantic_audit(tmp)
+        assert not report.valid
+        assert report.levels["final_artifacts"] == "failed"
+        assert "final_artifacts" in report.failed_levels()
+        assert not verify_run_semantic(tmp).valid
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_pathological_manifest_cli_reports_json_failure_not_a_traceback():
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_pathological_cli_"))
+    try:
+        _good_run(tmp)
+        (tmp / "run_manifest.json").write_text(
+            _PATHOLOGICAL_JSON["deep-nest"], encoding="utf-8"
+        )
+        cli = subprocess.run(
+            [sys.executable, "-m", "src.controller", "verify-run", str(tmp), "--json"],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        assert cli.returncode != 0
+        assert "Traceback" not in cli.stderr
+        audit = json.loads(cli.stdout)
+        assert "final_artifacts" in audit["failed_levels"]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@pytest.mark.parametrize("damage", ["invalid-utf8", "directory"])
+def test_unreadable_provenance_log_fails_envelope_integrity_without_raising(damage):
+    tmp = Path(tempfile.mkdtemp(prefix="fuwforge_sem_provenance_unreadable_"))
+    try:
+        _good_run(tmp)
+        log = next(tmp.glob("*_provenance.log"))
+        if damage == "invalid-utf8":
+            log.write_bytes(b"\xff\xfe\x00 not utf-8\n")
+        else:
+            log.unlink()
+            log.mkdir()
+
+        result = verify_run(tmp)
+        assert not result.valid
+        assert any(log.name in error for error in result.errors)
+        report = semantic_audit(tmp)
+        assert report.levels["envelope_integrity"] == "failed"
+        assert "envelope_integrity" in report.failed_levels()
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

@@ -194,6 +194,41 @@ def _run_cli(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, cwd=str(PROJECT_ROOT), capture_output=True, text=True)
 
 
+@pytest.mark.parametrize("evidence_state", ["valid", "missing", "invalid"])
+def test_manifest_evidence_state_comes_from_an_actual_pack_load(
+    tmp_path, evidence_state
+):
+    claimed_checksum = "sha256:" + "0" * 64
+    evidence_dir = tmp_path / "evidence"
+    if evidence_state == "valid":
+        _create_evidence_pack(evidence_dir)
+    elif evidence_state == "invalid":
+        evidence_dir.mkdir()
+        (evidence_dir / "evidence.json").write_text("{}", encoding="utf-8")
+
+    manifest = build_run_manifest(
+        tmp_path,
+        {},
+        run_id=f"evidence-{evidence_state}",
+        ticker=TICKER,
+        analysis_date=ANALYSIS_DATE,
+        status="halted",
+        summary={"evidence_checksum": claimed_checksum},
+    )
+
+    if evidence_state == "valid":
+        pack = EvidencePack(
+            evidence_dir / "evidence.json",
+            ticker=TICKER,
+            analysis_date=ANALYSIS_DATE,
+        )
+        assert manifest["evidence"]["pack_checksum"] == pack.checksum
+        assert manifest["evidence"]["state"] == "source_bytes_verified"
+    else:
+        assert manifest["evidence"]["pack_checksum"] == claimed_checksum
+        assert manifest["evidence"]["state"] == "source_bytes_unavailable"
+
+
 # ----------------------------------------------------------------------
 # 1. Production Reproduction & Loader Regression
 # ----------------------------------------------------------------------
@@ -416,6 +451,7 @@ def test_missing_evidence_directory_when_manifest_claims_verified_fails(tmp_path
         assert not report.valid
         assert report.levels["calculation_replay"] == "failed"
         assert report.levels["source_reconstruction"] == "source_bytes_unavailable"
+        assert "source_reconstruction" in report.failed_levels()
         assert any("missing from run directory" in err for err in report.errors)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

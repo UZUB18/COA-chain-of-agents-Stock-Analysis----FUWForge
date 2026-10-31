@@ -376,7 +376,11 @@ def test_a3_forensics_rejects_beneish_in_an_alternate_section_4_key(tmp_path):
 
 
 def test_audit_rejects_resealed_report_with_wrong_runner_score(tmp_path):
-    from src.run_semantic_audit import AuditReport, _audit_final_artifacts
+    from src.run_semantic_audit import (
+        AuditReport,
+        _audit_final_artifacts,
+        _load_manifest,
+    )
     from src.utils.checksum import checksum_file
 
     payload = _raw_a3_payload({"indices": {**ALL_ONE, "tata": -0.0202}})
@@ -387,7 +391,10 @@ def test_audit_rejects_resealed_report_with_wrong_runner_score(tmp_path):
     (tmp_path / "run_manifest.json").write_text(json.dumps({"outputs": {
         "report": {"path": path.name, "sha256": checksum_file(path)}
     }}), encoding="utf-8")
-    errors = _audit_final_artifacts(tmp_path, {"A3": envelope}, AuditReport())
+    manifest, manifest_problem = _load_manifest(tmp_path)
+    errors = _audit_final_artifacts(
+        tmp_path, {"A3": envelope}, AuditReport(), manifest, manifest_problem
+    )
     assert any("Beneish" in error for error in errors)
 
 
