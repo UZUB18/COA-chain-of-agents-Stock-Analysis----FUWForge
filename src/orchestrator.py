@@ -221,17 +221,24 @@ class FUWForgeOrchestrator:
                 if is_resume:
                     store.reconcile_unvalidated_on_resume()
                     unvalidated = [r for r in store.list_receipts() if r.requires_recovery()]
-                    if unvalidated:
-                        if rec_choice:
-                            for r in unvalidated:
-                                store.resolve_recovery(r.execution_key, rec_choice)
-                        else:
-                            needing = [r for r in unvalidated if r.requires_recovery()]
-                            if needing:
-                                raise RuntimeError(
-                                    f"Uncertain completion(s) detected for agents {[r.agent_id for r in needing]} on resume. "
-                                    "An explicit recovery choice is required: specify recovery_choice='retry' or 'abandon'."
-                                )
+                    if rec_choice:
+                        recoverable = [
+                            r
+                            for r in store.list_receipts()
+                            if r.requires_recovery()
+                            or (
+                                r.state == ExecutionState.FAILED.value
+                                and r.has_provider_response()
+                                and r.recovery_choice is None
+                            )
+                        ]
+                        for r in recoverable:
+                            store.resolve_recovery(r.execution_key, rec_choice)
+                    elif unvalidated:
+                        raise RuntimeError(
+                            f"Uncertain completion(s) detected for agents {[r.agent_id for r in unvalidated]} on resume. "
+                            "An explicit recovery choice is required: specify recovery_choice='retry' or 'abandon'."
+                        )
 
             return self._run_pipeline(
                 run_id=run_id,
@@ -394,7 +401,6 @@ class FUWForgeOrchestrator:
         provenance.load_existing()
         if self.evidence_pack:
             provenance.append("EVIDENCE", f"Retrieved-document snapshot {self.evidence_pack.checksum}; documents={len(self.evidence_pack.documents)}")
-            provenance.flush()
         metrics: RuntimeMetricsCollector = state["metrics"]
         state["provenance"] = provenance
 
@@ -404,6 +410,7 @@ class FUWForgeOrchestrator:
 
         def mark_dispatch() -> None:
             state["dispatch_started"] = True
+            provenance.flush()
 
         # Phase 1 — A1 Gate
         metrics.start_agent("A1")
@@ -715,6 +722,7 @@ class FUWForgeOrchestrator:
             store=store,
         )
 
+        provenance.flush()
         outputs = self._write_outputs(
             run_id, params, output_root, envelopes, depth_config, frozen_checksum, mode
         )
@@ -844,11 +852,27 @@ class FUWForgeOrchestrator:
                     # now passes. This is recovery, not a retry — the provider is
                     # not called.
                     recovered = self._recover_saved_response(
-                        agent_id, receipt, context, store, key, identity, refs, snapshot
+                        agent_id,
+                        receipt,
+                        context,
+                        store,
+                        key,
+                        identity,
+                        refs,
+                        snapshot,
+                        update_on_failure=(
+                            receipt.state == ExecutionState.RETURNED.value
+                        ),
                     )
                     if recovered is not None:
                         return recovered
-                if receipt and receipt.state == ExecutionState.UNKNOWN_COMPLETION.value:
+                if receipt and (
+                    receipt.state == ExecutionState.UNKNOWN_COMPLETION.value
+                    or (
+                        receipt.state == ExecutionState.FAILED.value
+                        and receipt.has_provider_response()
+                    )
+                ):
                     if receipt.recovery_choice == RecoveryChoice.RETRY.value:
                         # An explicit operator decision, recorded on the receipt.
                         # Dispatch proceeds below and store.begin() clears the
@@ -856,7 +880,9 @@ class FUWForgeOrchestrator:
                         receipt = None
                     else:
                         raise RuntimeError(
-                            f"{agent_id}: uncertain completion requires --recovery-choice retry or abandon"
+                            f"{agent_id}: failed receipt with recorded provider response requires --recovery-choice retry or abandon"
+                            if receipt.state == ExecutionState.FAILED.value
+                            else f"{agent_id}: uncertain completion requires --recovery-choice retry or abandon"
                         )
             if store:
                 store.begin(agent_id=agent_id, provider=provider, model=model,
@@ -899,6 +925,8 @@ class FUWForgeOrchestrator:
         identity: Dict[str, Any],
         refs: Tuple[UpstreamRef, ...],
         snapshot: Dict[str, Envelope],
+        *,
+        update_on_failure: bool = True,
     ) -> Optional[AgentExecution]:
         """Re-run the local pipeline over an already-received provider response.
 
@@ -951,18 +979,20 @@ class FUWForgeOrchestrator:
                 cutoff=context.params.get("analysis_date"),
             )
             if not contract.valid:
-                store.mark_failed(
-                    key,
-                    "saved provider response still fails local validation: "
-                    + "; ".join(contract.errors)[:500],
-                )
+                if update_on_failure:
+                    store.mark_failed(
+                        key,
+                        "saved provider response still fails local validation: "
+                        + "; ".join(contract.errors)[:500],
+                    )
                 return None
         except Exception as exc:
-            store.mark_failed(
-                key,
-                f"saved provider response could not be recovered locally "
-                f"({type(exc).__name__}: {exc})"[:500],
-            )
+            if update_on_failure:
+                store.mark_failed(
+                    key,
+                    f"saved provider response could not be recovered locally "
+                    f"({type(exc).__name__}: {exc})"[:500],
+                )
             return None
 
         recovered_raw = {
@@ -1154,7 +1184,7 @@ class FUWForgeOrchestrator:
 
         if mode != "controller" and execution.reused:
             self._write_agent_outputs(output_root, agent_id, AgentOutput(env, execution.raw_response))
-        if store and execution.execution_key:
+        if store and execution.execution_key and not execution.reused:
             store.mark_validated(execution.execution_key, env.to_dict(), accepted_checksum=env.content_checksum)
 
         prompt_hash = execution.raw_response.get("prompt_sha256")
@@ -1167,7 +1197,8 @@ class FUWForgeOrchestrator:
         if consumed:
             detail += ", consumed_upstream=" + "+".join(consumed)
         provenance.append("ORCH", f"{agent_id} envelope accepted ({detail}).")
-        provenance.flush()
+        if not execution.reused:
+            provenance.flush()
 
         usage = execution.raw_response.get("usage")
         tokens = usage.get("total_tokens") if isinstance(usage, dict) else env.metrics.get("tokens")

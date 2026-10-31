@@ -388,3 +388,223 @@ def test_an_abandoned_receipt_is_never_recovered(tmp_path):
     # The orchestrator's resume block raises on ABANDON before recovery is
     # considered, so recovery can never resurrect discarded work.
     assert backend.calls == 0
+
+
+# ----------------------------------------- Task 3.2: response-bearing failed gate
+
+
+def _run_tree_snapshot(root: Path) -> dict[str, bytes]:
+    return {
+        str(p.relative_to(root)): p.read_bytes()
+        for p in sorted(root.rglob("*"))
+        if p.is_file()
+    }
+
+
+def test_failed_receipt_with_recoverable_response_recovers_locally_without_choice(
+    tmp_path,
+):
+    from src.orchestrator import OrchestratorParams
+    from src.provenance import ProvenanceLog
+
+    run_dir = tmp_path / "run"
+    params = OrchestratorParams("Test Co", "TEST", "2026-10-11", "Quick", [], "default")
+
+    backend = _RecordingBackend()
+    orch = FUWForgeOrchestrator(
+        PROJECT_ROOT,
+        registry=model_registry(backend, provider="recording", strict=False),
+        strict=False,
+    )
+
+    class _FailOnceBackend:
+        model = "never-called"
+
+        def __init__(self):
+            self.calls = 0
+
+        def generate(self, prompt: str) -> str:
+            self.calls += 1
+            return "not valid json"
+
+    fail_backend = _FailOnceBackend()
+    orch_init = FUWForgeOrchestrator(
+        PROJECT_ROOT,
+        registry=model_registry(
+            fail_backend, provider="recording", max_retries=0, strict=False
+        ),
+        strict=False,
+    )
+    with pytest.raises(RuntimeError):
+        orch_init.run("rec_run", params, output_root=run_dir)
+    assert fail_backend.calls == 1
+
+    # Replace stored raw_response on the failed receipt with valid A1 JSON
+    store = ExecutionStore(run_dir / "execution_ledger.db")
+    a1_receipt = store.get_by_agent("A1")[0]
+    assert a1_receipt.state == "failed"
+    with store._conn:
+        store._conn.execute(
+            "UPDATE execution_receipts SET raw_response_json = ? WHERE execution_key = ?",
+            (json.dumps({"raw": json.dumps(_a1_payload())}), a1_receipt.execution_key),
+        )
+    store.close()
+
+    # Now resume _run_agent for A1 without recovery_choice: must recover locally with 0 calls.
+    store2 = ExecutionStore(run_dir / "execution_ledger.db")
+    try:
+        exec_res = orch._run_agent(
+            "A1",
+            params=params,
+            depth_config=orch.depth_modes["quick"].payload,
+            focus_overrides={},
+            frozen_checksum=None,
+            run_id="rec_run",
+            output_root=run_dir,
+            provenance=ProvenanceLog(run_dir / "prov.log"),
+            mode="automated",
+            store=store2,
+            resume=True,
+        )
+        assert backend.calls == 0
+        assert exec_res.raw_response.get("recovered_locally") is True
+    finally:
+        store2.close()
+
+
+def test_failed_receipt_with_unrecoverable_response_requires_recovery_choice_and_preserves_run_tree(
+    tmp_path,
+):
+    from src.orchestrator import OrchestratorParams
+    from src.utils.checksum import sha256_digest
+
+    pack_dir = tmp_path / "pack"
+    pack_dir.mkdir(parents=True, exist_ok=True)
+    payload = b"Annual filing body"
+    (pack_dir / "D001.bytes").write_bytes(payload)
+    (pack_dir / "D001.txt").write_bytes(payload)
+    pack_path = pack_dir / "evidence.json"
+    pack_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "1",
+                "ticker": "TEST",
+                "documents": [
+                    {
+                        "id": "D001",
+                        "type": "Filing",
+                        "title": "Annual results",
+                        "url": "https://example.com/annual-results",
+                        "doc_date": "2025-01-01",
+                        "date_basis": "supplied_manifest",
+                        "accessed": "2026-10-06T10:00:00Z",
+                        "content_type": "text/plain",
+                        "verification": "retrieved",
+                        "content_sha256": sha256_digest(payload),
+                        "text_sha256": sha256_digest(payload),
+                        "raw_file": "D001.bytes",
+                        "text_file": "D001.txt",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    run_dir = tmp_path / "run"
+    params = OrchestratorParams("Test Co", "TEST", "2026-10-11", "Quick", [], "default")
+
+    class _CountingBackend:
+        model = "recording-model"
+
+        def __init__(self):
+            self.calls = 0
+            self.response = "still not json"
+
+        def generate(self, prompt: str) -> str:
+            self.calls += 1
+            return self.response
+
+    backend = _CountingBackend()
+    orch1 = FUWForgeOrchestrator(
+        PROJECT_ROOT,
+        registry=model_registry(
+            backend, provider="recording", max_retries=0, strict=False
+        ),
+        evidence_pack=pack_path,
+        strict=False,
+    )
+    with pytest.raises(RuntimeError):
+        orch1.run("rec_run", params, output_root=run_dir)
+    assert backend.calls == 1
+
+    store = ExecutionStore(run_dir / "execution_ledger.db")
+    receipts = store.get_by_agent("A1")
+    assert len(receipts) == 1
+    assert receipts[0].state == "failed"
+    assert receipts[0].raw_response == {"raw": "still not json"}
+    store.close()
+
+    before = _run_tree_snapshot(run_dir)
+
+    # 1. Resume without --recovery-choice: must try local recovery, fail, and refuse
+    # before any provider call or run-tree mutation (including provenance.log).
+    backend.calls = 0
+    orch_no_choice = FUWForgeOrchestrator(
+        PROJECT_ROOT,
+        registry=model_registry(
+            backend, provider="recording", max_retries=0, strict=False
+        ),
+        evidence_pack=pack_path,
+        strict=False,
+    )
+    with pytest.raises(RuntimeError, match="recovery-choice|recovery_choice"):
+        orch_no_choice.run("rec_run", params, output_root=run_dir, resume=True)
+
+    assert backend.calls == 0
+    assert _run_tree_snapshot(run_dir) == before
+
+    # 2. Resume with recovery_choice='retry': dispatches once to the provider.
+    orch_retry = FUWForgeOrchestrator(
+        PROJECT_ROOT,
+        registry=model_registry(
+            backend, provider="recording", max_retries=0, strict=False
+        ),
+        evidence_pack=pack_path,
+        strict=False,
+    )
+    with pytest.raises(RuntimeError):
+        orch_retry.run(
+            "rec_run",
+            params,
+            output_root=run_dir,
+            resume=True,
+            recovery_choice="retry",
+        )
+    assert backend.calls == 1
+
+    # 3. Resume with recovery_choice='abandon': zero dispatches and durable abandon marker.
+    backend.calls = 0
+    orch_abandon = FUWForgeOrchestrator(
+        PROJECT_ROOT,
+        registry=model_registry(
+            backend, provider="recording", max_retries=0, strict=False
+        ),
+        evidence_pack=pack_path,
+        strict=False,
+    )
+    with pytest.raises(RuntimeError, match="explicitly abandoned"):
+        orch_abandon.run(
+            "rec_run",
+            params,
+            output_root=run_dir,
+            resume=True,
+            recovery_choice="abandon",
+        )
+    assert backend.calls == 0
+    store_after = ExecutionStore(run_dir / "execution_ledger.db")
+    try:
+        abandoned = store_after.get_by_agent("A1")[0]
+        assert abandoned.recovery_choice == "abandon"
+    finally:
+        store_after.close()

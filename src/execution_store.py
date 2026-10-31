@@ -222,6 +222,10 @@ class ExecutionReceipt:
             and self.recovery_choice is None
         )
 
+    def has_provider_response(self) -> bool:
+        """Return True if a provider response was recorded on this receipt."""
+        return self.raw_response is not None or self.raw_checksum is not None
+
 
 def validate_receipt(data: Dict[str, Any]) -> ValidationResult:
     """Validate a receipt dictionary against schemas/execution_receipt_v1.json."""
@@ -397,6 +401,14 @@ class ExecutionStore:
         return self._local.connection
 
     def _init_db(self) -> None:
+        if self.db_path != ":memory:":
+            p = Path(self.db_path)
+            if p.is_file() and p.stat().st_size > 0:
+                has_table = self._conn.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'execution_receipts'"
+                ).fetchone()
+                if has_table:
+                    return
         with self._conn:
             self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.execute(
@@ -896,20 +908,22 @@ class ExecutionStore:
         targets = set(agent_ids) if agent_ids is not None else None
         reconciled = []
 
+        cursor = self._conn.execute(
+            """
+            SELECT execution_key, agent_id, state
+            FROM execution_receipts
+            WHERE state IN ('running', 'returned')
+            """
+        )
+        rows = cursor.fetchall()
+        if targets is not None:
+            rows = [r for r in rows if r["agent_id"] in targets]
+        if not rows:
+            return []
+
         with self._conn:
-            cursor = self._conn.execute(
-                """
-                SELECT execution_key, agent_id, state
-                FROM execution_receipts
-                WHERE state IN ('running', 'returned')
-                """
-            )
-            rows = cursor.fetchall()
             for row in rows:
                 key = row["execution_key"]
-                aid = row["agent_id"]
-                if targets is not None and aid not in targets:
-                    continue
                 self._conn.execute(
                     """
                     UPDATE execution_receipts SET
