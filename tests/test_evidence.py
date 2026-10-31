@@ -210,3 +210,97 @@ def test_evidence_backed_strict_pipeline_and_cache_tampering(tmp_path):
 def test_excerpt_is_explicitly_truncated(tmp_path):
     pack = EvidencePack(make_pack(tmp_path, "X" * 500), ticker="TEST", analysis_date="2025-01-31")
     assert "EXCERPT TRUNCATED" in pack.prompt_text(budget=100)
+
+
+def _with_intake_gap(pack_path):
+    data = json.loads(pack_path.read_text())
+    data["intake_coverage"] = {
+        "schema_version": "intake_coverage_v1", "ticker": "TEST", "analysis_date": "2025-01-31",
+        "annual_filings": {"requested": 3, "found": 3, "retrieved": 2, "omissions": [{
+            "title": "TEST 10-K filed 2023-02-01", "url": "https://www.sec.gov/Archives/old.htm",
+            "doc_date": "2023-02-01", "reason": "Evidence document exceeds the 8 MiB size limit.",
+        }]},
+        "company_facts": {"collected": False, "gap": "no typed facts: CompanyFacts exceeded the 8 MiB limit"},
+    }
+    pack_path.write_text(json.dumps(data))
+    return pack_path
+
+
+def test_legacy_pack_has_no_coverage_summary(tmp_path):
+    pack = EvidencePack(make_pack(tmp_path), ticker="TEST", analysis_date="2025-01-31")
+    assert "intake_coverage" not in pack.data
+    assert pack.coverage_summary() == []
+
+
+@pytest.mark.parametrize("change", ["version", "ticker", "future", "counts", "omission_shape"])
+def test_malformed_intake_coverage_is_rejected(tmp_path, change):
+    path = _with_intake_gap(make_pack(tmp_path))
+    data = json.loads(path.read_text())
+    coverage = data["intake_coverage"]
+    if change == "version":
+        coverage["schema_version"] = "intake_coverage_v9"
+    elif change == "ticker":
+        coverage["ticker"] = "OTHER"
+    elif change == "future":
+        coverage["analysis_date"] = "2025-02-01"
+    elif change == "counts":
+        coverage["annual_filings"]["retrieved"] = 3
+    else:
+        del coverage["annual_filings"]["omissions"][0]["reason"]
+    path.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match="intake coverage"):
+        EvidencePack(path, ticker="TEST", analysis_date="2025-01-31")
+
+
+def test_intake_gaps_reach_agents_and_report_and_are_tamper_evident(tmp_path):
+    import copy
+    import re
+    from src.agents.model import ModelBackend
+    from src.agents.registry import model_registry
+    from src.orchestrator import FUWForgeOrchestrator, OrchestratorParams
+    from src.run_audit import verify_run
+
+    root = Path(__file__).resolve().parents[1]
+    params = OrchestratorParams("Test", "TEST", "2025-01-31", "Quick", [], "default")
+    reference = tmp_path / "reference"
+    FUWForgeOrchestrator(root, provider="mock").run("reference", params, output_root=reference)
+    envelopes = {}
+    for file in reference.glob("a*_envelope.json"):
+        data = json.loads(file.read_text())
+        data.pop("content_checksum", None)
+        data.pop("upstream_checksums", None)
+        data["sources"] = []
+        if data["agent"]["id"] == "A3":
+            key = "SECTION_4_FINANCIAL_FORENSICS"
+            data["sections_md"][key] = "\n".join(
+                line for line in data["sections_md"][key].splitlines() if "Beneish" not in line
+            )
+        envelopes[data["agent"]["id"]] = data
+    prompts = []
+
+    class ReplayBackend(ModelBackend):
+        def generate(self, prompt):
+            agent_id = re.search(r"You are Agent (A\d[A-Z]?)", prompt).group(1)
+            prompts.append(prompt)
+            return json.dumps(copy.deepcopy(envelopes[agent_id]))
+
+    pack_path = _with_intake_gap(make_pack(tmp_path))
+    output = tmp_path / "gapped"
+    runner = FUWForgeOrchestrator(root, registry=model_registry(ReplayBackend(), strict=True), strict=True, evidence_pack=pack_path)
+    summary = runner.run("gapped", params, output_root=output)
+    assert summary["status"] == "completed"
+    assert prompts and all("Requested 3 annual filings; found 3; retrieved 2" in p for p in prompts)
+    assert all("no typed facts: CompanyFacts exceeded the 8 MiB limit" in p for p in prompts)
+    report = Path(summary["outputs"]["report"]).read_text(encoding="utf-8")
+    assert "Incomplete evidence intake" in report
+    gaps = report[report.index("## Research data gaps"):]
+    assert "Requested 3 annual filings; found 3; retrieved 2" in gaps
+    assert "https://www.sec.gov/Archives/old.htm" in gaps
+    assert "no typed facts: CompanyFacts exceeded the 8 MiB limit" in gaps
+    assert "complete 3-year" not in report.replace("not a complete 3-year", "")
+    assert verify_run(output, strict=True).valid
+    sealed = output / "evidence" / "evidence.json"
+    data = json.loads(sealed.read_text())
+    data["intake_coverage"]["annual_filings"]["omissions"][0]["reason"] = "edited after sealing"
+    sealed.write_text(json.dumps(data))
+    assert not verify_run(output, strict=True).valid

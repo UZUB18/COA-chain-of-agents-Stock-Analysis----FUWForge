@@ -1318,6 +1318,16 @@ class ModelAgent(BaseAgent):
             if context.source_documents else
             "\nNO RETRIEVED SOURCE DOCUMENTS ARE AVAILABLE. Do not claim to have opened filings or accessed market data.\n"
         )
+        coverage = getattr(context, "source_coverage", None) or []
+        if coverage:
+            # Runner-recorded intake facts, not retrieved content: keep this
+            # directive outside <untrusted_source_data> so it is not ignored.
+            evidence += (
+                "\nRUNNER SOURCE COVERAGE (recorded by the evidence collector): source intake is incomplete.\n"
+                + "".join(f"- {row['field']}: {row['detail']}\n" for row in coverage)
+                + "Disclose these gaps where relevant. Do not describe the evidence as a complete "
+                "filing set and do not infer figures from omitted documents.\n"
+            )
         upstream = {
             agent_id: {"artifacts": env.artifacts, "warnings": env.warnings, "gates": env.gates}
             for agent_id, env in context.envelopes.items()

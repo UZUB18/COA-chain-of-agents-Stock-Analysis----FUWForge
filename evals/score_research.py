@@ -25,7 +25,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from src.facts import parse_iso_datetime, usable_as_of
+from src.facts import cutoff_instant, parse_iso_datetime, usable_as_of
 
 
 def _safe_float(val: Any) -> Optional[float]:
@@ -285,6 +285,13 @@ def _evaluate_chronology(
     cutoff = case.get("cutoff")
     if not cutoff:
         return {"passed": True, "violations": [], "count": 0}
+    # A date-only case cutoff means the end of that UTC day. The original text
+    # stays in diagnostics; an unparseable cutoff still makes every dated
+    # citation fail (usable_as_of rejects it).
+    try:
+        cutoff_at: Any = cutoff_instant(cutoff)
+    except (ValueError, TypeError):
+        cutoff_at = cutoff
 
     source_pack = case.get("source_pack", [])
     if not isinstance(source_pack, list):
@@ -300,7 +307,7 @@ def _evaluate_chronology(
             if s_id in source_map:
                 src_meta = source_map[s_id]
                 filing_date = src_meta.get("filing_date") or src_meta.get("availability_time")
-                if filing_date and not usable_as_of({"availability_time": filing_date}, cutoff):
+                if filing_date and not usable_as_of({"availability_time": filing_date}, cutoff_at):
                     violations.append(
                         f"Cited source '{s_id}' was published at {filing_date}, after case cutoff {cutoff}."
                     )
@@ -315,12 +322,12 @@ def _evaluate_chronology(
                 if s_id and s_id in source_map:
                     src_meta = source_map[s_id]
                     filing_date = src_meta.get("filing_date") or src_meta.get("availability_time")
-                    if filing_date and not usable_as_of({"availability_time": filing_date}, cutoff):
+                    if filing_date and not usable_as_of({"availability_time": filing_date}, cutoff_at):
                         violations.append(
                             f"Claim '{claim_text}' cites source '{s_id}' published at {filing_date}, after case cutoff {cutoff}."
                         )
                 avail = claim.get("availability_time")
-                if avail and not usable_as_of({"availability_time": avail}, cutoff):
+                if avail and not usable_as_of({"availability_time": avail}, cutoff_at):
                     violations.append(
                         f"Claim '{claim_text}' has availability_time {avail}, after case cutoff {cutoff}."
                     )
@@ -331,7 +338,7 @@ def _evaluate_chronology(
         for fact_name, fact_data in pred_facts.items():
             if isinstance(fact_data, dict):
                 avail = fact_data.get("availability_time")
-                if avail and not usable_as_of({"availability_time": avail}, cutoff):
+                if avail and not usable_as_of({"availability_time": avail}, cutoff_at):
                     violations.append(
                         f"Fact '{fact_name}' has availability_time {avail}, after case cutoff {cutoff}."
                     )
@@ -339,7 +346,7 @@ def _evaluate_chronology(
                 if s_id and s_id in source_map:
                     src_meta = source_map[s_id]
                     filing_date = src_meta.get("filing_date") or src_meta.get("availability_time")
-                    if filing_date and not usable_as_of({"availability_time": filing_date}, cutoff):
+                    if filing_date and not usable_as_of({"availability_time": filing_date}, cutoff_at):
                         violations.append(
                             f"Fact '{fact_name}' cites source '{s_id}' published at {filing_date}, after case cutoff {cutoff}."
                         )

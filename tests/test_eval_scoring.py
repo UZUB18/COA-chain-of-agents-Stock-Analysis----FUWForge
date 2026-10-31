@@ -434,3 +434,20 @@ class TestDatasetScoringAndCLI:
         proc = subprocess.run(cmd, capture_output=True, text=True, cwd=tmp_path)
         assert proc.returncode == 0
         assert "Passed: 9 (100.0%)" in proc.stdout
+
+
+@pytest.mark.parametrize("available,ok", [
+    ("2023-08-01", True),
+    ("2023-08-01T23:59:59Z", True),
+    ("2023-08-02", False),
+])
+def test_chronology_date_only_case_cutoff_is_end_of_day(available, ok):
+    from evals.score_research import _evaluate_chronology
+
+    case = {"cutoff": "2023-08-01", "source_pack": [{"source_id": "S1", "filing_date": available}]}
+    prediction = {"sources_used": ["S1"], "facts": {"Revenue": {"availability_time": available}}}
+    result = _evaluate_chronology(case, prediction)
+    assert result["passed"] is ok
+    if not ok:
+        # The human-readable diagnostic keeps the original cutoff text.
+        assert all("after case cutoff 2023-08-01." in v for v in result["violations"])

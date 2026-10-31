@@ -12,6 +12,7 @@ from datetime import date, datetime, timezone
 from enum import Enum
 import json
 import math
+import re
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Set, Tuple, Union
 
@@ -113,6 +114,32 @@ def parse_iso_datetime(value: Union[str, datetime, date]) -> datetime:
     else:
         dt = dt.astimezone(timezone.utc)
     return dt
+
+
+_DATE_ONLY = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def cutoff_instant(value: Union[str, datetime, date]) -> datetime:
+    """
+    Convert a research cutoff into the UTC instant it admits evidence up to.
+
+    A date-only cutoff (an exact ``YYYY-MM-DD`` string or a ``date``) means the
+    end of that UTC calendar day, ``T23:59:59Z``: a fact filed on D and a
+    document dated D are both available to an analysis dated D. A datetime or a
+    timestamp string keeps its supplied instant, so an explicit
+    ``DT00:00:00Z`` cutoff still excludes facts available later that day.
+
+    Only cutoffs go through this function. Economic periods, filing metadata
+    and availability timestamps keep :func:`parse_iso_datetime` semantics.
+    """
+    if isinstance(value, datetime):
+        return parse_iso_datetime(value)
+    if isinstance(value, date):
+        return datetime(value.year, value.month, value.day, 23, 59, 59, tzinfo=timezone.utc)
+    if isinstance(value, str) and _DATE_ONLY.fullmatch(value.strip()):
+        day = date.fromisoformat(value.strip())
+        return datetime(day.year, day.month, day.day, 23, 59, 59, tzinfo=timezone.utc)
+    return parse_iso_datetime(value)
 
 
 @dataclass(frozen=True)
@@ -245,7 +272,8 @@ class Fact:
 def usable_as_of(fact: Union[Fact, Mapping[str, Any]], cutoff: Union[str, datetime, date]) -> bool:
     """
     Chronology guard: returns True if and only if the fact became publicly available
-    on or before the cutoff timestamp (anti-look-ahead).
+    on or before the cutoff timestamp (anti-look-ahead). A date-only cutoff means
+    the end of that UTC day (see :func:`cutoff_instant`).
 
     A fact whose filing availability / publication time is after the cutoff must NOT
     be considered usable merely because its economic period is earlier.
@@ -256,7 +284,7 @@ def usable_as_of(fact: Union[Fact, Mapping[str, Any]], cutoff: Union[str, dateti
 
     try:
         fact_avail_dt = parse_iso_datetime(avail_str)
-        cutoff_dt = parse_iso_datetime(cutoff)
+        cutoff_dt = cutoff_instant(cutoff)
     except (ValueError, TypeError):
         return False
 

@@ -326,3 +326,36 @@ def test_attachment_cannot_overwrite_document_files(tmp_path, monkeypatch):
     path.write_text(json.dumps(data))
     with pytest.raises(ValueError, match="unique and separate"):
         EvidencePack(path, ticker="TEST", analysis_date="2025-01-31")
+
+
+def test_web_intake_preserves_intake_coverage_and_omissions(tmp_path, monkeypatch):
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"ticker": "TEST", "documents": [
+        {"url": "https://issuer.example/annual-2024", "doc_date": "2025-01-01", "title": "TEST 10-K filed 2025-01-01"},
+        {"url": "https://issuer.example/annual-2015", "doc_date": "2016-01-01", "title": "TEST 10-K filed 2016-01-01"},
+    ]}))
+    monkeypatch.setattr(evidence.socket, "getaddrinfo", lambda *a, **kw: [(0, 0, 0, "", ("93.184.216.34", 443))])
+
+    def base_download(url):
+        if url.endswith("2015"):
+            raise evidence.DocumentTooLargeError()
+        return b"Financials 123 shares 100", "text/plain", "2026-10-06T12:00:00Z"
+
+    monkeypatch.setattr(evidence, "download_public_document", base_download)
+    coverage = {
+        "schema_version": "intake_coverage_v1", "ticker": "TEST", "analysis_date": "2025-01-31",
+        "annual_filings": {"requested": 2, "found": 2, "retrieved": 2, "omissions": []},
+    }
+    path = evidence.fetch_evidence(manifest, tmp_path / "base", intake_coverage=coverage,
+                                   omittable_document_indices=frozenset({2}))
+    base = EvidencePack(path, ticker="TEST", analysis_date="2025-01-31")
+    assert base.data["intake_coverage"]["annual_filings"]["retrieved"] == 1
+    backend = GeminiApiBackend(api_key="fake-offline-key")
+    monkeypatch.setattr(backend, "research", lambda prompt, **kwargs: interaction())
+    monkeypatch.setattr(web_research, "download_public_document", lambda url: (page(), "text/html", "2026-10-06T12:00:00Z"))
+    out = web_research.collect_web_sources(ticker="TEST", company="Test Co", analysis_date="2025-01-31",
+        evidence_path=path, output_dir=tmp_path / "web", backend=backend, max_sources=2)
+    pack = EvidencePack(out, ticker="TEST", analysis_date="2025-01-31")
+    assert any(d["type"] == "WebNews" for d in pack.documents)
+    assert pack.data["intake_coverage"] == base.data["intake_coverage"]
+    assert pack.coverage_summary() == base.coverage_summary() != []

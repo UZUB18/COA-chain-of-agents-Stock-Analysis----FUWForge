@@ -30,6 +30,8 @@ class AgentContext:
     #: A model may still report its own indices, but it must not be the only
     #: source of a number the run presents as computed.
     forensic_inputs: Dict[str, Any] = field(default_factory=dict)
+    #: Runner-recorded evidence intake gaps (``EvidencePack.coverage_summary``).
+    source_coverage: list[Dict[str, str]] = field(default_factory=list)
     challenge_initial: Optional[Dict[str, Any]] = None
     on_provider_return: Optional[Callable[[str], Any]] = None
     on_repair_start: Optional[Callable[[str, str], Any]] = None

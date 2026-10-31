@@ -32,6 +32,18 @@ MAX_DOCUMENTS = 16
 MAX_ATTACHMENTS = 16
 _ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
 _LAST_SEC_REQUEST = 0.0
+INTAKE_COVERAGE_VERSION = "intake_coverage_v1"
+
+
+class DocumentTooLargeError(ValueError):
+    """A response exceeded :data:`MAX_DOCUMENT_BYTES`.
+
+    Raised only by the bounded download so callers can tell this limit apart
+    from transport, checksum or parse failures without matching message text.
+    """
+
+    def __init__(self) -> None:
+        super().__init__("Evidence document exceeds the 8 MiB size limit.")
 
 
 def sec_user_agent() -> str:
@@ -61,7 +73,7 @@ def download_public_document(url: str):
             raise ValueError("Compressed evidence responses are not supported.")
         payload = response.read(MAX_DOCUMENT_BYTES + 1)
         if len(payload) > MAX_DOCUMENT_BYTES:
-            raise ValueError("Evidence document exceeds the 8 MiB size limit.")
+            raise DocumentTooLargeError()
         content_type = response.headers.get("Content-Type", "")
     accessed = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
     return payload, content_type, accessed
@@ -229,6 +241,9 @@ def fetch_evidence(
     manifest: Path,
     output_dir: Path,
     attachments: Optional[List[Dict[str, Any]]] = None,
+    *,
+    intake_coverage: Optional[Dict[str, Any]] = None,
+    omittable_document_indices: frozenset = frozenset(),
 ) -> Path:
     """
     Download only explicit manifest URLs, with bounded size and no redirects.
@@ -238,7 +253,16 @@ def fetch_evidence(
     ``{"path": Path, "kind": str}``. The bytes are not re-downloaded; they are
     copied and re-hashed on load. This keeps non-document artefacts (typed fact
     ledgers, SEC CompanyFacts, web-research traces) under the same checksum and
-    containment guarantees as documents.
+    containment guarantees as documents. An optional ``metadata`` mapping on a
+    spec is stored with its attachment record.
+
+    Explicit manifests are fail-closed. Only the automatic collector passes
+    ``omittable_document_indices`` (one-based manifest positions of older
+    annual filings) together with ``intake_coverage``: for those positions, and
+    only for :class:`DocumentTooLargeError`, the document is omitted and the
+    omission is recorded in ``intake_coverage["annual_filings"]``. Every other
+    error, and every other position, still fails the pack. The coverage object
+    is stored in ``evidence.json`` so the pack checksum covers it.
     """
     config = json.loads(Path(manifest).read_text(encoding="utf-8"))
     ticker = str(config.get("ticker") or "").strip().upper()
@@ -266,6 +290,10 @@ def fetch_evidence(
             raise ValueError(f"Evidence attachment source {source} is not a readable file.")
         if source.stat().st_size > MAX_DOCUMENT_BYTES:
             raise ValueError(f"Evidence attachment {filename!r} exceeds the document size limit.")
+    omittable = frozenset(omittable_document_indices)
+    annual_coverage = (intake_coverage or {}).get("annual_filings")
+    if omittable and (not isinstance(annual_coverage, dict) or 1 in omittable):
+        raise ValueError("Document omission requires annual intake coverage and never applies to the first document.")
     output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=False)
     records = []
@@ -274,7 +302,17 @@ def fetch_evidence(
         doc_date = str(document["doc_date"])
         date.fromisoformat(doc_date)
         source_id = f"D{index:03d}"
-        payload, content_type, accessed = download_public_document(url)
+        try:
+            payload, content_type, accessed = download_public_document(url)
+        except DocumentTooLargeError as exc:
+            if index not in omittable:
+                raise
+            annual_coverage["omissions"].append({
+                "title": str(document.get("title") or url), "url": url,
+                "doc_date": doc_date, "reason": str(exc),
+            })
+            annual_coverage["retrieved"] -= 1
+            continue
         text = _document_text(payload, content_type, document.get("transform"))
         raw_file, text_file = f"{source_id}.bytes", f"{source_id}.txt"
         (output_dir / raw_file).write_bytes(payload)
@@ -300,10 +338,13 @@ def fetch_evidence(
             "file": filename,
             "sha256": sha256_digest(target.read_bytes()),
             "kind": str(spec.get("kind") or "attachment"),
+            **({"metadata": spec["metadata"]} if spec.get("metadata") else {}),
         })
     pack = {"schema_version": "1", "ticker": ticker, "documents": records}
     if attachment_records:
         pack["attachments"] = attachment_records
+    if intake_coverage is not None:
+        pack["intake_coverage"] = intake_coverage
     path = output_dir / "evidence.json"
     path.write_text(json.dumps(pack, indent=2) + "\n", encoding="utf-8")
     return path
@@ -478,7 +519,11 @@ class EvidencePack:
             raise ValueError("Evidence pack schema/ticker does not match this run.")
         if not isinstance(self.documents, list) or not 1 <= len(self.documents) <= MAX_DOCUMENTS:
             raise ValueError("Evidence pack requires a bounded nonempty document list.")
-        as_of = date.fromisoformat(analysis_date)
+        from src.facts import cutoff_instant
+
+        # A date-only cutoff D admits evidence through the end of D (UTC);
+        # documents carry calendar dates, so compare dates inclusively.
+        as_of = cutoff_instant(analysis_date).date()
         seen = set()
         for document in self.documents:
             if document["id"] in seen:
@@ -500,6 +545,7 @@ class EvidencePack:
             derived = _document_text(self._file(document["raw_file"]).read_bytes(), document["content_type"], document.get("transform"))
             if sha256_digest(derived.encode("utf-8")) != document["text_sha256"]:
                 raise ValueError("Evidence text does not match extraction from downloaded bytes.")
+        self._validate_intake_coverage(as_of)
         self.attachments = self.data.get("attachments", [])
         if not isinstance(self.attachments, list) or len(self.attachments) > MAX_ATTACHMENTS:
             raise ValueError("Evidence attachments require a bounded list.")
@@ -520,6 +566,68 @@ class EvidencePack:
         self.facts = self._load_embedded_facts()
         self.facts.extend(self._load_fact_attachments())
         self.checksum = sha256_digest(json.dumps(self.data, sort_keys=True, separators=(",", ":")).encode())
+
+    def _validate_intake_coverage(self, as_of: date) -> None:
+        """Check optional collector coverage metadata; absence means a legacy pack."""
+        coverage = self.data.get("intake_coverage")
+        if coverage is None:
+            return
+        if not isinstance(coverage, dict) or coverage.get("schema_version") != INTAKE_COVERAGE_VERSION:
+            raise ValueError("Evidence intake coverage has an unsupported format.")
+        if coverage.get("ticker") != self.data["ticker"]:
+            raise ValueError("Evidence intake coverage ticker does not match the pack.")
+        if date.fromisoformat(str(coverage.get("analysis_date"))) > as_of:
+            raise ValueError("Evidence intake coverage has a future analysis cutoff.")
+        annual = coverage.get("annual_filings")
+        if annual is None:
+            return
+        counts = [annual.get(key) if isinstance(annual, dict) else None for key in ("requested", "found", "retrieved")]
+        omissions = annual.get("omissions") if isinstance(annual, dict) else None
+        if any(type(value) is not int or value < 0 for value in counts) or not isinstance(omissions, list):
+            raise ValueError("Evidence intake coverage annual counts are malformed.")
+        if counts[2] != counts[1] - len(omissions) or counts[1] > counts[0]:
+            raise ValueError("Evidence intake coverage annual counts are inconsistent.")
+        retrieved_urls = {document["url"] for document in self.documents}
+        for omission in omissions:
+            if not isinstance(omission, dict) or not all(
+                isinstance(omission.get(key), str) and omission[key] for key in ("title", "url", "doc_date", "reason")
+            ):
+                raise ValueError("Evidence intake coverage omission records are malformed.")
+            if date.fromisoformat(omission["doc_date"]) > as_of or omission["url"] in retrieved_urls:
+                raise ValueError("Evidence intake coverage omission conflicts with the pack.")
+
+    def coverage_summary(self) -> List[Dict[str, str]]:
+        """Deterministic, factual intake gaps recorded by the collector.
+
+        Empty for a complete intake and for legacy packs without coverage
+        metadata. Used verbatim for the agent directive and the report.
+        """
+        coverage = self.data.get("intake_coverage")
+        if not isinstance(coverage, dict):
+            return []
+        rows: List[Dict[str, str]] = []
+        annual = coverage.get("annual_filings")
+        if isinstance(annual, dict) and annual["retrieved"] < annual["requested"]:
+            detail = (
+                f"Requested {annual['requested']} annual filings; found {annual['found']}; "
+                f"retrieved {annual['retrieved']}."
+            )
+            if annual["omissions"]:
+                detail += (
+                    f" {len(annual['omissions'])} older annual filing(s) were omitted by the 8 MiB "
+                    "per-document limit. This is incomplete filing coverage, not a complete "
+                    f"{annual['requested']}-year filing set."
+                )
+            rows.append({"field": "annual_filings", "detail": detail})
+            for omission in annual["omissions"]:
+                rows.append({
+                    "field": "omitted_annual_filing",
+                    "detail": f"{omission['title']} ({omission['url']}, filed {omission['doc_date']}): {omission['reason']}",
+                })
+        facts = coverage.get("company_facts")
+        if isinstance(facts, dict) and not facts.get("collected"):
+            rows.append({"field": "company_facts", "detail": str(facts.get("gap") or "no typed facts: SEC CompanyFacts unavailable")})
+        return rows
 
     # --- typed attachment loading -------------------------------------------
 

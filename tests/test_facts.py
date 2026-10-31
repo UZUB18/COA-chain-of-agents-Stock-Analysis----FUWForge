@@ -304,3 +304,51 @@ class TestLoadFactLedger:
         facts = load_fact_ledger([data])
         assert len(facts) == 1
         assert isinstance(facts[0], Fact)
+
+
+class TestDateOnlyCutoffIsEndOfUtcDay:
+    """D2: a date-only cutoff D means D 23:59:59 UTC; explicit instants stay exact."""
+
+    @staticmethod
+    def _fact(fact_id, available, *, value=100.0, kind="reported", supersedes=None):
+        return Fact(
+            id=fact_id, company="TEST", concept="Revenues", unit="USD", currency="USD",
+            filing_accession="0000000001-25-000001", availability_time=available,
+            retrieval_time="2025-06-01T00:00:00Z", source_location="https://www.sec.gov/x",
+            accounting_basis="US-GAAP", extractor_version="test", value=value,
+            period_start="2024-01-01", period_end="2024-12-31", kind=kind, supersedes=supersedes,
+        )
+
+    def test_cutoff_instant_rules(self):
+        from datetime import date
+
+        from src.facts import cutoff_instant
+
+        end = datetime(2025, 3, 10, 23, 59, 59, tzinfo=timezone.utc)
+        assert cutoff_instant("2025-03-10") == end
+        assert cutoff_instant(date(2025, 3, 10)) == end
+        assert cutoff_instant("2025-03-10T00:00:00Z") == datetime(2025, 3, 10, tzinfo=timezone.utc)
+        assert cutoff_instant(datetime(2025, 3, 10)) == datetime(2025, 3, 10, tzinfo=timezone.utc)
+        assert cutoff_instant("2025-03-10T02:00:00+02:00") == datetime(2025, 3, 10, tzinfo=timezone.utc)
+        with pytest.raises(ValueError):
+            cutoff_instant("2025-03-10garbage")
+        # Economic periods and other timestamps keep their start-of-day parsing.
+        assert parse_iso_datetime("2025-03-10") == datetime(2025, 3, 10, tzinfo=timezone.utc)
+
+    def test_fact_filed_on_cutoff_day_is_usable_next_day_is_not(self):
+        assert usable_as_of(self._fact("same_day", "2025-03-10T23:59:59Z"), "2025-03-10")
+        assert not usable_as_of(self._fact("next_day", "2025-03-11T23:59:59Z"), "2025-03-10")
+        assert not usable_as_of(self._fact("next_midnight", "2025-03-11T00:00:00Z"), "2025-03-10")
+
+    def test_explicit_midnight_cutoff_still_excludes_end_of_day_fact(self):
+        fact = self._fact("same_day", "2025-03-10T23:59:59Z")
+        assert not usable_as_of(fact, "2025-03-10T00:00:00Z")
+        assert not usable_as_of(fact, datetime(2025, 3, 10, tzinfo=timezone.utc))
+
+    def test_resolve_as_of_before_and_on_restatement_day(self):
+        original = self._fact("orig", "2025-02-01T23:59:59Z", value=100.0)
+        restated = self._fact("restated", "2025-03-10T23:59:59Z", value=90.0,
+                              kind="restatement", supersedes="orig")
+        assert resolve_as_of([original, restated], "Revenues", "2025-03-09").id == "orig"
+        assert resolve_as_of([original, restated], "Revenues", "2025-03-10").id == "restated"
+        assert resolve_as_of([original, restated], "Revenues", "2025-03-10T12:00:00Z").id == "orig"

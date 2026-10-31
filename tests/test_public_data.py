@@ -215,3 +215,171 @@ def test_ticker_cik_mismatch_is_not_silently_accepted(monkeypatch, tmp_path):
     ))
     with pytest.raises(ValueError, match="does not confirm"):
         collect_public_sources("TEST", "2025-01-31", "Quick", tmp_path / "wrong", cik="1")
+
+
+# --- intake coverage and oversized historical annuals (Task 4.4 / MELI Task 1) ---
+
+_COMPANYFACTS = {
+    "cik": 1, "entityName": "Test Co",
+    "facts": {"us-gaap": {"Revenues": {"units": {"USD": [{
+        "start": "2023-01-01", "end": "2023-12-31", "val": 123, "accn": "0000000001-24-000001",
+        "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2024-12-01",
+    }]}}}},
+}
+
+
+def _collect(monkeypatch, tmp_path, *, oversized=(), failing=(), companyfacts="ok"):
+    """Run the automatic collector against synthetic SEC/price responses."""
+    monkeypatch.setenv("SEC_USER_AGENT", "Test Research test@example.com")
+    filings = [
+        ("10-K", "2024-12-01", "0000000001-24-000001", "annual24.htm"),
+        ("10-K", "2023-12-01", "0000000001-23-000001", "annual23.htm"),
+        ("10-K", "2022-12-01", "0000000001-22-000001", "annual22.htm"),
+        ("10-Q", "2025-01-01", "0000000001-25-000001", "quarter.htm"),
+        ("DEF 14A", "2025-01-10", "0000000001-25-000002", "proxy.htm"),
+    ]
+    columns = {key: [row[index] for row in filings] for index, key in enumerate(("form", "filingDate", "accessionNumber", "primaryDocument"))}
+    fetched = []
+
+    def download(url):
+        fetched.append(url)
+        if any(url.endswith(name) for name in oversized):
+            raise evidence.DocumentTooLargeError()
+        if any(url.endswith(name) for name in failing):
+            raise ValueError("Evidence request did not succeed: HTTP 500.")
+        if url.endswith("company_tickers.json"):
+            return json.dumps({"0": {"ticker": "TEST", "cik_str": 1}}).encode(), "application/json", "2026-10-06T20:00:00Z"
+        if "companyfacts" in url:
+            if companyfacts == "oversized":
+                raise evidence.DocumentTooLargeError()
+            return json.dumps(_COMPANYFACTS).encode(), "application/json", "2026-10-06T20:00:00Z"
+        if url.endswith("CIK0000000001.json"):
+            data = {"name": "Test Co", "tickers": ["TEST"], "filings": {"recent": columns, "files": []}}
+            return json.dumps(data).encode(), "application/json", "2026-10-06T20:00:00Z"
+        if "finance.yahoo.com" in url:
+            return json.dumps(chart()).encode(), "application/json", "2026-10-06T20:00:00Z"
+        return b"<p>Official statement Revenue 123.</p>", "text/html", "2026-10-06T20:00:00Z"
+
+    monkeypatch.setattr(public_data, "download_public_document", download)
+    monkeypatch.setattr(evidence, "download_public_document", download)
+    # Keep URL validation active but answer DNS offline.
+    monkeypatch.setattr(evidence.socket, "getaddrinfo", lambda *a, **kw: [(0, 0, 0, "", ("93.184.216.34", 443))])
+    path = collect_public_sources("TEST", "2025-01-31", "Quick", tmp_path / "collected")
+    return path, fetched
+
+
+def test_document_too_large_error_is_a_value_error():
+    error = evidence.DocumentTooLargeError()
+    assert isinstance(error, ValueError)
+    assert str(error) == "Evidence document exceeds the 8 MiB size limit."
+
+
+def test_oversized_older_annual_is_omitted_with_checksummed_coverage(monkeypatch, tmp_path):
+    path, fetched = _collect(monkeypatch, tmp_path, oversized=("annual22.htm",))
+    pack = EvidencePack(path, ticker="TEST", analysis_date="2025-01-31")
+    assert not any(d["url"].endswith("annual22.htm") for d in pack.documents)
+    assert len(pack.documents) == 5  # Two annuals, quarter, proxy, market history.
+    # Each document is downloaded once; the omission does not trigger a refetch.
+    assert sum(url.endswith("annual22.htm") for url in fetched) == 1
+    assert sum(url.endswith("annual24.htm") for url in fetched) == 1
+    coverage = pack.data["intake_coverage"]
+    assert coverage["schema_version"] == "intake_coverage_v1"
+    assert coverage["ticker"] == "TEST" and coverage["analysis_date"] == "2025-01-31"
+    annual = coverage["annual_filings"]
+    assert (annual["requested"], annual["found"], annual["retrieved"]) == (3, 3, 2)
+    assert annual["omissions"] == [{
+        "title": "TEST 10-K filed 2022-12-01",
+        "url": "https://www.sec.gov/Archives/edgar/data/1/000000000122000001/annual22.htm",
+        "doc_date": "2022-12-01",
+        "reason": "Evidence document exceeds the 8 MiB size limit.",
+    }]
+    assert len(coverage["discovery"]) == 3
+    # collection.json carries the same coverage and the retrieved count.
+    collection = json.loads((path.parent.parent / "collection.json").read_text())
+    assert collection["intake_coverage"] == coverage
+    assert collection["annual_filings_found"] == 3
+    assert collection["annual_filings_retrieved"] == 2
+    # The gap is stated factually, never as a complete filing set.
+    summary = pack.coverage_summary()
+    text = json.dumps(summary)
+    assert "Requested 3 annual filings; found 3; retrieved 2" in text
+    assert "incomplete filing coverage" in text
+    assert "TEST 10-K filed 2022-12-01" in text
+    # The coverage survives a snapshot and reload unchanged.
+    snapshot = pack.snapshot(tmp_path / "snap")
+    assert snapshot.checksum == pack.checksum
+    assert snapshot.data["intake_coverage"] == coverage
+    assert snapshot.coverage_summary() == summary
+
+
+def test_changing_an_omission_record_changes_the_pack_checksum(monkeypatch, tmp_path):
+    path, _ = _collect(monkeypatch, tmp_path, oversized=("annual22.htm",))
+    original = EvidencePack(path, ticker="TEST", analysis_date="2025-01-31").checksum
+    data = json.loads(path.read_text())
+    data["intake_coverage"]["annual_filings"]["omissions"][0]["reason"] = "edited"
+    path.write_text(json.dumps(data))
+    assert EvidencePack(path, ticker="TEST", analysis_date="2025-01-31").checksum != original
+
+
+@pytest.mark.parametrize("name", ["annual24.htm", "quarter.htm", "proxy.htm"])
+def test_oversized_mandatory_document_still_fails(monkeypatch, tmp_path, name):
+    with pytest.raises(evidence.DocumentTooLargeError):
+        _collect(monkeypatch, tmp_path, oversized=(name,))
+    assert not (tmp_path / "collected" / "pack" / "evidence.json").exists()
+
+
+def test_other_older_annual_failure_is_not_an_omission(monkeypatch, tmp_path):
+    with pytest.raises(ValueError, match="HTTP 500"):
+        _collect(monkeypatch, tmp_path, failing=("annual22.htm",))
+    assert not (tmp_path / "collected" / "pack" / "evidence.json").exists()
+
+
+def test_explicit_fetch_sources_stays_fail_closed_for_oversized_documents(monkeypatch, tmp_path):
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"ticker": "TEST", "documents": [
+        {"url": "https://www.sec.gov/a.htm", "doc_date": "2024-01-01"},
+        {"url": "https://www.sec.gov/b.htm", "doc_date": "2023-01-01"},
+    ]}))
+    monkeypatch.setattr(evidence.socket, "getaddrinfo", lambda *a, **kw: [(0, 0, 0, "", ("93.184.216.34", 443))])
+
+    def download(url):
+        if url.endswith("b.htm"):
+            raise evidence.DocumentTooLargeError()
+        return b"text", "text/plain", "2026-10-06T20:00:00Z"
+
+    monkeypatch.setattr(evidence, "download_public_document", download)
+    with pytest.raises(evidence.DocumentTooLargeError):
+        evidence.fetch_evidence(manifest, tmp_path / "pack")
+
+
+def test_complete_collection_persists_seal_intake_coverage(monkeypatch, tmp_path):
+    from src.sec_facts import parse_sec_company_facts_report
+
+    path, _ = _collect(monkeypatch, tmp_path)
+    pack = EvidencePack(path, ticker="TEST", analysis_date="2025-01-31")
+    expected = parse_sec_company_facts_report(_COMPANYFACTS, ticker="TEST").coverage.to_dict()
+    collection = json.loads((path.parent.parent / "collection.json").read_text())
+    assert collection["company_facts"]["intake"] == expected
+    assert pack.data["intake_coverage"]["company_facts"]["intake"] == expected
+    attachment = next(a for a in pack.attachments if a["kind"] == "sec_companyfacts")
+    assert attachment["metadata"]["seal_intake_coverage"] == expected
+    reloaded = EvidencePack(path, ticker="TEST", analysis_date="2025-01-31")
+    assert reloaded.data["intake_coverage"]["company_facts"]["intake"] == expected
+    assert len(reloaded.facts) == 1
+    annual = pack.data["intake_coverage"]["annual_filings"]
+    assert (annual["requested"], annual["found"], annual["retrieved"], annual["omissions"]) == (3, 3, 3, [])
+    # A complete intake has no coverage gap to warn about.
+    assert pack.coverage_summary() == []
+
+
+def test_oversized_companyfacts_is_an_explicit_no_facts_gap(monkeypatch, tmp_path):
+    path, _ = _collect(monkeypatch, tmp_path, companyfacts="oversized")
+    pack = EvidencePack(path, ticker="TEST", analysis_date="2025-01-31")
+    assert pack.facts == []
+    assert not any(a["kind"] == "sec_companyfacts" for a in pack.attachments)
+    gap = "no typed facts: CompanyFacts exceeded the 8 MiB limit"
+    facts_cov = pack.data["intake_coverage"]["company_facts"]
+    assert facts_cov["collected"] is False and facts_cov["gap"] == gap
+    collection = json.loads((path.parent.parent / "collection.json").read_text())
+    assert collection["company_facts"]["gap"] == gap
+    assert gap in json.dumps(pack.coverage_summary())

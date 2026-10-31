@@ -12,7 +12,10 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
-from src.evidence import MAX_DOCUMENTS, _document_text, download_public_document, fetch_evidence, sec_user_agent
+from src.evidence import (
+    INTAKE_COVERAGE_VERSION, MAX_DOCUMENTS, DocumentTooLargeError, _document_text,
+    download_public_document, fetch_evidence, sec_user_agent,
+)
 from src.utils.checksum import sha256_digest
 
 
@@ -234,9 +237,26 @@ def collect_public_sources(ticker: str, analysis_date: str, depth: str, output_d
     company_facts = _collect_company_facts(ticker, cik_number, as_of, discovery)
     facts_info = company_facts["coverage"]
     attachments = company_facts.get("attachments") or []
+    # Checksum-covered intake record stored in evidence.json. "found" counts
+    # selected filings; "retrieved" counts those actually sealed. Only an
+    # oversized annual after the newest one (annuals are newest first, so
+    # manifest positions 2..n) may be omitted; fetch_evidence records it here.
+    intake_coverage = {
+        "schema_version": INTAKE_COVERAGE_VERSION, "ticker": ticker, "analysis_date": analysis_date,
+        "annual_filings": {"requested": years, "found": len(annuals), "retrieved": len(annuals), "omissions": []},
+        "company_facts": facts_info,
+        "discovery": discovery.records,
+    }
+    manifest = output_dir / "manifest.json"
+    manifest.write_text(json.dumps({"ticker": ticker, "documents": documents}, indent=2) + "\n")
+    pack_path = fetch_evidence(
+        manifest, output_dir / "pack", attachments=attachments,
+        intake_coverage=intake_coverage, omittable_document_indices=frozenset(range(2, len(annuals) + 1)),
+    )
     coverage = {
         "ticker": ticker, "cik": cik_number, "company": submissions.get("name"), "analysis_date": analysis_date,
         "annual_filings_requested": years, "annual_filings_found": len(annuals),
+        "annual_filings_retrieved": intake_coverage["annual_filings"]["retrieved"],
         "quarterly_filing_found": bool(quarters), "proxy_found": bool(proxies),
         "material_events_found": len(material_events), "market": price_info,
         "company_facts": facts_info,
@@ -245,11 +265,10 @@ def collect_public_sources(ticker: str, analysis_date: str, depth: str, output_d
                         "SEC inclusion is based on filing date, not an intraday publication-time cutoff.",
                         "Market-provider corporate-action adjustment policies apply; this is not a certified point-in-time backtest dataset.",
                         "Culture, peer estimates, social media and broader news may still be unavailable; never fabricate them."],
+        "intake_coverage": intake_coverage,
     }
     (output_dir / "collection.json").write_text(json.dumps(coverage, indent=2) + "\n")
-    manifest = output_dir / "manifest.json"
-    manifest.write_text(json.dumps({"ticker": ticker, "documents": documents}, indent=2) + "\n")
-    return fetch_evidence(manifest, output_dir / "pack", attachments=attachments)
+    return pack_path
 
 
 def _collect_company_facts(
@@ -274,7 +293,7 @@ def _collect_company_facts(
     download guard; an oversized response is reported as unavailable rather than
     truncated into something that looks complete.
     """
-    from src.sec_facts import parse_sec_company_facts
+    from src.sec_facts import parse_sec_company_facts_report
 
     url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{int(cik_number):010d}.json"
     coverage: Dict[str, Any] = {
@@ -286,7 +305,17 @@ def _collect_company_facts(
     }
     try:
         payload = discovery.get(url)
+    except DocumentTooLargeError:
+        # The size limit is not raised here; the gap is stated, never hidden
+        # behind a pack that merely happens to contain zero facts.
+        coverage["gap"] = "no typed facts: CompanyFacts exceeded the 8 MiB limit"
+        coverage["reason"] = (
+            "no typed facts: CompanyFacts exceeded the 8 MiB limit. Typed financial facts "
+            "are unavailable for this run; they must not be guessed or substituted."
+        )
+        return {"coverage": coverage, "attachments": []}
     except Exception as exc:
+        coverage["gap"] = "no typed facts: SEC CompanyFacts could not be retrieved"
         coverage["reason"] = (
             f"SEC CompanyFacts could not be retrieved ({type(exc).__name__}: {exc}). "
             "Typed financial facts are unavailable for this run; they must not be "
@@ -297,8 +326,9 @@ def _collect_company_facts(
     # Parse to compute coverage and confirm the payload is usable; the attachment
     # itself carries the raw bytes so provenance is never reduced.
     try:
-        parsed = parse_sec_company_facts(payload, ticker=ticker)
+        report = parse_sec_company_facts_report(payload, ticker=ticker)
     except Exception as exc:
+        coverage["gap"] = "no typed facts: SEC CompanyFacts could not be parsed"
         coverage["reason"] = (
             f"SEC CompanyFacts retrieved but could not be parsed ({type(exc).__name__}: {exc}). "
             "Typed financial facts are unavailable."
@@ -311,18 +341,21 @@ def _collect_company_facts(
         {
             "collected": True,
             "availability_policy": AVAILABILITY_POLICY,
-            "fact_count": len(parsed),
+            "fact_count": len(report),
             "reason": None,
+            "intake": report.coverage.to_dict(),
         }
     )
     # The discovery cache already stored the exact bytes; attach that file.
     if discovery.last_path is None:
         coverage["collected"] = False
+        coverage["gap"] = "no typed facts: SEC CompanyFacts bytes were not cached"
         coverage["reason"] = "SEC CompanyFacts bytes were not cached and cannot be attached."
         return {"coverage": coverage, "attachments": []}
     return {
         "coverage": coverage,
         "attachments": [
-            {"path": discovery.last_path, "kind": "sec_companyfacts", "name": "sec_companyfacts.json"}
+            {"path": discovery.last_path, "kind": "sec_companyfacts", "name": "sec_companyfacts.json",
+             "metadata": {"seal_intake_coverage": coverage["intake"]}}
         ],
     }

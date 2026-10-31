@@ -570,3 +570,20 @@ if __name__ == "__main__":
     test_model_agent_normalization_and_retry()
     test_live_agy_cli_execution()
     print("ALL MODEL AGENT TESTS PASSED!")
+
+
+def test_source_coverage_directive_is_a_runner_directive_only_when_gaps_exist(tmp_path):
+    context = AgentContext(
+        run_id="coverage", params={"ticker": "TEST", "company": "Test", "weights": "default"},
+        depth_config={}, focus_overrides={}, frozen_checksum="sha256:fixed", workdir=tmp_path,
+        provenance_path=tmp_path / "prov.log",
+        source_documents=[{"id": "D001"}], source_text="Revenue 123",
+    )
+    agent = ModelAgent("A2", "Test", DummyBackend([]))
+    assert "SOURCE COVERAGE" not in agent.build_prompt(context)
+    context.source_coverage = [{"field": "annual_filings", "detail": "Requested 10 annual filings; found 10; retrieved 8."}]
+    prompt = agent.build_prompt(context)
+    directive = prompt.index("RUNNER SOURCE COVERAGE")
+    assert "Requested 10 annual filings; found 10; retrieved 8." in prompt[directive:]
+    # Outside <untrusted_source_data>: the closing tag of the documents block precedes it.
+    assert prompt.rfind("</untrusted_source_data>", 0, directive) > prompt.rfind("<untrusted_source_data", 0, directive)

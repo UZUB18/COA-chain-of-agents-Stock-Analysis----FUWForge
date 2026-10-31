@@ -60,6 +60,29 @@ hours before it existed. In a provenance system, admitting an unavailable fact
 is an unsoundness; excluding an available one is a disclosure. They are not
 symmetric.
 
+### The research cutoff side of the comparison
+
+A fact is usable when `availability_time <= cutoff`. The cutoff is converted by
+`cutoff_instant()` in `src/facts.py`:
+
+- A **date-only** cutoff `D` (an exact `YYYY-MM-DD` string or a `date`) means
+  the **end of that UTC day**, `DT23:59:59Z`. A fact filed on `D` is usable in
+  an analysis dated `D`; a fact filed on `D+1` is not. Evidence documents use
+  the same boundary: a document dated `D` is accepted and one dated `D+1` is
+  rejected (calendar dates are compared inclusively). The evaluation scorer
+  applies the same rule to case cutoffs.
+- An **explicit timestamp** keeps its instant. A cutoff of `DT00:00:00Z` or
+  `DT12:00:00Z` still excludes a fact filed on `D`, because that fact's
+  availability is `DT23:59:59Z`.
+
+The two halves fit together: the filing side assumes the latest moment of the
+filed day, and a date-only research cutoff covers that whole day. So a
+date-only analysis on the filing day includes the fact, while any intraday
+cutoff on that day excludes it. Economic periods, filing metadata and other
+timestamps are still parsed with start-of-day semantics; only cutoffs use the
+end-of-day rule. Daily market bars follow a separate collection-date rule and
+are not governed by this conversion.
+
 **The policy is recorded on every fact** as
 `metadata.availability_policy = "sec-filed-date-end-of-day-v1"`, so a reader can
 always tell how a date was derived.

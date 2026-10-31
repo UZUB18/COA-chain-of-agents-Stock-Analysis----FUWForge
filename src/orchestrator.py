@@ -824,6 +824,7 @@ class FUWForgeOrchestrator:
             evidence_checksum=self.evidence_pack.checksum if self.evidence_pack else "",
             fact_ledger=ledger,
             forensic_inputs=forensic_inputs_for(ledger, as_of=params.analysis_date),
+            source_coverage=self.evidence_pack.coverage_summary() if self.evidence_pack else [],
             challenge_initial=copy.deepcopy(challenge_initial),
         )
         started = time.perf_counter()
@@ -1398,12 +1399,21 @@ class FUWForgeOrchestrator:
         elif self.evidence_pack:
             notice += "> **Evidence supplied:** retrieved documents are cached and hash-checked. This does not independently verify every generated claim; review cited facts and scenario assumptions.\n\n"
         gaps = {agent_id: missing_data_map(env.metrics["missing_data"]) for agent_id, env in envelopes.items() if env.metrics.get("missing_data")}
+        intake_gaps = self.evidence_pack.coverage_summary() if self.evidence_pack else []
+        if intake_gaps:
+            notice += "> **Incomplete evidence intake:** the evidence collector recorded source-coverage gaps (listed under Research data gaps). Completed agent stages do not make this a complete filing set.\n\n"
         if gaps:
             notice += "> **Incomplete research coverage:** explicit unavailable inputs remain. Null means unknown, not zero or neutral; review these gaps before using ratings or scenarios.\n\n"
+        if gaps or intake_gaps:
+            def cell(value: Any) -> str:
+                return str(value).replace(chr(124), chr(92) + chr(124)).replace(chr(10), chr(32))
+
             rows = ["## Research data gaps", "| Agent | Field | Coverage / reason |", "| --- | --- | --- |"]
+            for row in intake_gaps:
+                rows.append(f"| Evidence intake | {cell(row['field'])} | {cell(row['detail'])} |")
             for agent_id, missing in sorted(gaps.items()):
                 for field, reason in sorted(missing.items()):
-                    rows.append(f"| {agent_id} | {field} | {str(reason).replace(chr(124), chr(92) + chr(124)).replace(chr(10), chr(32))} |")
+                    rows.append(f"| {agent_id} | {field} | {cell(reason)} |")
             notice += "\n".join(rows) + "\n\n"
         report_path.write_text(front_matter + notice + assembled_sections, encoding="utf-8")
 
