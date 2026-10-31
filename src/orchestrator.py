@@ -103,6 +103,9 @@ class AgentExecution:
     reused: bool = False
 
 
+ACCEPTANCE_FAILED_ERROR = "acceptance validation failed"
+
+
 class FUWForgeOrchestrator:
     """
     Coordinates the end-to-end flow across A1–A7.
@@ -127,6 +130,7 @@ class FUWForgeOrchestrator:
         self.evidence_pack = None
         self.resume = bool(resume)
         self.recovery_choice = recovery_choice
+        self._active_recovery_choice: Optional[str] = None
         self.independent_bear = bool(independent_bear)
         self.execution_store_path = execution_store_path
         self.config_dir = get_config_dir(self.project_root)
@@ -173,6 +177,7 @@ class FUWForgeOrchestrator:
         """
         is_resume = self.resume if resume is None else bool(resume)
         rec_choice = self.recovery_choice if recovery_choice is None else recovery_choice
+        self._active_recovery_choice = None
         if output_root:
             target_root = Path(output_root).resolve()
         else:
@@ -221,26 +226,28 @@ class FUWForgeOrchestrator:
                 if is_resume:
                     store.reconcile_unvalidated_on_resume()
                     unvalidated = [r for r in store.list_receipts() if r.requires_recovery()]
+                    # The operator's choice is applied per agent in _run_agent,
+                    # only to the receipt this run would dispatch and only after
+                    # zero-cost local recovery failed. Applying it to every row
+                    # here would rewrite history rows and abandon receipts that
+                    # local recovery could have accepted for free.
+                    self._active_recovery_choice = (
+                        rec_choice.value if isinstance(rec_choice, RecoveryChoice) else rec_choice
+                    )
                     if rec_choice:
-                        recoverable = [
-                            r
-                            for r in store.list_receipts()
-                            if r.requires_recovery()
-                            or (
-                                r.state == ExecutionState.FAILED.value
-                                and r.has_provider_response()
-                                and r.recovery_choice is None
-                            )
-                        ]
-                        for r in recoverable:
-                            store.resolve_recovery(r.execution_key, rec_choice)
+                        # Uncertain receipts without a saved response have no
+                        # local recovery path; resolve them now so a stale row
+                        # whose key left the graph cannot block every resume.
+                        for r in unvalidated:
+                            if not r.has_provider_response() and "repair_of" not in (r.metadata or {}):
+                                store.resolve_recovery(r.execution_key, rec_choice)
                     elif unvalidated:
                         raise RuntimeError(
                             f"Uncertain completion(s) detected for agents {[r.agent_id for r in unvalidated]} on resume. "
                             "An explicit recovery choice is required: specify recovery_choice='retry' or 'abandon'."
                         )
 
-            return self._run_pipeline(
+            result = self._run_pipeline(
                 run_id=run_id,
                 params=params,
                 mode=mode,
@@ -249,6 +256,14 @@ class FUWForgeOrchestrator:
                 store=store,
                 resume=is_resume,
             )
+            if store is not None and is_resume and self._active_recovery_choice:
+                # Rows this run never reached (their key left the graph) still
+                # carry the operator's decision, so they cannot block later
+                # resumes. Repair-history rows are audit records and stay as-is.
+                for r in store.list_receipts():
+                    if r.requires_recovery() and "repair_of" not in (r.metadata or {}):
+                        store.resolve_recovery(r.execution_key, self._active_recovery_choice)
+            return result
         except Exception as exc:
             if not state.get("dispatch_started"):
                 raise
@@ -870,7 +885,25 @@ class FUWForgeOrchestrator:
                     env = Envelope.from_dict(payload)
                     return AgentExecution(env, env.to_dict(), {**identity, "reused": True, "usage": receipt.usage},
                         0, 1, refs, key, snapshot, True)
-                if receipt and receipt.raw_response is not None:
+                retry_chosen = bool(
+                    receipt
+                    and receipt.state != ExecutionState.VALIDATED.value
+                    and receipt.recovery_choice == RecoveryChoice.RETRY.value
+                )
+                # The saved response already passed local recovery and failed
+                # acceptance under this same key (same code); replaying it can
+                # only fail again, so the operator must decide.
+                acceptance_failed = bool(
+                    receipt
+                    and receipt.state == ExecutionState.FAILED.value
+                    and receipt.error == ACCEPTANCE_FAILED_ERROR
+                )
+                if (
+                    receipt
+                    and receipt.raw_response is not None
+                    and not retry_chosen
+                    and not acceptance_failed
+                ):
                     # The provider already answered and the bytes are on disk. A
                     # local normalization or validation failure is recoverable
                     # without paying for the same completion twice: re-run the
@@ -899,10 +932,18 @@ class FUWForgeOrchestrator:
                         and receipt.has_provider_response()
                     )
                 ):
-                    if receipt.recovery_choice == RecoveryChoice.RETRY.value:
+                    pending = getattr(self, "_active_recovery_choice", None)
+                    if not retry_chosen and receipt.recovery_choice is None and pending:
+                        # Local recovery failed; record the operator's choice on
+                        # exactly this receipt, now that it is needed.
+                        receipt = store.resolve_recovery(key, pending)
+                        if pending == RecoveryChoice.ABANDON.value:
+                            raise RuntimeError(f"{agent_id}: execution explicitly abandoned")
+                        retry_chosen = True
+                    if retry_chosen:
                         # An explicit operator decision, recorded on the receipt.
                         # Dispatch proceeds below and store.begin() clears the
-                        # stale attempt outcome.
+                        # stale attempt outcome, including the choice itself.
                         receipt = None
                     else:
                         raise RuntimeError(
@@ -1171,8 +1212,10 @@ class FUWForgeOrchestrator:
                 agent_id=agent_id,
             )
         except RuntimeError:
-            if store and execution.execution_key:
-                store.mark_failed(execution.execution_key, "acceptance validation failed")
+            # A reused receipt is validated and must not be demoted; marking it
+            # failed would raise and hide the real validation error.
+            if store and execution.execution_key and not execution.reused:
+                store.mark_failed(execution.execution_key, ACCEPTANCE_FAILED_ERROR)
             if mode != "controller":
                 # A reused receipt's raw_response is a reuse stub, not provider
                 # text; never let it replace the archived *_raw.json.

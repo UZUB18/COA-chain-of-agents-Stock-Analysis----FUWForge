@@ -292,11 +292,21 @@ def test_cli_resume_of_missing_run_is_refused(tmp_path, monkeypatch):
     assert not created and not (tmp_path / "absent").exists()
 
 
+def test_cli_resume_of_directory_without_ledger_is_refused(tmp_path, monkeypatch):
+    created = _fake_orchestrator(monkeypatch)
+    (tmp_path / "empty").mkdir()
+    args = controller.build_parser().parse_args(["run", str(tmp_path / "empty"), "--ticker", "TEST", "--company", "Test Co", "--provider", "mock", "--resume"])
+    with pytest.raises(FileNotFoundError, match="no execution_ledger.db"):
+        args.func(args)
+    assert not created and not any((tmp_path / "empty").iterdir())
+
+
 def test_cli_gemini_resume_implies_no_web_search(tmp_path, monkeypatch):
     monkeypatch.setattr(web_research, "collect_web_sources", lambda **kw: pytest.fail("Resume must not repeat paid web intake"))
     created = _fake_orchestrator(monkeypatch)
     run_dir = tmp_path / "run"
     run_dir.mkdir()
+    (run_dir / "execution_ledger.db").write_bytes(b"")
     parser = controller.build_parser()
     base = ["run", str(run_dir), "--ticker", "TEST", "--company", "Test Co", "--analysis-date", "2025-01-31", "--provider", "gemini", "--resume"]
     args = parser.parse_args(base)

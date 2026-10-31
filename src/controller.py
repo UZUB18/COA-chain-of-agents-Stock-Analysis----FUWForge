@@ -198,8 +198,8 @@ def cmd_run(args: argparse.Namespace) -> None:
     if not resume and ((source_root / "run_summary.json").exists() or any(source_root.glob("*_envelope.json"))):
         raise FileExistsError("Existing run will not be overwritten. Use --resume or a fresh run directory.")
     if resume:
-        if not source_root.is_dir():
-            raise FileNotFoundError(f"Nothing to resume: run directory {source_root} does not exist.")
+        if not (source_root / "execution_ledger.db").is_file():
+            raise FileNotFoundError(f"Nothing to resume: {source_root} has no execution_ledger.db.")
         if evidence_pack is None and (source_root / "evidence" / "evidence.json").is_file():
             evidence_pack = source_root / "evidence" / "evidence.json"
     if getattr(args, "auto_sources", False):

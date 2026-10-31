@@ -421,9 +421,6 @@ class ExecutionStore:
             ExecutionState.RUNNING.value,
             ExecutionState.RETURNED.value,
         }),
-        "invalidate_descendants": frozenset({
-            ExecutionState.VALIDATED.value,
-        }),
     }
 
     def __init__(
@@ -1170,42 +1167,6 @@ class ExecutionStore:
                 if receipt:
                     reconciled.append(receipt)
         return reconciled
-
-    def invalidate_descendants(
-        self,
-        graph: Mapping[str, Any],
-        changed_agents: Iterable[str],
-    ) -> Set[str]:
-        """
-        Selectively invalidate affected nodes and their genuine downstream descendants.
-
-        Uses `true_descendants` from execution identity to compute the transitive
-        closure of affected agents. Marks their receipts in the database as failed
-        or abandoned.
-        """
-        affected = true_descendants(graph, changed_agents)
-        if not affected:
-            return set()
-
-        now = _now_iso()
-        with self._conn:
-            placeholders = ",".join("?" for _ in affected)
-            self._conn.execute(
-                f"""
-                UPDATE execution_receipts SET
-                    state = ?,
-                    error = 'Invalidated due to upstream dependency change',
-                    updated_at = ?
-                WHERE agent_id IN ({placeholders}) AND state = ?
-                """,
-                [
-                    ExecutionState.FAILED.value,
-                    now,
-                    *list(affected),
-                    ExecutionState.VALIDATED.value,
-                ],
-            )
-        return affected
 
     def _row_to_receipt(self, row: sqlite3.Row) -> ExecutionReceipt:
         upstream_raw = json.loads(row["upstream_json"]) if row["upstream_json"] else []

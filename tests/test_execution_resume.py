@@ -462,15 +462,10 @@ def test_selective_invalidation_touches_only_true_descendants():
     # Verify all 9 are validated initially
     assert len(store.reusable_nodes(keys)) == 9
 
-    # Now selectively invalidate A3
-    invalidated = store.invalidate_descendants(graph, ["A3"])
-    assert invalidated == {"A3", "A6B", "A6R", "A6", "A7"}
-
-    # Siblings A1, A2, A4, A5 remain validated and reusable!
-    reusable_after = store.reusable_nodes(keys)
-    assert set(reusable_after.keys()) == {"A1", "A2", "A4", "A5"}
-    assert "A3" not in reusable_after
-    assert "A6B" not in reusable_after
+    # A change to A3 reaches only A3 and its true descendants; validated
+    # receipts are never demoted (a changed request gets a new key instead).
+    assert true_descendants(graph, ["A3"]) == {"A3", "A6B", "A6R", "A6", "A7"}
+    assert len(store.reusable_nodes(keys)) == 9
 
 
 # -----------------------------------------------------------------------------
@@ -1179,14 +1174,11 @@ def test_begining_a_new_attempt_clears_previous_attempt_outcome():
     )
 
     store.mark_returned(key, raw_response={"raw": "first attempt"}, latency_ms=999)
-    store.mark_validated(key, accepted_envelope={"agent": {"id": "A3"}}, accepted_checksum="cks1")
-    store.invalidate_descendants({"A3": {"upstream": []}}, ["A3"])
     store.mark_failed(key, error="previous attempt error")
     store.resolve_recovery(key, "retry")
 
     first = store.get(key)
     assert first.raw_response == {"raw": "first attempt"}
-    assert first.accepted_checksum == "cks1"
     assert first.error == "previous attempt error"
     assert first.recovery_choice == "retry"
 

@@ -607,3 +607,131 @@ def test_failed_receipt_with_unrecoverable_response_requires_recovery_choice_and
         assert abandoned.recovery_choice == "abandon"
     finally:
         store_after.close()
+
+
+# --- Phase 3 review fix round 1 -------------------------------------------------
+
+
+class _ScriptedBackend:
+    model = "m"
+
+    def __init__(self, text: str):
+        self.text = text
+        self.calls = 0
+
+    def generate(self, prompt: str) -> str:
+        self.calls += 1
+        return self.text
+
+
+def _scripted(backend):
+    return FUWForgeOrchestrator(
+        PROJECT_ROOT,
+        registry=model_registry(backend, provider="recording", max_retries=0, strict=False),
+        strict=False,
+    )
+
+
+def _params():
+    from src.orchestrator import OrchestratorParams
+
+    return OrchestratorParams("Test Co", "TEST", "2026-10-11", "Quick", [], "default")
+
+
+def test_abandon_choice_still_tries_zero_cost_local_recovery_first(tmp_path):
+    run_dir = tmp_path / "run"
+    backend = _ScriptedBackend("not valid json")
+    with pytest.raises(RuntimeError):
+        _scripted(backend).run("r", _params(), output_root=run_dir)
+    with ExecutionStore(run_dir / "execution_ledger.db") as store:
+        a1 = store.get_by_agent("A1")[0]
+        assert a1.state == "failed"
+        with store._conn:
+            store._conn.execute(
+                "UPDATE execution_receipts SET raw_response_json = ? WHERE execution_key = ?",
+                (json.dumps({"raw": json.dumps(_a1_payload())}), a1.execution_key),
+            )
+
+    with pytest.raises(RuntimeError):  # A2-A5 are new work and still fail to parse
+        _scripted(backend).run("r", _params(), output_root=run_dir, resume=True, recovery_choice="abandon")
+
+    with ExecutionStore(run_dir / "execution_ledger.db") as store:
+        a1 = store.get(a1.execution_key)
+        assert a1.state == "validated"
+        assert a1.recovery_choice is None
+
+
+def _gate_failed_a1_text() -> str:
+    payload = _a1_payload()
+    payload["gates"] = {"passed": False, "notes": ["missing price"]}
+    return json.dumps(payload)
+
+
+def test_acceptance_failed_receipt_needs_a_choice_and_retry_dispatches_once(tmp_path):
+    run_dir = tmp_path / "run"
+    backend = _ScriptedBackend(_gate_failed_a1_text())
+    with pytest.raises(RuntimeError, match="gate"):
+        _scripted(backend).run("r", _params(), output_root=run_dir)
+    assert backend.calls == 1
+
+    # Replaying the saved response can only fail acceptance again: no choice, no call.
+    backend.calls = 0
+    with pytest.raises(RuntimeError, match="requires --recovery-choice"):
+        _scripted(backend).run("r", _params(), output_root=run_dir, resume=True)
+    assert backend.calls == 0
+
+    # The operator's retry is honoured with exactly one dispatch and is not left behind.
+    with pytest.raises(RuntimeError, match="gate"):
+        _scripted(backend).run("r", _params(), output_root=run_dir, resume=True, recovery_choice="retry")
+    assert backend.calls == 1
+    with ExecutionStore(run_dir / "execution_ledger.db") as store:
+        a1 = store.get_by_agent("A1")[0]
+        assert a1.state == "failed"
+        assert a1.recovery_choice is None
+
+
+def test_recovery_choice_leaves_repair_history_rows_alone(tmp_path):
+    run_dir = tmp_path / "run"
+    backend = _ScriptedBackend("not json")
+    orch = lambda: FUWForgeOrchestrator(  # noqa: E731
+        PROJECT_ROOT,
+        registry=model_registry(backend, provider="recording", max_retries=2, strict=False),
+        strict=False,
+    )
+    with pytest.raises(RuntimeError):
+        orch().run("r", _params(), output_root=run_dir)
+    with ExecutionStore(run_dir / "execution_ledger.db") as store:
+        history = {
+            r.execution_key: (r.state, r.recovery_choice)
+            for r in store.list_receipts()
+            if "repair_of" in (r.metadata or {})
+        }
+    assert history
+
+    with pytest.raises(RuntimeError):
+        orch().run("r", _params(), output_root=run_dir, resume=True, recovery_choice="retry")
+    with ExecutionStore(run_dir / "execution_ledger.db") as store:
+        for key, before in history.items():
+            r = store.get(key)
+            assert (r.state, r.recovery_choice) == before
+
+
+def test_reused_receipt_failing_acceptance_reports_the_real_error(tmp_path, monkeypatch):
+    import src.orchestrator as orchestrator_module
+    from src.validators import ValidationResult
+
+    run_dir = tmp_path / "run"
+    FUWForgeOrchestrator(PROJECT_ROOT, provider="mock").run("r", _params(), output_root=run_dir)
+    original = orchestrator_module.validate_contract
+
+    def reject_a2(env, **kw):
+        result = original(env, **kw)
+        if env.agent.id == "A2":
+            return ValidationResult(False, ["new rule: A2 rejected"], list(result.warnings))
+        return result
+
+    monkeypatch.setattr(orchestrator_module, "validate_contract", reject_a2)
+    with pytest.raises(RuntimeError, match="A2 contract validation failed"):
+        FUWForgeOrchestrator(PROJECT_ROOT, provider="mock").run("r", _params(), output_root=run_dir, resume=True)
+    with ExecutionStore(run_dir / "execution_ledger.db") as store:
+        assert store.get_by_agent("A2")[0].state == "validated"
