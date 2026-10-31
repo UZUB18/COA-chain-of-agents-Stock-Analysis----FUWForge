@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import argparse
 import csv
+import errno
 import hashlib
 import io
 import json
+import math
 import os
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -17,7 +20,7 @@ from src.config import load_mapping
 from src.contracts import COMPARISON_FIELD_KEYS, SCORECARD_CATEGORIES
 from src.envelope import Envelope
 from src.orchestrator import FUWForgeOrchestrator, OrchestratorParams
-from src.run_audit import verify_run
+from src.run_audit import find_graph_cycles, validate_run_manifest, verify_run
 from src.resources import get_default_runs_dir
 from src.utils.checksum import envelope_content_checksum
 from src.utils.finance import generate_comparison_fields, resolve_weights
@@ -326,7 +329,55 @@ def cmd_verify_run(args: argparse.Namespace) -> None:
             )
 
 
-def _changed_manifest_outputs(run_dir: Path) -> List[str]:
+def _reject_nonstandard_json_constant(value: str) -> None:
+    raise ValueError(f"non-standard JSON constant {value}")
+
+
+def _reject_nonfinite_json_float(value: str) -> float:
+    parsed = float(value)
+    if not math.isfinite(parsed):
+        raise ValueError(f"non-finite JSON number {value}")
+    return parsed
+
+
+def _discovered_final_outputs(run_dir: Path) -> Dict[str, List[Path]]:
+    discovered: Dict[str, List[Path]] = {}
+    for pattern, label in (
+        ("*_report.md", "report"),
+        ("*_artifacts.json", "artifacts"),
+        ("*_provenance.log", "provenance"),
+        ("run_summary.json", "summary"),
+    ):
+        paths = sorted(run_dir.glob(pattern))
+        if paths:
+            discovered[label] = paths
+    return discovered
+
+
+def _is_rejected_halt_diagnostic(
+    manifest: Optional[Dict[str, Any]],
+    agent_id: str,
+    data: Dict[str, Any],
+) -> bool:
+    if (
+        not isinstance(manifest, dict)
+        or manifest.get("status") not in {"halted", "incomplete"}
+        or data.get("content_checksum")
+    ):
+        return False
+    roles = manifest.get("roles")
+    gates = data.get("gates")
+    return (
+        isinstance(roles, dict)
+        and agent_id not in roles
+        and isinstance(gates, dict)
+        and gates.get("passed") is False
+    )
+
+
+def _changed_manifest_outputs(
+    run_dir: Path, manifest: Optional[Dict[str, Any]]
+) -> List[str]:
     """Return recorded final artifacts whose bytes no longer match the manifest.
 
     ``seal`` rebuilds ``run_manifest.json`` from what is on disk. Without this
@@ -335,12 +386,7 @@ def _changed_manifest_outputs(run_dir: Path) -> List[str]:
     *outputs* are compared: re-sealing legitimately rewrites envelope bytes, so
     envelope digests are expected to change.
     """
-    manifest_path = run_dir / "run_manifest.json"
-    if not manifest_path.is_file():
-        return []
-    try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    if manifest is None:
         return []
     recorded = manifest.get("outputs")
     if not isinstance(recorded, dict):
@@ -367,6 +413,205 @@ def _changed_manifest_outputs(run_dir: Path) -> List[str]:
     return changed
 
 
+def _unanchored_manifest_outputs(
+    run_dir: Path, manifest: Optional[Dict[str, Any]]
+) -> List[str]:
+    if manifest is None:
+        return []
+    recorded = manifest.get("outputs")
+    if not isinstance(recorded, dict):
+        return []
+    unanchored: List[str] = []
+    for label, paths in _discovered_final_outputs(run_dir).items():
+        record = recorded.get(label)
+        anchored_path = record.get("path") if isinstance(record, dict) else None
+        for path in paths:
+            relative = str(path.relative_to(run_dir))
+            if relative != anchored_path:
+                unanchored.append(
+                    f"{relative} ({label}: not recorded in run_manifest.json "
+                    f"outputs; anchored path={anchored_path})"
+                )
+    return unanchored
+
+
+def _exposed_xattrs(path: Path) -> Optional[List[str]]:
+    if not hasattr(os, "listxattr"):
+        return None
+    try:
+        return os.listxattr(path)
+    except OSError as exc:
+        unsupported = {
+            getattr(errno, name, None)
+            for name in ("ENOTSUP", "EOPNOTSUPP", "ENOSYS")
+        }
+        if exc.errno in unsupported:
+            return None
+        raise
+
+
+def _capture_file_metadata(path: Path) -> Dict[str, Any]:
+    stat_result = path.stat()
+    attributes: List[Tuple[str, bytes]] = []
+    names = _exposed_xattrs(path)
+    if names is not None:
+        for name in names:
+            attributes.append((name, os.getxattr(path, name)))
+    return {
+        "uid": stat_result.st_uid,
+        "gid": stat_result.st_gid,
+        "mode": stat_result.st_mode & 0o7777,
+        "atime_ns": stat_result.st_atime_ns,
+        "mtime_ns": stat_result.st_mtime_ns,
+        "flags": getattr(stat_result, "st_flags", None),
+        "xattrs": attributes,
+    }
+
+
+def _apply_file_metadata(
+    path: Path, metadata: Dict[str, Any], *, restore_times: bool = False
+) -> None:
+    current = path.stat()
+    if (
+        hasattr(os, "chown")
+        and (current.st_uid, current.st_gid)
+        != (metadata["uid"], metadata["gid"])
+    ):
+        os.chown(path, metadata["uid"], metadata["gid"])
+    desired_xattrs = dict(metadata["xattrs"])
+    current_xattrs = _exposed_xattrs(path)
+    if current_xattrs is not None:
+        for name in current_xattrs:
+            if name not in desired_xattrs:
+                if not hasattr(os, "removexattr"):
+                    raise OSError(
+                        errno.ENOTSUP,
+                        f"cannot remove inherited extended attribute {name}",
+                    )
+                os.removexattr(path, name)
+    for name, value in metadata["xattrs"]:
+        os.setxattr(path, name, value)
+    os.chmod(path, metadata["mode"])
+    if path.stat().st_mode & 0o7777 != metadata["mode"]:
+        raise OSError(
+            errno.EPERM,
+            "file mode changed during metadata copy",
+        )
+    final_xattrs = _exposed_xattrs(path)
+    if final_xattrs is not None:
+        if set(final_xattrs) != set(desired_xattrs):
+            raise OSError(
+                errno.EPERM,
+                "extended attribute set changed during metadata copy",
+            )
+        for name, value in metadata["xattrs"]:
+            if os.getxattr(path, name) != value:
+                raise OSError(
+                    errno.EPERM,
+                    f"extended attribute value changed during metadata copy: {name}",
+                )
+    if (
+        metadata["flags"] is not None
+        and hasattr(os, "chflags")
+        and hasattr(path.stat(), "st_flags")
+    ):
+        os.chflags(path, metadata["flags"])
+    if restore_times:
+        os.utime(path, ns=(metadata["atime_ns"], metadata["mtime_ns"]))
+
+
+def _commit_sealed_run(writes: Dict[Path, bytes]) -> None:
+    """Stage original backups and new files, then use atomic replacements."""
+    if not writes:
+        return
+    originals: Dict[Path, bytes] = {}
+    metadata: Dict[Path, Dict[str, Any]] = {}
+    replacements: Dict[Path, Path] = {}
+    backups: Dict[Path, Path] = {}
+    applied: List[Path] = []
+    keep_backups: set[Path] = set()
+    in_flight: Optional[Path] = None
+    try:
+        metadata = {path: _capture_file_metadata(path) for path in writes}
+        originals = {path: path.read_bytes() for path in writes}
+        for path in writes:
+            handle = tempfile.NamedTemporaryFile(
+                mode="wb",
+                dir=path.parent,
+                prefix=f".{path.name}.backup.",
+                delete=False,
+            )
+            backups[path] = Path(handle.name)
+            with handle:
+                handle.write(originals[path])
+                handle.flush()
+                os.fsync(handle.fileno())
+        for path, backup in backups.items():
+            _apply_file_metadata(
+                backup, metadata[path], restore_times=True
+            )
+        for path, payload in writes.items():
+            handle = tempfile.NamedTemporaryFile(
+                mode="wb",
+                dir=path.parent,
+                prefix=f".{path.name}.",
+                delete=False,
+            )
+            replacements[path] = Path(handle.name)
+            with handle:
+                handle.write(payload)
+                handle.flush()
+                os.fsync(handle.fileno())
+        for path, staged in replacements.items():
+            _apply_file_metadata(staged, metadata[path])
+        for path, staged in replacements.items():
+            in_flight = path
+            staged.replace(path)
+            applied.append(path)
+            in_flight = None
+    except BaseException as exc:
+        rollback_errors: List[str] = []
+        rollback_paths = list(applied)
+        if in_flight is not None and in_flight not in applied:
+            rollback_in_flight = not isinstance(exc, OSError)
+            if isinstance(exc, OSError):
+                try:
+                    rollback_in_flight = (
+                        in_flight.read_bytes() != originals[in_flight]
+                    )
+                except OSError:
+                    rollback_in_flight = True
+            if rollback_in_flight:
+                rollback_paths.append(in_flight)
+        for path in reversed(rollback_paths):
+            try:
+                backups[path].replace(path)
+            except BaseException as rollback_exc:
+                keep_backups.add(path)
+                rollback_errors.append(
+                    f"{path.name} from {backups[path].name}: {rollback_exc}"
+                )
+        detail = f"could not commit sealed run files: {exc}"
+        if rollback_errors:
+            detail += "; rollback also failed for " + ", ".join(rollback_errors)
+        if rollback_errors or isinstance(exc, OSError):
+            raise SystemExit(detail) from exc
+        raise
+    finally:
+        for staged in replacements.values():
+            try:
+                staged.unlink(missing_ok=True)
+            except OSError:
+                pass
+        for path, backup in backups.items():
+            if path in keep_backups:
+                continue
+            try:
+                backup.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+
 def cmd_seal(args: argparse.Namespace) -> None:
     run_dir = Path(args.run_dir)
     files = sorted(run_dir.glob("*_envelope.json"))
@@ -374,42 +619,126 @@ def cmd_seal(args: argparse.Namespace) -> None:
         raise SystemExit(f"No *_envelope.json files found in {run_dir}.")
 
     force = bool(getattr(args, "force", False))
-    payloads: List[Tuple[Path, Dict[str, Any], str]] = []
-    for path in files:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        agent_id = str((data.get("agent") or {}).get("id") or "")
-        payloads.append((path, data, agent_id))
-
-    # A pre-existing seal that does not match the bytes is a tampering signal.
-    # Refuse once, before we start rewriting anything, so a forced re-seal is an
-    # explicit operator decision rather than a side effect of the fixpoint loop.
-    for path, data, agent_id in payloads:
-        recorded = data.get("content_checksum")
-        if recorded and recorded != envelope_content_checksum(data) and not force:
-            raise SystemExit(
-                f"{path.name}: content checksum mismatch; refusing to re-seal a "
-                "modified envelope (use --force to override)."
+    manifest_path = run_dir / "run_manifest.json"
+    manifest_exists = manifest_path.exists() or manifest_path.is_symlink()
+    manifest: Optional[Dict[str, Any]] = None
+    if manifest_exists:
+        try:
+            loaded_manifest = json.loads(
+                manifest_path.read_text(encoding="utf-8"),
+                parse_constant=_reject_nonstandard_json_constant,
+                parse_float=_reject_nonfinite_json_float,
             )
+        except (OSError, UnicodeError, ValueError) as exc:
+            raise SystemExit(
+                f"{manifest_path}: malformed or unreadable run manifest; cannot "
+                "rebuild safely, so no files were changed "
+                f"({exc})."
+            ) from exc
+        else:
+            manifest_errors = (
+                validate_run_manifest(loaded_manifest)
+                if isinstance(loaded_manifest, dict)
+                else ["run_manifest.json is malformed (expected object)"]
+            )
+            if manifest_errors:
+                raise SystemExit(
+                    f"{manifest_path}: malformed run manifest; cannot rebuild "
+                    "safely, so no files were changed:\n- "
+                    + "\n- ".join(manifest_errors)
+                )
+            manifest = loaded_manifest
+
+    summary: Dict[str, Any] = {}
+    summary_path = run_dir / "run_summary.json"
+    if summary_path.is_file():
+        try:
+            summary = json.loads(
+                summary_path.read_text(encoding="utf-8"),
+                parse_constant=_reject_nonstandard_json_constant,
+                parse_float=_reject_nonfinite_json_float,
+            )
+        except (OSError, UnicodeError, ValueError) as exc:
+            raise SystemExit(
+                f"could not rebuild sealed run: {summary_path}: malformed or "
+                f"unreadable run summary; no files were changed ({exc})."
+            ) from exc
+        if not isinstance(summary, dict):
+            raise SystemExit(
+                f"{summary_path}: run summary must contain an object; no files "
+                "were changed."
+            )
+
+    payloads: List[Tuple[Path, Dict[str, Any], str]] = []
+    original_payloads: Dict[Path, str] = {}
+    seen_agents: set[str] = set()
+    for path in files:
+        try:
+            data = json.loads(
+                path.read_text(encoding="utf-8"),
+                parse_constant=_reject_nonstandard_json_constant,
+                parse_float=_reject_nonfinite_json_float,
+            )
+        except (OSError, UnicodeError, ValueError) as exc:
+            raise SystemExit(f"{path.name}: could not read envelope ({exc}).") from exc
+        if not isinstance(data, dict):
+            raise SystemExit(f"{path.name}: envelope JSON must be an object.")
+        agent_id = str((data.get("agent") or {}).get("id") or "")
+        if not agent_id:
+            raise SystemExit(f"{path.name}: envelope is missing agent.id.")
+        if agent_id in seen_agents:
+            raise SystemExit(f"{path.name}: duplicate role {agent_id}.")
+        seen_agents.add(agent_id)
+        payloads.append((path, data, agent_id))
+        original_payloads[path] = json.dumps(
+            data, sort_keys=True, separators=(",", ":"), allow_nan=False
+        )
+
+    diagnostic_roles = {
+        agent_id
+        for _path, data, agent_id in payloads
+        if _is_rejected_halt_diagnostic(manifest, agent_id, data)
+    }
+    accepted_payloads = [
+        payload for payload in payloads if payload[2] not in diagnostic_roles
+    ]
 
     # Re-sealing rewrites the manifest, so a report or artifact edited after the
     # run would be re-pinned to its new bytes and then audit as verified. That is
     # laundering, not sealing: compare the recorded final-artifact digests with
     # what is on disk and refuse before touching anything.
-    changed_outputs = _changed_manifest_outputs(run_dir)
-    if changed_outputs and not force:
+    discovered_outputs = _discovered_final_outputs(run_dir)
+    if manifest is not None and manifest.get("status") == "completed":
+        missing_required_outputs = sorted(
+            {"report", "artifacts", "summary", "provenance"}
+            - set(discovered_outputs)
+        )
+        if missing_required_outputs:
+            raise SystemExit(
+                "Refusing to re-seal a completed run whose required final "
+                "output(s) are missing: "
+                + ", ".join(missing_required_outputs)
+                + ". --force cannot certify absent completed outputs."
+            )
+
+    changed_outputs = _changed_manifest_outputs(run_dir, manifest)
+    unanchored_outputs = _unanchored_manifest_outputs(run_dir, manifest)
+    output_changes = changed_outputs + unanchored_outputs
+    if output_changes and not force:
         raise SystemExit(
             "Refusing to re-seal: these final artifacts no longer match the "
-            "digests recorded in run_manifest.json, so re-sealing would certify "
-            "edited output as the run's result:\n- "
-            + "\n- ".join(changed_outputs)
+            "digests or output records in run_manifest.json, so re-sealing would "
+            "certify edited or unanchored output as the run's result:\n- "
+            + "\n- ".join(output_changes)
             + "\nRestore the original bytes, or pass --force to certify the edited "
             "bytes deliberately."
         )
 
-    checksums: Dict[str, str] = {}
+    forced_digest_roles: set[str] = set()
+    forced_added_roles: set[str] = set()
+    forced_removed_roles: set[str] = set()
     restored_agents: set[str] = set()
-    sealed_agents: set[str] = set()
-    for path, data, agent_id in payloads:
+    for path, data, agent_id in accepted_payloads:
         # Missing empty root lineage is recoverable; non-root digests must be recorded.
         if agent_id == "A1":
             data.setdefault("upstream", [])
@@ -422,7 +751,66 @@ def cmd_seal(args: argparse.Namespace) -> None:
                 raise SystemExit(f"{path.name}: original consumed digests unavailable; refusing to invent historical lineage.")
             data["upstream"] = original
             restored_agents.add(agent_id)
-        checksums[agent_id] = envelope_content_checksum(data)
+
+        actual = envelope_content_checksum(data)
+        recorded = data.get("content_checksum")
+        if recorded and recorded != actual:
+            if not force:
+                raise SystemExit(
+                    f"{path.name}: content checksum mismatch; refusing to re-seal a "
+                    "modified envelope (use --force to override)."
+                )
+            forced_digest_roles.add(agent_id)
+
+    # A manifest anchors both the role set and each role's bytes. Missing or
+    # unrecorded roles need the same deliberate operator decision as an edit.
+    if manifest is not None:
+        manifest_roles = manifest.get("roles") or {}
+        envelope_roles = {
+            agent_id for _path, _data, agent_id in accepted_payloads
+        }
+        missing_roles = sorted(set(manifest_roles) - envelope_roles)
+        unrecorded_roles = sorted(envelope_roles - set(manifest_roles))
+        if missing_roles or unrecorded_roles:
+            detail = (
+                f"run_manifest.json role set does not match envelopes "
+                f"(missing={missing_roles}, unrecorded={unrecorded_roles})"
+            )
+            if not force:
+                raise SystemExit(
+                    f"Refusing to re-seal: {detail}; this would launder a deleted "
+                    "role or certify an unrecorded one (use --force to override)."
+                )
+            forced_added_roles.update(unrecorded_roles)
+            forced_removed_roles.update(missing_roles)
+        for path, data, agent_id in accepted_payloads:
+            if agent_id not in manifest_roles:
+                continue
+            actual = envelope_content_checksum(data)
+            expected = manifest_roles[agent_id]
+            if actual != expected:
+                if not force:
+                    raise SystemExit(
+                        f"{path.name}: content checksum mismatch against "
+                        f"run_manifest.json role {agent_id}; refusing to re-seal "
+                        "a modified envelope (use --force to override)."
+                    )
+                forced_digest_roles.add(agent_id)
+
+    graph = {
+        agent_id: [
+            str(ref.get("agent"))
+            for ref in (data.get("upstream") or [])
+            if isinstance(ref, dict) and ref.get("agent")
+        ]
+        for _path, data, agent_id in accepted_payloads
+    }
+    cycles = find_graph_cycles(graph)
+    if cycles:
+        raise SystemExit(
+            "cycle detected in upstream graph: "
+            + "; ".join(" -> ".join(cycle) for cycle in cycles)
+        )
 
     # A parent's bytes changed, so every descendant's recorded parent digest is
     # stale. Without --force that is a hard stop: re-sealing would assert a
@@ -433,11 +821,21 @@ def cmd_seal(args: argparse.Namespace) -> None:
     # Re-stamping one descendant changes that descendant's own digest, which
     # invalidates its children in turn, so this runs to a fixpoint: every
     # descendant of an edited parent is brought onto the recomputed chain.
+    checksums = {
+        agent_id: envelope_content_checksum(data)
+        for _path, data, agent_id in accepted_payloads
+    }
     restamped_agents: set[str] = set()
-    while True:
+    lineage_converged = False
+    for _ in range(len(accepted_payloads)):
         changed: set[str] = set()
-        for path, data, agent_id in payloads:
-            for ref in data.get("upstream") or []:
+        for path, data, agent_id in accepted_payloads:
+            refs = data.get("upstream") or []
+            if not isinstance(refs, list):
+                raise SystemExit(f"{path.name}: upstream must be a list.")
+            for ref in refs:
+                if not isinstance(ref, dict):
+                    raise SystemExit(f"{path.name}: upstream entries must be objects.")
                 parent = ref.get("agent")
                 if parent not in checksums:
                     raise SystemExit(
@@ -454,37 +852,85 @@ def cmd_seal(args: argparse.Namespace) -> None:
                 ref["content_checksum"] = checksums[parent]
                 changed.add(agent_id)
         if not changed:
+            lineage_converged = True
             break
         restamped_agents |= changed
+        forced_digest_roles |= changed
         # These envelopes' bytes just changed; re-derive their own digests so the
         # next pass sees the propagated values. Parent sets are untouched — only
         # the digest stamps move.
-        for path, data, agent_id in payloads:
+        for path, data, agent_id in accepted_payloads:
             if agent_id in changed:
                 checksums[agent_id] = envelope_content_checksum(data)
+    if accepted_payloads and not lineage_converged:
+        raise SystemExit(
+            f"upstream digests did not converge within {len(accepted_payloads)} passes."
+        )
 
-    written = 0
-    for path, data, _agent_id in payloads:
+    envelopes: Dict[str, Envelope] = {}
+    for path, data, agent_id in accepted_payloads:
         # Seal every envelope, including ones this command did not need to
         # modify: an envelope that was never stamped (or whose stamp was
         # stripped) must still end up sealed.
         data["content_checksum"] = envelope_content_checksum(data)
-        checksums[str((data.get("agent") or {}).get("id") or "")] = data[
-            "content_checksum"
-        ]
-        sealed_agents.add(str((data.get("agent") or {}).get("id") or ""))
-        path.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        written += 1
+        checksums[agent_id] = data["content_checksum"]
+        envelopes[agent_id] = Envelope.from_dict(data)
 
-    # Re-sealing changes envelope bytes, so any manifest sealed alongside them is
-    # now stale. Rebuild it from the newly sealed envelopes; leaving a stale
-    # manifest behind would report the run as unverifiable for no good reason.
-    manifest_rebuilt = _rebuild_run_manifest(
-        run_dir, resealed_outputs=changed_outputs if force else None
+    forced_changed_roles = sorted(
+        forced_digest_roles | forced_added_roles | forced_removed_roles
     )
+    forced_event = bool(
+        force and (forced_changed_roles or output_changes)
+    )
+    rebuilt_manifest: Optional[Dict[str, Any]] = None
+    if manifest_exists and envelopes:
+        rebuilt_manifest = _rebuild_run_manifest(
+            run_dir,
+            envelopes,
+            manifest,
+            summary,
+            resealed_outputs=output_changes if forced_event else None,
+            resealed_roles=forced_changed_roles if forced_event else None,
+            added_roles=sorted(forced_added_roles) if forced_event else None,
+            removed_roles=sorted(forced_removed_roles) if forced_event else None,
+        )
+    elif forced_event:
+        raise SystemExit(
+            "cannot rebuild run_manifest.json without an accepted envelope."
+        )
+
+    writes: Dict[Path, bytes] = {}
+    for path, data, _agent_id in accepted_payloads:
+        fingerprint = json.dumps(
+            data, sort_keys=True, separators=(",", ":"), allow_nan=False
+        )
+        if fingerprint != original_payloads[path]:
+            writes[path] = json.dumps(
+                data, indent=2, allow_nan=False
+            ).encode("utf-8")
+
+    manifest_rebuilt = False
+    if rebuilt_manifest is not None:
+        comparable_rebuilt = dict(rebuilt_manifest)
+        comparable_manifest = dict(manifest or {})
+        comparable_rebuilt.pop("generated_at", None)
+        comparable_manifest.pop("generated_at", None)
+        if comparable_rebuilt != comparable_manifest:
+            writes[manifest_path] = json.dumps(
+                rebuilt_manifest, indent=2, allow_nan=False
+            ).encode("utf-8")
+            manifest_rebuilt = True
+
+    _commit_sealed_run(writes)
+    written = sum(path.name.endswith("_envelope.json") for path in writes)
 
     print(
-        f"Sealed {len(sealed_agents)} envelope(s) in {run_dir}"
+        f"Sealed {len(envelopes)} envelope(s) in {run_dir}"
+        + (
+            f"; ignored {len(diagnostic_roles)} rejected halted diagnostic(s)"
+            if diagnostic_roles
+            else ""
+        )
         + (
             f"; restored lineage for {len(restored_agents)} envelope(s) from the "
             "runner's recorded execution lineage"
@@ -499,71 +945,119 @@ def cmd_seal(args: argparse.Namespace) -> None:
             if restamped_agents
             else ""
         )
-        + (" Rebuilt run_manifest.json." if manifest_rebuilt else "")
+        + (
+            " Rebuilt run_manifest.json."
+            if manifest_rebuilt
+            else (" run_manifest.json unchanged." if manifest_exists else "")
+        )
         + (
             " WARNING: --force re-sealed final artifacts that no longer matched the "
-            "recorded digests (" + ", ".join(changed_outputs) + "); this run now "
+            "recorded digests (" + ", ".join(output_changes) + "); this run now "
             "certifies the edited bytes, not the original execution."
-            if (changed_outputs and force)
+            if (output_changes and force)
+            else ""
+        )
+        + (
+            " WARNING: --force overrode envelope or manifest-role checks; this run "
+            "now certifies the edited bytes, not the original execution."
+            if forced_changed_roles
             else ""
         )
     )
 
 
 def _rebuild_run_manifest(
-    run_dir: Path, resealed_outputs: Optional[List[str]] = None
-) -> bool:
-    """Rebuild run_manifest.json from the run's current sealed envelopes."""
+    run_dir: Path,
+    envelopes: Dict[str, Envelope],
+    previous_manifest: Optional[Dict[str, Any]],
+    summary: Dict[str, Any],
+    *,
+    resealed_outputs: Optional[List[str]] = None,
+    resealed_roles: Optional[List[str]] = None,
+    added_roles: Optional[List[str]] = None,
+    removed_roles: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """Build the replacement manifest without writing it to disk."""
     manifest_path = run_dir / "run_manifest.json"
-    if not manifest_path.is_file():
-        return False
     try:
         from src.run_semantic_audit import build_run_manifest
 
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        envelopes: Dict[str, Envelope] = {}
-        for path in sorted(run_dir.glob("*_envelope.json")):
-            data = json.loads(path.read_text(encoding="utf-8"))
-            env = Envelope.from_dict(data)
-            envelopes[env.agent.id or path.stem] = env
-        if not envelopes:
-            return False
-        summary_path = run_dir / "run_summary.json"
-        summary = (
-            json.loads(summary_path.read_text(encoding="utf-8"))
-            if summary_path.is_file()
-            else {}
-        )
         first = next(iter(envelopes.values()))
+        previous = previous_manifest or {}
         rebuilt = build_run_manifest(
             run_dir,
             envelopes,
-            run_id=str(manifest.get("run_id") or run_dir.name),
-            ticker=str(first.params.get("ticker") or manifest.get("ticker") or ""),
-            analysis_date=str(
-                first.params.get("analysis_date") or manifest.get("analysis_date") or ""
+            run_id=str(
+                previous.get("run_id") or summary.get("run_id") or run_dir.name
             ),
-            status=str(manifest.get("status") or "completed"),
-            halt_reason=manifest.get("halt_reason"),
+            ticker=str(
+                first.params.get("ticker") or previous.get("ticker") or ""
+            ),
+            analysis_date=str(
+                first.params.get("analysis_date")
+                or previous.get("analysis_date")
+                or ""
+            ),
+            status=str(
+                previous.get("status") or summary.get("status") or "completed"
+            ),
+            halt_reason=previous.get("halt_reason"),
             summary=summary,
         )
+        previous_outputs = previous.get("outputs")
+        if isinstance(previous_outputs, dict):
+            rebuilt_outputs = dict(rebuilt.get("outputs") or {})
+            for label, record in previous_outputs.items():
+                if label in rebuilt_outputs:
+                    continue
+                refreshed = record
+                if isinstance(record, dict) and resealed_outputs is not None:
+                    relative = record.get("path")
+                    if isinstance(relative, str):
+                        target = (run_dir / relative).resolve()
+                        if (
+                            run_dir.resolve() in target.parents
+                            or target == run_dir.resolve()
+                        ) and target.is_file():
+                            refreshed = dict(record)
+                            refreshed["sha256"] = (
+                                "sha256:"
+                                + hashlib.sha256(target.read_bytes()).hexdigest()
+                            )
+                            refreshed["bytes"] = target.stat().st_size
+                rebuilt_outputs[label] = refreshed
+            rebuilt["outputs"] = rebuilt_outputs
         # Preserve the evidence state recorded at run time; sealing does not
         # re-verify source bytes.
-        if manifest.get("evidence"):
-            rebuilt["evidence"] = manifest["evidence"]
+        if previous.get("evidence"):
+            rebuilt["evidence"] = previous["evidence"]
         # A forced re-seal of edited final artifacts is a durable fact about the
         # run, not just a console warning: an auditor reading the manifest later
         # must be able to see that these bytes are not the execution's output.
-        if resealed_outputs:
+        if resealed_outputs or resealed_roles or added_roles or removed_roles:
             rebuilt["resealed"] = {
                 "at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
-                "changed_outputs": list(resealed_outputs),
-                "means": "seal --force certified edited final artifacts; these bytes are not the original execution output",
+                "changed_outputs": list(resealed_outputs or []),
+                "changed_roles": list(resealed_roles or []),
+                "added_roles": list(added_roles or []),
+                "removed_roles": list(removed_roles or []),
+                "means": (
+                    "seal --force explicitly overrode manifest anchors; this run "
+                    "certifies changed envelope digests, role sets, or final "
+                    "outputs, not the original execution output"
+                ),
             }
-        manifest_path.write_text(json.dumps(rebuilt, indent=2), encoding="utf-8")
-        return True
-    except (OSError, ValueError, KeyError, json.JSONDecodeError):
-        return False
+            if previous.get("resealed"):
+                rebuilt["resealed"]["previous"] = previous["resealed"]
+        elif previous.get("resealed"):
+            rebuilt["resealed"] = previous["resealed"]
+        for key, value in previous.items():
+            rebuilt.setdefault(key, value)
+        return rebuilt
+    except Exception as exc:
+        raise SystemExit(
+            f"could not rebuild {manifest_path}: {exc}"
+        ) from exc
 
 
 def _load_a7(

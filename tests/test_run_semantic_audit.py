@@ -79,6 +79,31 @@ def _envelope_path(run_dir: Path, agent: str) -> Path:
     return run_dir / f"{agent.lower()}_envelope.json"
 
 
+def _run_seal(run_dir: Path, *extra_args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "src.controller",
+            "seal",
+            str(run_dir),
+            *extra_args,
+        ],
+        cwd=PROJECT_ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+
+def _snapshot_run(run_dir: Path) -> dict[str, bytes]:
+    return {
+        str(path.relative_to(run_dir)): path.read_bytes()
+        for path in run_dir.rglob("*")
+        if path.is_file()
+    }
+
+
 def _run_with_injected_default(tmp: Path) -> Path:
     _good_run(tmp)
     path = _envelope_path(tmp, "A2")
@@ -530,6 +555,87 @@ def test_rejected_diagnostic_does_not_fill_missing_final_role():
         )
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+@pytest.mark.parametrize(
+    ("build_halted_run", "diagnostic_role"),
+    [
+        (_halt_at_a1_gate, "A1"),
+        (_halt_at_a7_gate, "A7"),
+    ],
+    ids=["a1", "a7"],
+)
+@pytest.mark.parametrize("manifest_status", ["halted", "incomplete"])
+def test_seal_leaves_rejected_halted_diagnostics_unaccepted(
+    tmp_path, build_halted_run, diagnostic_role, manifest_status
+):
+    build_halted_run(tmp_path)
+    manifest_path = tmp_path / "run_manifest.json"
+    manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest_data["status"] = manifest_status
+    manifest_path.write_text(json.dumps(manifest_data, indent=2), encoding="utf-8")
+    diagnostic_path = _envelope_path(tmp_path, diagnostic_role)
+    diagnostic_before = diagnostic_path.read_bytes()
+    manifest_before = json.loads(
+        manifest_path.read_text(encoding="utf-8")
+    )
+    tree_before = _snapshot_run(tmp_path)
+    assert diagnostic_role not in manifest_before["roles"]
+    assert json.loads(diagnostic_before)["gates"]["passed"] is False
+
+    for extra_args in ([], ["--force"]):
+        sealed = _run_seal(tmp_path, *extra_args)
+        assert sealed.returncode == 0, sealed.stdout + sealed.stderr
+        assert _snapshot_run(tmp_path) == tree_before
+        manifest_after = json.loads(
+            (tmp_path / "run_manifest.json").read_text(encoding="utf-8")
+        )
+        assert diagnostic_role not in manifest_after["roles"]
+        assert diagnostic_path.read_bytes() == diagnostic_before
+
+
+def test_sealed_unrecorded_rejected_envelope_is_not_a_diagnostic(tmp_path):
+    from src.utils.checksum import envelope_content_checksum
+
+    _halt_at_a7_gate(tmp_path)
+    a7_path = _envelope_path(tmp_path, "A7")
+    a7 = json.loads(a7_path.read_text(encoding="utf-8"))
+    a7["content_checksum"] = envelope_content_checksum(a7)
+    a7_path.write_text(json.dumps(a7, indent=2), encoding="utf-8")
+    before = _snapshot_run(tmp_path)
+
+    refused = _run_seal(tmp_path)
+
+    assert refused.returncode != 0
+    assert "A7" in refused.stdout + refused.stderr
+    assert _snapshot_run(tmp_path) == before
+
+    forced = _run_seal(tmp_path, "--force")
+    assert forced.returncode == 0, forced.stdout + forced.stderr
+    manifest = json.loads(
+        (tmp_path / "run_manifest.json").read_text(encoding="utf-8")
+    )
+    assert "A7" in manifest["roles"]
+    assert manifest["resealed"]["added_roles"] == ["A7"]
+
+
+def test_seal_partial_halted_run_does_not_invent_absent_outputs(tmp_path):
+    _halt_before_a6(tmp_path)
+    manifest_path = tmp_path / "run_manifest.json"
+    manifest_before = json.loads(manifest_path.read_text(encoding="utf-8"))
+    tree_before = _snapshot_run(tmp_path)
+    assert manifest_before["status"] == "halted"
+    assert not list(tmp_path.glob("*_report.md"))
+    assert not list(tmp_path.glob("*_artifacts.json"))
+
+    sealed = _run_seal(tmp_path)
+
+    assert sealed.returncode == 0, sealed.stdout + sealed.stderr
+    assert _snapshot_run(tmp_path) == tree_before
+    manifest_after = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert set(manifest_after["outputs"]) == set(manifest_before["outputs"])
+    assert not list(tmp_path.glob("*_report.md"))
+    assert not list(tmp_path.glob("*_artifacts.json"))
 
 
 def test_empty_halted_run_is_incomplete_with_not_applicable_integrity():
