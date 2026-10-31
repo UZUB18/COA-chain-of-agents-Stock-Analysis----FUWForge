@@ -45,7 +45,7 @@ from src.resources import (
     get_schema_path,
 )
 from src.runtime_metrics import RuntimeMetricsCollector
-from src.utils.checksum import envelope_content_checksum
+from src.utils.checksum import CHECKSUM_SCHEME_V2, UnknownChecksumScheme, envelope_checksum
 from src.validators import (
     EnvelopeValidator,
     ValidationResult,
@@ -1120,7 +1120,10 @@ class FUWForgeOrchestrator:
 
         if mode == "controller":
             if env.content_checksum:
-                actual = envelope_content_checksum(execution.raw_data)
+                try:
+                    actual = envelope_checksum(execution.raw_data)
+                except UnknownChecksumScheme as exc:
+                    raise RuntimeError(f"{agent_id}: {exc}; refusing to accept the envelope.") from exc
                 if actual != env.content_checksum:
                     raise RuntimeError(
                         f"{agent_id} content checksum mismatch: envelope content does not match its recorded checksum."
@@ -1256,8 +1259,11 @@ class FUWForgeOrchestrator:
                 "upstream": [{"agent": r.agent, "content_checksum": r.content_checksum} for r in execution.consumed_upstream],
                 **{k: execution.raw_response[k] for k in ("prompt_sha256", "request_sha256", "evidence_sha256", "provider", "model") if k in execution.raw_response},
             }
+            # Every new envelope is sealed with the injective v2 scheme, which
+            # also covers semantic metrics. Reused envelopes keep their bytes.
+            env.checksum_scheme = CHECKSUM_SCHEME_V2
             execution.raw_data = env.to_dict()
-            env.content_checksum = envelope_content_checksum(execution.raw_data)
+            env.content_checksum = envelope_checksum(execution.raw_data)
             execution.raw_data = env.to_dict()
             self._write_agent_outputs(
                 output_root,

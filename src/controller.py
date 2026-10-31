@@ -22,7 +22,7 @@ from src.envelope import Envelope
 from src.orchestrator import FUWForgeOrchestrator, OrchestratorParams
 from src.run_audit import find_graph_cycles, validate_run_manifest, verify_run
 from src.resources import get_default_runs_dir
-from src.utils.checksum import envelope_content_checksum
+from src.utils.checksum import UnknownChecksumScheme, checksum_scheme_of, envelope_checksum
 from src.utils.finance import generate_comparison_fields, resolve_weights
 from src.validators import validate_checksum
 
@@ -751,7 +751,14 @@ def cmd_seal(args: argparse.Namespace) -> None:
             data["upstream"] = original
             restored_agents.add(agent_id)
 
-        actual = envelope_content_checksum(data)
+        # Each envelope is sealed with its own declared scheme; an absent scheme
+        # stays legacy v1 (never silently upgraded). An unknown scheme cannot
+        # be verified, so it is refused even with --force.
+        try:
+            checksum_scheme_of(data)
+        except UnknownChecksumScheme as exc:
+            raise SystemExit(f"{path.name}: {exc}; refusing to seal.") from exc
+        actual = envelope_checksum(data)
         recorded = data.get("content_checksum")
         if recorded and recorded != actual:
             if not force:
@@ -785,7 +792,7 @@ def cmd_seal(args: argparse.Namespace) -> None:
         for path, data, agent_id in accepted_payloads:
             if agent_id not in manifest_roles:
                 continue
-            actual = envelope_content_checksum(data)
+            actual = envelope_checksum(data)
             expected = manifest_roles[agent_id]
             if actual != expected:
                 if not force:
@@ -821,7 +828,7 @@ def cmd_seal(args: argparse.Namespace) -> None:
     # invalidates its children in turn, so this runs to a fixpoint: every
     # descendant of an edited parent is brought onto the recomputed chain.
     checksums = {
-        agent_id: envelope_content_checksum(data)
+        agent_id: envelope_checksum(data)
         for _path, data, agent_id in accepted_payloads
     }
     restamped_agents: set[str] = set()
@@ -860,7 +867,7 @@ def cmd_seal(args: argparse.Namespace) -> None:
         # the digest stamps move.
         for path, data, agent_id in accepted_payloads:
             if agent_id in changed:
-                checksums[agent_id] = envelope_content_checksum(data)
+                checksums[agent_id] = envelope_checksum(data)
     if accepted_payloads and not lineage_converged:
         raise SystemExit(
             f"upstream digests did not converge within {len(accepted_payloads)} passes."
@@ -871,7 +878,7 @@ def cmd_seal(args: argparse.Namespace) -> None:
         # Seal every envelope, including ones this command did not need to
         # modify: an envelope that was never stamped (or whose stamp was
         # stripped) must still end up sealed.
-        data["content_checksum"] = envelope_content_checksum(data)
+        data["content_checksum"] = envelope_checksum(data)
         checksums[agent_id] = data["content_checksum"]
         envelopes[agent_id] = Envelope.from_dict(data)
 

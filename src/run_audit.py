@@ -16,7 +16,7 @@ from typing import Dict, List
 from src.envelope import Envelope, envelope_shape_errors
 from src.provenance import verify_chain
 from src.resources import get_schema_path
-from src.utils.checksum import envelope_content_checksum
+from src.utils.checksum import LEGACY_CHECKSUM_WARNING, UnknownChecksumScheme, envelope_checksum
 from src.validators import EnvelopeValidator, ValidationResult
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -53,6 +53,9 @@ def verify_run(run_dir: Path, strict: bool = False) -> ValidationResult:
     warning_levels: Dict[str, str] = {}
     envelope_checksum_errors: List[str] = []
     run_dir = Path(run_dir)
+
+    legacy_scheme_files: List[str] = []
+    strict_exempt: List[str] = []
 
     def add_warning(level: str, warning: str) -> None:
         if warning not in warnings:
@@ -107,7 +110,15 @@ def verify_run(run_dir: Path, strict: bool = False) -> ValidationResult:
 
         recorded = env.content_checksum
         if recorded:
-            actual = envelope_content_checksum(data)
+            try:
+                actual = envelope_checksum(data)
+            except UnknownChecksumScheme as exc:
+                error = f"{path.name}: {exc}; the content checksum cannot be verified"
+                errors.append(error)
+                envelope_checksum_errors.append(error)
+                continue
+            if "checksum_scheme" not in data:
+                legacy_scheme_files.append(path.name)
             if actual != recorded:
                 error = f"{path.name}: content checksum mismatch (file was modified after sealing)"
                 errors.append(error)
@@ -119,6 +130,14 @@ def verify_run(run_dir: Path, strict: bool = False) -> ValidationResult:
                 "envelope_integrity",
                 f"{path.name}: no content_checksum (legacy or unsealed; run `controller seal`)"
             )
+
+    if legacy_scheme_files:
+        # Historical envelopes predate the v2 scheme; they verify under v1,
+        # which is non-injective and leaves most metrics unhashed. Disclosed,
+        # but strict-exempt: upgrading must not fail a valid archive.
+        legacy_warning = f"{LEGACY_CHECKSUM_WARNING}: {', '.join(sorted(legacy_scheme_files))}"
+        add_warning("envelope_integrity", legacy_warning)
+        strict_exempt.append(legacy_warning)
 
     retrieved = [
         source
@@ -211,13 +230,14 @@ def verify_run(run_dir: Path, strict: bool = False) -> ValidationResult:
         add_warning("final_artifacts", "no artifacts bundle found")
 
     if strict:
-        errors.extend(f"strict: {warning}" for warning in warnings)
+        errors.extend(f"strict: {warning}" for warning in warnings if warning not in strict_exempt)
 
     return ValidationResult(
         valid=not errors,
         errors=errors,
         warnings=warnings,
         envelope_checksum_errors=envelope_checksum_errors,
+        strict_exempt_warnings=strict_exempt,
         warning_levels=warning_levels,
     )
 

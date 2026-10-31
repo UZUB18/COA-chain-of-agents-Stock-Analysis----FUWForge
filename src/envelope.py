@@ -9,6 +9,20 @@ from datetime import datetime
 from typing import Any, Dict, List, Mapping, MutableMapping, Optional
 
 
+class _Absent:
+    def __repr__(self) -> str:
+        return "<absent>"
+
+    def __deepcopy__(self, memo: Any) -> "_Absent":
+        return self
+
+    def __copy__(self) -> "_Absent":
+        return self
+
+
+_ABSENT = _Absent()
+
+
 @dataclass
 class AgentInfo:
     id: str
@@ -30,6 +44,10 @@ class Envelope:
     confidence: Optional[float] = None
     content_checksum: Optional[str] = None
     upstream: List[Dict[str, Any]] = field(default_factory=list)
+    #: Declared checksum scheme. ``_ABSENT`` (legacy v1) is never emitted, so a
+    #: legacy envelope round-trips byte-identically; an explicit value, even an
+    #: invalid one, is preserved so verification can reject it.
+    checksum_scheme: Any = field(default_factory=lambda: _ABSENT)
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "Envelope":
@@ -53,10 +71,11 @@ class Envelope:
             confidence=data.get("confidence"),
             content_checksum=data.get("content_checksum"),
             upstream=list(data.get("upstream", [])),
+            checksum_scheme=data["checksum_scheme"] if "checksum_scheme" in data else _ABSENT,
         )
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        data = {
             "schema_version": self.schema_version,
             "agent": {"id": self.agent.id, "name": self.agent.name},
             "timestamp": self.timestamp,
@@ -71,6 +90,9 @@ class Envelope:
             "content_checksum": self.content_checksum,
             "upstream": self.upstream,
         }
+        if self.checksum_scheme is not _ABSENT:
+            data["checksum_scheme"] = self.checksum_scheme
+        return data
 
     def set_timestamp_now(self) -> None:
         self.timestamp = datetime.utcnow().isoformat(timespec="seconds") + "Z"

@@ -67,6 +67,20 @@ matches its bytes.
 change; it says nothing about what was sealed. A run sealed around fabricated
 numbers has perfectly valid checksums.
 
+**Checksum schemes.** New envelopes declare
+`checksum_scheme: "fuwforge-canonical-json-v2"`: an injective canonical JSON
+hash (sorted keys, no whitespace, no NaN) over every field except
+`content_checksum` and volatile telemetry (`metrics.latency_ms`, `tokens`,
+`retries`, `provider`, `model` and the reserved `metrics.telemetry` subtree).
+Every other metric — `data_checksum`, `injected_defaults`, `source_grounding`,
+`missing_data`, `runner_beneish_block`, and any future metric — is covered.
+An envelope without the field is legacy v1 (a non-injective flattening that
+hashes only `missing_data` among metrics); it still verifies, with the warning
+`legacy_checksum_scheme (non-injective canonical form)`, which strict mode
+reports but does not escalate. An unknown or null scheme fails this level. The
+scheme is read from the envelope, never inferred from the digest; `seal` keeps
+each envelope's own scheme and refuses an unknown one even with `--force`.
+
 **Known limitation:** an attacker who re-seals after editing produces a
 consistent checksum. Levels 1 and 5 are defeated by a complete re-seal; only
 levels 3 and 4 survive that.

@@ -52,7 +52,7 @@ from src.execution_identity import (
     true_descendants,
 )
 from src.resources import get_schema_path
-from src.utils.checksum import envelope_content_checksum
+from src.utils.checksum import UnknownChecksumScheme, envelope_checksum
 from src.validators import ValidationResult
 
 try:
@@ -80,13 +80,21 @@ def compute_raw_checksum(data: Any) -> str:
 def receipt_envelope_checksum_matches(
     envelope: Any, accepted_checksum: Optional[str]
 ) -> bool:
-    """Require the embedded, receipt, and recomputed envelope checksums to agree."""
-    return (
+    """Require the embedded, receipt, and recomputed envelope checksums to agree.
+
+    The recomputation uses the envelope's own declared scheme, so legacy v1
+    receipts keep validating; an unknown scheme fails closed.
+    """
+    if not (
         isinstance(envelope, dict)
         and isinstance(accepted_checksum, str)
         and envelope.get("content_checksum") == accepted_checksum
-        and envelope_content_checksum(envelope) == accepted_checksum
-    )
+    ):
+        return False
+    try:
+        return envelope_checksum(envelope) == accepted_checksum
+    except UnknownChecksumScheme:
+        return False
 
 
 class ExecutionState(str, Enum):

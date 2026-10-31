@@ -78,6 +78,7 @@
     },
     "confidence": {"type": ["number", "null"]},
     "content_checksum": {"type": ["string", "null"]},
+    "checksum_scheme": {"type": "string", "enum": ["fuwforge-canonical-json-v2"]},
     "upstream": {
       "type": "array",
       "items": {

@@ -44,7 +44,7 @@ from src.contracts import AGENT_IDS, _collect_embedded_witnesses, validate_contr
 from src.envelope import Envelope, envelope_shape_errors
 from src.fact_binding import binding_failures, binding_notes, verify_witness_bindings
 from src.resources import get_config_dir, get_schema_path
-from src.utils.checksum import checksum_file, envelope_content_checksum
+from src.utils.checksum import UnknownChecksumScheme, checksum_file, envelope_checksum
 from src.validators import EnvelopeValidator, ValidationResult
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -993,7 +993,11 @@ def semantic_audit(
         envelopes[agent_id] = env
         by_file[agent_id] = data
         if env.content_checksum:
-            actual = envelope_content_checksum(data)
+            try:
+                actual = envelope_checksum(data)
+            except UnknownChecksumScheme as exc:
+                integrity_errors.append(f"{path.name}: {exc}; the content checksum cannot be verified")
+                continue
             if actual != env.content_checksum:
                 integrity_errors.append(
                     f"{path.name}: content checksum mismatch (file modified after sealing)"
@@ -1030,6 +1034,8 @@ def semantic_audit(
             )
             continue
         report.add_warning(owner, warning)
+        if warning in chain_result.strict_exempt_warnings:
+            report.strict_exempt_warnings.add(warning)
     report.levels["envelope_integrity"] = (
         "failed"
         if integrity_errors

@@ -4,9 +4,11 @@ Checksum helpers to enforce immutability guarantees.
 
 from __future__ import annotations
 
+import copy
 import hashlib
+import json
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Optional
 
 
 def sha256_digest(payload: bytes) -> str:
@@ -65,6 +67,56 @@ def envelope_content_checksum(
     if gaps:
         payload["research_missing_data"] = gaps
     return checksum_json(payload)
+
+
+#: Checksum scheme declared by every new envelope. Absence means legacy v1.
+CHECKSUM_SCHEME_V2 = "fuwforge-canonical-json-v2"
+#: Flat volatile telemetry metrics excluded from v2 (plus the ``telemetry``
+#: subtree, reserved for future volatile execution detail). Every other metric
+#: is semantic and hashed, so new metrics are covered without an allowlist.
+TELEMETRY_METRICS = ("latency_ms", "tokens", "retries", "provider", "model", "telemetry")
+LEGACY_CHECKSUM_WARNING = "legacy_checksum_scheme (non-injective canonical form)"
+
+
+class UnknownChecksumScheme(ValueError):
+    """An envelope declares a checksum scheme this code does not implement."""
+
+
+def canonical_json(data: Any) -> str:
+    """Injective canonical JSON: sorted keys, no whitespace, no NaN/Infinity."""
+    return json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+
+
+def envelope_content_checksum_v2(envelope_dict: Any) -> str:
+    """Hash every envelope field except ``content_checksum`` and volatile telemetry."""
+    payload = copy.deepcopy(dict(envelope_dict))
+    payload.pop("content_checksum", None)
+    metrics = payload.get("metrics")
+    if isinstance(metrics, dict):
+        for key in TELEMETRY_METRICS:
+            metrics.pop(key, None)
+    return sha256_digest(canonical_json(payload).encode("utf-8"))
+
+
+def checksum_scheme_of(envelope_dict: Any) -> Optional[str]:
+    """``None`` for a legacy envelope (no declaration); raise for an unknown one."""
+    if "checksum_scheme" not in envelope_dict:
+        return None
+    scheme = envelope_dict.get("checksum_scheme")
+    if scheme != CHECKSUM_SCHEME_V2:
+        raise UnknownChecksumScheme(f"unknown checksum_scheme {scheme!r}")
+    return scheme
+
+
+def envelope_checksum(envelope_dict: Any) -> str:
+    """Content checksum under the envelope's own declared scheme.
+
+    Never inferred from the digest: absence is v1, the v2 marker is v2, and
+    anything else raises :class:`UnknownChecksumScheme`.
+    """
+    if checksum_scheme_of(envelope_dict) is None:
+        return envelope_content_checksum(envelope_dict)
+    return envelope_content_checksum_v2(envelope_dict)
 
 
 def checksum_file(path: Path, chunk_size: int = 65536) -> str:
