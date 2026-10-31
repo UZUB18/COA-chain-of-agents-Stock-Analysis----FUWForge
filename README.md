@@ -358,7 +358,7 @@ python -m src.controller run runs/<run_id> --resume
 
 A receipt is reused only when it is `validated`, its stored envelope matches its recorded checksum, and the request identity (provider, model, prompt, evidence, upstream) is unchanged. Reuse preserves the exact sealed bytes. **Resume does not re-snapshot evidence**: an existing evidence directory is reloaded and re-verified, and resuming against *different* evidence is refused rather than silently invalidating prior receipts.
 
-Prompt changes, including formatting changes in an upgrade, can invalidate older receipts and cause new provider calls on resume.
+Prompt or output-shaping code changes (including upgrading from execution identity v1 to v2, which widens the execution-key hash to all declared output-shaping modules) invalidate older receipts once and require new provider calls on resume; finish or abandon in-flight runs before upgrading. Custom agents whose source cannot be hashed fail closed on `--resume`.
 
 Local idempotency is not exactly-once external billing. If a provider call's outcome is uncertain, the receipt is marked `unknown_completion` and the run stops for an explicit operator choice (`--recovery-choice retry|abandon`); retrying may re-bill. Durable execution also disables blind in-process retries, so an uncertain call is never silently repeated.
 

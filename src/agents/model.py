@@ -1263,14 +1263,6 @@ class ModelAgent(BaseAgent):
         )
 
         contract_doc = CONTRACT_DOCS.get(self.id, "docs/contracts/")
-        try:
-            from src.resources import get_resource_path, is_checkout_workspace
-            if not is_checkout_workspace():
-                cand = get_resource_path(contract_doc)
-                if cand.is_file():
-                    contract_doc = str(cand)
-        except Exception:
-            pass
 
         template = PROMPT_TEMPLATES.get(self.id)
         if not template:

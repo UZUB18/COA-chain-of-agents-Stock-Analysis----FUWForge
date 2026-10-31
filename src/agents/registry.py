@@ -89,6 +89,12 @@ class AgentRegistry:
         )
         return instance
 
+    def is_factory_registered(self, agent_id: str) -> bool:
+        if agent_id in self._instances:
+            return False
+        entry = self._registry.get(agent_id)
+        return bool(entry and entry.factory is not None)
+
     def known_agents(self) -> Dict[str, RegistryEntry]:
         return dict(self._registry)
 
@@ -108,6 +114,7 @@ def make_mock_agent_cls(
     ConfiguredMockAgent.id = agent_id
     ConfiguredMockAgent.name = agent_name
     ConfiguredMockAgent.__name__ = f"{agent_id}ConfiguredMock"
+    ConfiguredMockAgent._fuwforge_builtin = True  # type: ignore[attr-defined]
     return ConfiguredMockAgent
 
 
@@ -136,6 +143,7 @@ def make_model_agent_cls(
     ConfiguredModelAgent.id = agent_id
     ConfiguredModelAgent.name = agent_name
     ConfiguredModelAgent.__name__ = f"{agent_id}ConfiguredModel"
+    ConfiguredModelAgent._fuwforge_builtin = True  # type: ignore[attr-defined]
     return ConfiguredModelAgent
 
 

@@ -204,12 +204,15 @@ class ExecutionReceipt:
         Only validated receipts with accepted envelope and valid checksum
         and without an explicit abandon recovery choice are safely reusable.
         """
+        meta = self.metadata if isinstance(self.metadata, dict) else {}
         return (
             self.state == ExecutionState.VALIDATED.value
             and receipt_envelope_checksum_matches(
                 self.accepted_envelope, self.accepted_checksum
             )
             and self.recovery_choice != RecoveryChoice.ABANDON.value
+            and meta.get("receipt_reuse") is not False
+            and meta.get("agent_identity_source") != "unavailable"
         )
 
     def requires_recovery(self) -> bool:
@@ -309,14 +312,29 @@ def unresolved_recovery_agents(db_path: Union[str, Path]) -> List[str]:
                 raise RuntimeError(
                     "Existing execution ledger is missing the execution_receipts table."
                 )
-            validated_rows = connection.execute(
+            all_rows = connection.execute(
                 """
-                SELECT agent_id, accepted_envelope_json, accepted_checksum
+                SELECT agent_id, state, accepted_envelope_json, accepted_checksum, metadata_json
                 FROM execution_receipts
-                WHERE state = 'validated'
                 """
             ).fetchall()
-            for agent_id, envelope_json, accepted_checksum in validated_rows:
+            for agent_id, row_state, envelope_json, accepted_checksum, metadata_json in all_rows:
+                if isinstance(metadata_json, str) and metadata_json.strip():
+                    try:
+                        meta_obj = json.loads(metadata_json)
+                    except json.JSONDecodeError as exc:
+                        raise RuntimeError(
+                            f"{agent_id}: reusable receipt checksum mismatch"
+                        ) from exc
+                    if isinstance(meta_obj, dict) and (
+                        meta_obj.get("receipt_reuse") is False
+                        or meta_obj.get("agent_identity_source") == "unavailable"
+                    ):
+                        raise RuntimeError(
+                            f"{agent_id}: custom agent implementation cannot be hashed; refusing to resume"
+                        )
+                if row_state != "validated":
+                    continue
                 envelope = None
                 if isinstance(envelope_json, str):
                     try:

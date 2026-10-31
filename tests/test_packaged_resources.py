@@ -457,6 +457,9 @@ def test_wheel_clean_install_and_cli_smoke(tmp_path, built_distributions):
         "receipt['state'] = 'invalid_state_unknown'\n"
         "assert not validate_receipt(receipt).valid, 'Installed receipt schema ignored invalid state'\n"
         "store.close()\n"
+        "from src.execution_identity import framework_code_digest\n"
+        "assert len(framework_code_digest()) == 64\n"
+        "print('CODE_DIGEST=' + framework_code_digest())\n"
         "print('ADVERSARIAL_SHADOW_CHECK_OK')\n"
     )
     proc_adv = subprocess.run(
@@ -651,6 +654,9 @@ def test_sdist_clean_install_and_cli_smoke(tmp_path, built_distributions):
         "receipt['state'] = 'invalid_state_unknown'\n"
         "assert not validate_receipt(receipt).valid, 'Installed receipt schema ignored invalid state'\n"
         "store.close()\n"
+        "from src.execution_identity import framework_code_digest\n"
+        "assert len(framework_code_digest()) == 64\n"
+        "print('CODE_DIGEST=' + framework_code_digest())\n"
         "print('ADVERSARIAL_SHADOW_CHECK_OK')\n"
     )
     proc_adv = subprocess.run(

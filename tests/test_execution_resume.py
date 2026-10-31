@@ -1219,3 +1219,130 @@ def test_begining_a_new_attempt_clears_previous_attempt_outcome():
     assert second.prompt_sha256 == PROMPT_HASH_1
     assert second.evidence_sha256 == EVIDENCE_HASH_1
     assert second.upstream == first.upstream
+
+
+def test_unhashable_custom_agent_fails_closed_on_resume_without_dispatch_or_mutation(
+    tmp_path,
+):
+    run_dir = tmp_path / "run"
+    params = _resume_params()
+    FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1").run(
+        "resume_run", params, output_root=run_dir
+    )
+    before = _run_tree_bytes(run_dir)
+
+    dispatched = []
+
+    def _dyn_run(self, context):
+        dispatched.append(self.id)
+        raise AssertionError("unhashable custom agent must not dispatch on resume")
+
+    dyn_cls = type(
+        "DynamicA6",
+        (BaseAgent,),
+        {"id": "A6", "name": "CIO-Synthesis", "run": _dyn_run},
+    )
+
+    runner = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1")
+    runner.registry.register_instance(dyn_cls())
+    with pytest.raises(RuntimeError, match="cannot be hashed|not source-hashable"):
+        runner.run("resume_run", params, output_root=run_dir, resume=True)
+
+    assert dispatched == []
+    assert _run_tree_bytes(run_dir) == before
+
+    # Factory-registered agent also fails closed on resume and leaves run tree unchanged.
+    runner_factory = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1")
+    orig_a6 = runner_factory.registry.resolve("A6")
+    runner_factory.registry.register_factory("A6", lambda: orig_a6)
+    with pytest.raises(RuntimeError, match="cannot be hashed|not source-hashable"):
+        runner_factory.run("resume_run", params, output_root=run_dir, resume=True)
+
+    assert _run_tree_bytes(run_dir) == before
+
+    # Fresh run with an unhashable custom agent that halts at A6 writes a receipt with
+    # receipt_reuse=False; a subsequent resume (even with standard mock agents) fails closed.
+    run_dir_2 = tmp_path / "run_from_unhashable"
+    dyn_fail_cls = type(
+        "DynamicFailA6",
+        (BaseAgent,),
+        {
+            "id": "A6",
+            "name": "CIO-Synthesis",
+            "run": lambda self, ctx: (_ for _ in ()).throw(RuntimeError("dyn boom")),
+        },
+    )
+    runner_initial = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1")
+    runner_initial.registry.register_instance(dyn_fail_cls())
+    with pytest.raises(RuntimeError, match="dyn boom"):
+        runner_initial.run("resume_run", params, output_root=run_dir_2)
+
+    before_2 = _run_tree_bytes(run_dir_2)
+    runner_resume = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1")
+    with pytest.raises(RuntimeError, match="cannot be hashed|not source-hashable"):
+        runner_resume.run(
+            "resume_run",
+            params,
+            output_root=run_dir_2,
+            resume=True,
+            recovery_choice="retry",
+        )
+    assert _run_tree_bytes(run_dir_2) == before_2
+
+
+def test_source_backed_custom_agent_reuses_and_invalidates_on_source_change(tmp_path):
+    import importlib.util
+
+    mod_dir = tmp_path / "custom_mod"
+    mod_dir.mkdir()
+    mod_file = mod_dir / "custom_a7.py"
+
+    def _write_custom_a7(marker: str) -> Any:
+        mod_file.write_text(
+            "from src.agents.mock import MockAgent\n"
+            "class CustomA7(MockAgent):\n"
+            "    id = 'A7'\n"
+            "    name = 'Final-Assembly'\n"
+            "    def __init__(self, prompt_path=None):\n"
+            "        super().__init__(agent_id='A7', name='Final-Assembly', prompt_path=prompt_path)\n"
+            f"        self._marker = {marker!r}\n",
+            encoding="utf-8",
+        )
+        mod_name = f"custom_a7_{marker}"
+        spec = importlib.util.spec_from_file_location(mod_name, mod_file)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[mod_name] = module
+        spec.loader.exec_module(module)
+        return module.CustomA7
+
+    run_dir = tmp_path / "run"
+    params = _resume_params()
+    cls_v1 = _write_custom_a7("v1")
+    try:
+        orch1 = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1")
+        orch1.registry.register(cls_v1)
+        orch1.run("resume_run", params, output_root=run_dir)
+
+        # Unchanged custom agent source: resume reuses A7 without calling run().
+        orch2 = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1")
+        inst_v1 = cls_v1()
+        calls_unchanged = []
+        orig_run = inst_v1.run
+        inst_v1.run = lambda ctx: (calls_unchanged.append(1), orig_run(ctx))[1]
+        orch2.registry.register_instance(inst_v1)
+        orch2.run("resume_run", params, output_root=run_dir, resume=True)
+        assert calls_unchanged == []
+
+        # Changed custom agent source: resume invalidates A7 key and dispatches new CustomA7.
+        cls_v2 = _write_custom_a7("v2")
+        orch3 = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1")
+        inst_v2 = cls_v2()
+        calls_changed = []
+        orig_run_v2 = inst_v2.run
+        inst_v2.run = lambda ctx: (calls_changed.append(1), orig_run_v2(ctx))[1]
+        orch3.registry.register_instance(inst_v2)
+        orch3.run("resume_run", params, output_root=run_dir, resume=True)
+        assert calls_changed == [1]
+    finally:
+        for name in ("custom_a7_v1", "custom_a7_v2"):
+            sys.modules.pop(name, None)

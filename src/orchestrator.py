@@ -16,13 +16,15 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 import copy
 
 from src.agents.base import AgentContext, AgentOutput
-from src.agents.registry import AgentRegistry, default_registry
+from src.agents.registry import AGENT_SPECS, AgentRegistry, default_registry
 from src.config import load_depth_modes, load_focus_routing, load_orchestrator_config
 from src.contracts import REQUIRED_ARTIFACTS, validate_contract
 from src.data_gaps import missing_data_map
 from src.envelope import Envelope
 from src.execution_identity import (
+    EXECUTION_IDENTITY_VERSION,
     UpstreamRef,
+    agent_code_identity,
     capture_upstream,
     execution_key,
     upstream_to_envelope_refs,
@@ -344,6 +346,19 @@ class FUWForgeOrchestrator:
                 )
 
         if mode != "controller" and is_resume:
+            for spec_agent_id, _ in AGENT_SPECS:
+                try:
+                    spec_agent = self.registry.resolve(spec_agent_id)
+                except KeyError:
+                    continue
+                _, hashable = agent_code_identity(
+                    spec_agent,
+                    is_factory=self.registry.is_factory_registered(spec_agent_id),
+                )
+                if not hashable:
+                    raise RuntimeError(
+                        f"{spec_agent_id}: custom agent implementation cannot be hashed; refusing to resume"
+                    )
             db_path = self.execution_store_path or (target_root / "execution_ledger.db")
             needing = unresolved_recovery_agents(db_path)
             if needing and not recovery_choice:
@@ -739,7 +754,6 @@ class FUWForgeOrchestrator:
     ) -> AgentExecution:
         """Freeze inputs and persist a request before execution; reuse validated bytes only."""
         import hashlib
-        import inspect
         from src.utils.beneish import CALCULATOR_VERSION
 
         def digest(value: Any) -> str:
@@ -779,8 +793,14 @@ class FUWForgeOrchestrator:
             model = str(getattr(backend, "model", None) or getattr(self.registry, "model", None) or type(agent).__qualname__)
             prompt = agent.build_prompt(context)
             # Include non-prompt output-affecting inputs and implementation/config versions.
-            source_path = inspect.getsourcefile(type(agent))
-            code_hash = hashlib.sha256(Path(source_path).read_bytes()).hexdigest() if source_path else type(agent).__qualname__
+            code_hash, code_hashable = agent_code_identity(
+                agent,
+                is_factory=self.registry.is_factory_registered(agent_id),
+            )
+            if resume and not code_hashable:
+                raise RuntimeError(
+                    f"{agent_id}: custom agent implementation cannot be hashed; refusing to resume"
+                )
             request_hash = digest({"agent": agent_id, "prompt": prompt, "params": context.params,
                 "depth": depth_config, "focus": focus_overrides, "strict": self.strict,
                 "flow": self.flow_config, "calculator": CALCULATOR_VERSION,
@@ -791,8 +811,18 @@ class FUWForgeOrchestrator:
             evidence_hash = digest(context.evidence_checksum or None)
             key = execution_key(provider=provider, model=model, prompt_sha256=request_hash,
                 evidence_sha256=evidence_hash, upstream=refs)
-            identity = {"provider": provider, "model": model, "prompt_sha256": prompt_hash,
-                "request_sha256": request_hash, "evidence_sha256": evidence_hash}
+            identity = {
+                "provider": provider,
+                "model": model,
+                "prompt_sha256": prompt_hash,
+                "request_sha256": request_hash,
+                "evidence_sha256": evidence_hash,
+                "code_sha256": code_hash,
+                "identity_version": EXECUTION_IDENTITY_VERSION,
+            }
+            if not code_hashable:
+                identity["agent_identity_source"] = "unavailable"
+                identity["receipt_reuse"] = False
             if store and resume:
                 receipt = store.get(key)
                 if receipt and receipt.recovery_choice == RecoveryChoice.ABANDON.value:

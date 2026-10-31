@@ -35,9 +35,13 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.execution_identity import (
+    EXECUTION_IDENTITY_VERSION,
+    OUTPUT_SHAPING_MODULES,
     UpstreamRef,
+    agent_code_identity,
     capture_upstream,
     execution_key,
+    framework_code_digest,
 )
 from src.orchestrator import FUWForgeOrchestrator, OrchestratorParams
 from src.utils.checksum import envelope_content_checksum
@@ -298,3 +302,232 @@ def test_seal_restores_stripped_lineage_from_recorded_execution_evidence():
                 )
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+# ----------------------------------------- Task 3.1: code identity & versioning
+
+
+def test_execution_identity_version_and_declared_modules():
+    expected_modules = (
+        "agents/base.py",
+        "agents/mock.py",
+        "agents/model.py",
+        "agents/output_format.py",
+        "agents/output_schema.py",
+        "agents/registry.py",
+        "calculation_witness.py",
+        "contracts.py",
+        "data_gaps.py",
+        "fact_binding.py",
+        "forensic_inputs.py",
+        "utils/beneish.py",
+        "utils/finance.py",
+    )
+    assert EXECUTION_IDENTITY_VERSION == 2
+    assert tuple(OUTPUT_SHAPING_MODULES) == expected_modules
+    d1 = framework_code_digest()
+    d2 = framework_code_digest()
+    assert d1 == d2
+    assert len(d1) == 64
+
+
+@pytest.mark.parametrize(
+    "module_rel_path",
+    (
+        "agents/base.py",
+        "agents/mock.py",
+        "agents/model.py",
+        "agents/output_format.py",
+        "agents/output_schema.py",
+        "agents/registry.py",
+        "calculation_witness.py",
+        "contracts.py",
+        "data_gaps.py",
+        "fact_binding.py",
+        "forensic_inputs.py",
+        "utils/beneish.py",
+        "utils/finance.py",
+    ),
+)
+def test_declared_core_module_change_invalidates_execution_identity(
+    module_rel_path, monkeypatch, tmp_path
+):
+    import src.execution_identity as ei_mod
+
+    ei_mod.framework_code_digest.cache_clear()
+    base_digest = ei_mod.framework_code_digest()
+    orig_reader = ei_mod._read_package_module_bytes
+
+    run1 = tmp_path / "run1"
+    _run(run1, ticker="MODKEY")
+    raw1 = json.loads((run1 / "a1_raw.json").read_text(encoding="utf-8"))
+    assert raw1["identity_version"] == 2
+    assert raw1["code_sha256"] == base_digest
+
+    def patched_reader(rel_path: str) -> bytes:
+        data = orig_reader(rel_path)
+        if rel_path == module_rel_path:
+            return data + b"\n# mutated byte\n"
+        return data
+
+    monkeypatch.setattr(ei_mod, "_read_package_module_bytes", patched_reader)
+    ei_mod.framework_code_digest.cache_clear()
+    try:
+        mutated_digest = ei_mod.framework_code_digest()
+        assert mutated_digest != base_digest
+
+        run2 = tmp_path / "run2"
+        _run(run2, ticker="MODKEY")
+        raw2 = json.loads((run2 / "a1_raw.json").read_text(encoding="utf-8"))
+        assert raw2["code_sha256"] == mutated_digest
+        assert raw2["request_sha256"] != raw1["request_sha256"]
+    finally:
+        ei_mod.framework_code_digest.cache_clear()
+
+
+def test_unlisted_module_change_does_not_invalidate_execution_identity(monkeypatch):
+    import src.execution_identity as ei_mod
+
+    ei_mod.framework_code_digest.cache_clear()
+    base_digest = ei_mod.framework_code_digest()
+    orig_reader = ei_mod._read_package_module_bytes
+
+    def patched_reader(rel_path: str) -> bytes:
+        if rel_path == "runtime_metrics.py":
+            return b"# mutated unlisted module"
+        return orig_reader(rel_path)
+
+    monkeypatch.setattr(ei_mod, "_read_package_module_bytes", patched_reader)
+    ei_mod.framework_code_digest.cache_clear()
+    try:
+        assert ei_mod.framework_code_digest() == base_digest
+    finally:
+        ei_mod.framework_code_digest.cache_clear()
+
+
+def test_source_backed_custom_agent_identity_has_no_absolute_path_and_tracks_edits(
+    tmp_path,
+):
+    import importlib.util
+
+    dir_a = tmp_path / "dir_a"
+    dir_b = tmp_path / "dir_b"
+    dir_a.mkdir()
+    dir_b.mkdir()
+    code_v1 = (
+        "from src.agents.base import BaseAgent\n"
+        "class MyCustomA1(BaseAgent):\n"
+        "    id = 'A1'\n"
+        "    name = 'Harvester-&-Validator'\n"
+        "    def run(self, context):\n"
+        "        return None\n"
+    )
+    mod_a = dir_a / "custom_mod_a.py"
+    mod_b = dir_b / "custom_mod_b.py"
+    mod_a.write_text(code_v1, encoding="utf-8")
+    mod_b.write_text(code_v1, encoding="utf-8")
+
+    def _load(path: Path, mod_name: str):
+        spec = importlib.util.spec_from_file_location(mod_name, path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[mod_name] = module
+        spec.loader.exec_module(module)
+        return module
+
+    m1 = _load(mod_a, "test_custom_mod_a")
+    m2 = _load(mod_b, "test_custom_mod_b")
+    try:
+        digest_a, hashable_a = agent_code_identity(m1.MyCustomA1())
+        digest_b, hashable_b = agent_code_identity(m2.MyCustomA1())
+        assert hashable_a is True
+        assert hashable_b is True
+        # Identical source at different filesystem paths must produce the same digest.
+        assert digest_a == digest_b
+        assert digest_a != framework_code_digest()
+
+        # Modifying the source file changes the custom agent's code digest.
+        mod_a.write_text(code_v1 + "\n# extra comment\n", encoding="utf-8")
+        m1_v2 = _load(mod_a, "test_custom_mod_a_v2")
+        digest_a_v2, hashable_a_v2 = agent_code_identity(m1_v2.MyCustomA1())
+        assert hashable_a_v2 is True
+        assert digest_a_v2 != digest_a
+    finally:
+        for name in ("test_custom_mod_a", "test_custom_mod_b", "test_custom_mod_a_v2"):
+            sys.modules.pop(name, None)
+
+
+def test_dynamic_factory_and_zipimported_custom_agents_are_unhashable(tmp_path):
+    import zipfile
+    from src.agents.base import BaseAgent
+
+    dyn_cls = type(
+        "DynamicCustomA1",
+        (BaseAgent,),
+        {"id": "A1", "name": "Harvester-&-Validator", "run": lambda self, ctx: None},
+    )
+    d_dyn1, h_dyn1 = agent_code_identity(dyn_cls())
+    d_dyn2, h_dyn2 = agent_code_identity(dyn_cls())
+    assert h_dyn1 is False
+    assert h_dyn2 is False
+    assert d_dyn1 == d_dyn2  # deterministic, never random
+
+    # Factory-registered agent is marked unhashable even if it returns a built-in class.
+    from src.agents.registry import make_mock_agent_cls
+
+    mock_a1 = make_mock_agent_cls("A1", "Harvester-&-Validator")()
+    _, h_builtin = agent_code_identity(mock_a1, is_factory=False)
+    _, h_factory = agent_code_identity(mock_a1, is_factory=True)
+    assert h_builtin is True
+    assert h_factory is False
+
+    # Zip-imported custom agent fails closed (hashable=False) without crashing.
+    zip_path = tmp_path / "custom_agents.zip"
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        zf.writestr(
+            "zip_custom_agent.py",
+            "from src.agents.base import BaseAgent\n"
+            "class ZipAgent(BaseAgent):\n"
+            "    id = 'A1'\n"
+            "    name = 'Harvester-&-Validator'\n"
+            "    def run(self, context):\n"
+            "        return None\n",
+        )
+    sys.path.insert(0, str(zip_path))
+    try:
+        import zip_custom_agent  # type: ignore
+
+        _, h_zip = agent_code_identity(zip_custom_agent.ZipAgent())
+        assert h_zip is False
+    finally:
+        sys.path.remove(str(zip_path))
+        sys.modules.pop("zip_custom_agent", None)
+
+
+def test_installed_mode_prompt_uses_relative_contract_doc_path(monkeypatch, tmp_path):
+    import src.resources as res_mod
+    from src.agents.base import AgentContext
+    from src.agents.model import ModelAgent
+
+    class _DummyBackend:
+        model = "dummy-model"
+
+        def complete(self, prompt: str) -> str:
+            return "{}"
+
+    monkeypatch.setattr(res_mod, "_CHECKOUT_ROOT", tmp_path / "no_checkout")
+    assert not res_mod.is_checkout_workspace()
+
+    agent = ModelAgent("A1", "Harvester-&-Validator", backend=_DummyBackend())
+    ctx = AgentContext(
+        run_id="r1",
+        params={"company": "Test", "ticker": "TST", "analysis_date": "2026-01-01"},
+        depth_config={},
+        focus_overrides={},
+        frozen_checksum="",
+        workdir=tmp_path,
+        provenance_path=tmp_path / "p.log",
+        envelopes={},
+    )
+    prompt = agent.build_prompt(ctx)
+    assert "Authoritative Contract: docs/contracts/A1_GOD_Gate.md" in prompt
+    assert "_packaged_resources" not in prompt
