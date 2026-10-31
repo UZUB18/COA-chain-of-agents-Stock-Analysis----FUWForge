@@ -65,7 +65,7 @@ The pipeline is coordinated by `FUWForgeOrchestrator` (`src/orchestrator.py`) th
 ### Phase 2: Parallel Domain Analysis (A2 – A5)
 Runs concurrently via `ThreadPoolExecutor` (in automated mode) or sequentially (in controller mode):
 - **`A2` (Business-Market-Peers):** Company profile, business model, moat trend trajectory (`Expanding|Stable|Eroding|Unclear`), customer/supplier concentrations, and $\ge 3$ competitors.
-- **`A3` (Quant-Valuation-Technicals):** Forensic health checks (runner-computed Altman Z-Score and Beneish M-Score from typed facts, OCF vs Net Income accrual alignment, PEG TTM/Forward, Hype Flag, technical indicator set).
+- **`A3` (Quant-Valuation-Technicals):** Forensic health checks (runner-computed Altman Z-Score and Beneish M-Score from typed facts, OCF vs Net Income accrual alignment, model-reported PEG TTM/Forward (no runner calculator), Hype Flag, technical indicator set computed by the runner from verified daily bars).
 - **`A4` (Leadership-Governance-ESG):** Governance structure, CEO pay ratio, auditor tenure, Glassdoor/culture metrics, and ESG momentum.
 - **`A5` (News-Sentiment-Flows):** Trailing 90-day sentiment split ($pos + neu + neg \approx 1.0$), insider buying/selling direction, institutional ownership trends, and litigation/regulatory watchlist.
 
@@ -124,6 +124,9 @@ Every agent communicates exclusively through a standardized JSON envelope contai
 | [`src/run_audit.py`](src/run_audit.py) | Full run verification suite (`verify_run`). Validates envelope schemas, content checksums, upstream lineage references, report outputs, and provenance logs. |
 | [`src/runtime_metrics.py`](src/runtime_metrics.py) | Telemetry collector tracking latency, token usage, retry counts, confidence, and status per agent. |
 | [`src/sentry.py`](src/sentry.py) | **Real-time Thesis Sentry**. Evaluates incoming documents/news against frozen thesis claims using Jev (TypeSafe), Gemini, OpenCode Go, or mock evaluators. Flags contradictions and triggers pipeline re-runs. |
+| [`src/altman_inputs.py`](src/altman_inputs.py) | Runner-computed Altman Z (classic five-variable) from typed facts plus the versioned completed-day market close; witness and exact replay; explicit unavailable result. |
+| [`src/forensic_inputs.py`](src/forensic_inputs.py) | Runner-computed Beneish indices bound to typed facts. |
+| [`src/evidence.py`](src/evidence.py) | Evidence packs: bounded retrieval, hash checks, market-history transforms (SMA_50/SMA_200/RSI_14 are computed here from verified daily bars), intake coverage. |
 | [`src/validators.py`](src/validators.py) | Low-level JSON schema validator (via `jsonschema.Draft7Validator` with graceful fallback), gate checkers, and artifact presence verifiers. |
 
 ### Agents Subpackage (`src/agents/`)
@@ -142,7 +145,7 @@ Every agent communicates exclusively through a standardized JSON envelope contai
 |:---|:---|
 | [`src/utils/__init__.py`](src/utils/__init__.py) | Package initialization for utilities. |
 | [`src/utils/checksum.py`](src/utils/checksum.py) | Hashing utilities: canonical JSON normalization (`_normalize_json`), SHA-256 string/file hashing, and envelope content checksum calculation. |
-| [`src/utils/finance.py`](src/utils/finance.py) | Institutional financial calculation engine: Altman Z-Score, 8-variable Beneish M-Score, CAGR, FCF conversion, Accruals Ratio, ROIC, 5-Year Return-Driver Stack, scorecard weight normalization, and 13-metric comparison vector generation. |
+| [`src/utils/finance.py`](src/utils/finance.py) | Deterministic helpers: a legacy Altman Z wrapper (the run uses `src/altman_inputs.py`), 8-variable Beneish M-Score, CAGR, FCF conversion, Accruals Ratio, ROIC, 5-Year Return-Driver Stack, scorecard weight normalization, and 13-metric comparison vector generation. |
 
 ---
 

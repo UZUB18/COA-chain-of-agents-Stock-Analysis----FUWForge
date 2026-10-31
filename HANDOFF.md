@@ -1,3 +1,7 @@
+> **Historical document (2026-10-08).** Parts of this handoff are outdated. The
+> current behaviour, limits and known bugs are in `docs/CODEBASE_REFERENCE.md`
+> (§9 lists open issues).
+
 # FUWForge upgrade handoff
 
 ## Status

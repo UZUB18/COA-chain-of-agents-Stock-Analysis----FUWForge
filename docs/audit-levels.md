@@ -95,8 +95,12 @@ never as a pass.
 - the dependency graph is acyclic and every declared parent exists;
 - each envelope's `upstream` checksums match the referenced envelopes;
 - duplicate role IDs are absent;
+- every present envelope echoes A1's frozen `metrics.data_checksum` (an A1
+  envelope with no frozen checksum is itself an error; a rejected halt
+  diagnostic is exempt);
 - agent contracts hold (for example, a calculator's recorded classification
-  agrees with its recomputed score).
+  agrees with its recomputed score, A6B has 3–5 bull theses, and A6R rebuts
+  every one of them).
 
 **Does not prove:** that the dependency graph reflects the *logical* order that
 should have been used, or that an agent was given appropriate inputs.
