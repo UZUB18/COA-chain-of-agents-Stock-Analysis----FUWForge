@@ -232,7 +232,6 @@ def _store_with_receipt(tmp_path, stored_text: str, *, state: str = "returned"):
         prompt_sha256=PROMPT_HASH,
         evidence_sha256=EVIDENCE_HASH,
         upstream=(),
-        execution_key="key-a1",
     )
     store.mark_returned(key, {"raw": stored_text})
     if state == "failed":

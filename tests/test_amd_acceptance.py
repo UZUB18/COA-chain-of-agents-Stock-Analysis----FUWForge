@@ -399,7 +399,6 @@ def test_condition_4_recoverable_responses_avoid_provider_calls(tmp_path):
         prompt_sha256="sha256:" + "1" * 64,
         evidence_sha256="sha256:" + "e" * 64,
         upstream=(),
-        execution_key="acceptance-key",
     )
     payload = {
         "schema_version": "2.1",

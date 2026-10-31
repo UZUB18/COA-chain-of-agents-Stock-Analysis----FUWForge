@@ -343,7 +343,7 @@ def test_unknown_completion_requires_explicit_recovery_choice():
         agent_id="A4",
         provider="paid-provider",
         model="premium-model",
-        prompt_sha256=PROMPT_HASH_1,
+        prompt_sha256=PROMPT_HASH_2,
         evidence_sha256=EVIDENCE_HASH_1,
         upstream=upstream,
     )
@@ -387,7 +387,7 @@ def test_recorded_recovery_decision_clears_the_obligation():
             agent_id="A5",
             provider="paid-provider",
             model="m",
-            prompt_sha256=PROMPT_HASH_1,
+            prompt_sha256=PROMPT_HASH_2,
             evidence_sha256=EVIDENCE_HASH_1,
             upstream=upstream,
         )
@@ -779,7 +779,6 @@ def test_resume_with_uncertain_receipt_in_wal_is_refused_without_mutation():
             prompt_sha256=PROMPT_HASH_1,
             evidence_sha256=EVIDENCE_HASH_1,
             upstream=(),
-            execution_key="uncertain-a1",
         )
         store.mark_returned(key, raw_response={"raw": "provider returned"})
         assert Path(f"{db_path}-wal").is_file()
@@ -834,7 +833,6 @@ def test_invalid_recovery_choice_preserves_run_tree(tmp_path):
             prompt_sha256=PROMPT_HASH_1,
             evidence_sha256=EVIDENCE_HASH_1,
             upstream=(),
-            execution_key="uncertain-a1",
         )
         store.mark_returned(key, raw_response={"raw": "provider returned"})
     before = _run_tree_bytes(run_dir)
@@ -876,7 +874,6 @@ def test_explicit_recovery_choice_allows_resume(tmp_path, choice, expected_state
             prompt_sha256=PROMPT_HASH_1,
             evidence_sha256=EVIDENCE_HASH_1,
             upstream=(),
-            execution_key="uncertain-a1",
         )
         store.mark_returned(key, raw_response={"raw": "provider returned"})
 
@@ -1183,6 +1180,7 @@ def test_begining_a_new_attempt_clears_previous_attempt_outcome():
 
     store.mark_returned(key, raw_response={"raw": "first attempt"}, latency_ms=999)
     store.mark_validated(key, accepted_envelope={"agent": {"id": "A3"}}, accepted_checksum="cks1")
+    store.invalidate_descendants({"A3": {"upstream": []}}, ["A3"])
     store.mark_failed(key, error="previous attempt error")
     store.resolve_recovery(key, "retry")
 
@@ -1346,3 +1344,300 @@ def test_source_backed_custom_agent_reuses_and_invalidates_on_source_change(tmp_
     finally:
         for name in ("custom_a7_v1", "custom_a7_v2"):
             sys.modules.pop(name, None)
+
+
+# -----------------------------------------------------------------------------
+# 9. Task 3.3: ExecutionStore state machine, key verification, durable abandon
+# -----------------------------------------------------------------------------
+
+
+def test_execution_store_requires_explicit_db_path_and_shares_memory_across_threads():
+    import threading
+
+    with pytest.raises(TypeError):
+        ExecutionStore()  # type: ignore[call-arg]
+
+    with pytest.raises(ValueError, match="db_path"):
+        ExecutionStore("")
+
+    store = ExecutionStore(":memory:")
+    try:
+        key = store.begin(
+            agent_id="A1",
+            provider="mock",
+            model="m",
+            prompt_sha256=PROMPT_HASH_1,
+            evidence_sha256=EVIDENCE_HASH_1,
+            upstream=(),
+        )
+        seen: list[ExecutionReceipt | None] = []
+
+        def _worker() -> None:
+            seen.append(store.get(key))
+
+        t = threading.Thread(target=_worker)
+        t.start()
+        t.join(timeout=5.0)
+        assert len(seen) == 1
+        assert seen[0] is not None
+        assert seen[0].execution_key == key
+    finally:
+        store.close()
+
+
+def test_begin_verifies_supplied_execution_key_and_existing_row_identity():
+    store = ExecutionStore(":memory:")
+    upstream = (UpstreamRef("A1", CHECKSUM_A1),)
+    expected_key = execution_key(
+        provider="mock",
+        model="m",
+        prompt_sha256=PROMPT_HASH_1,
+        evidence_sha256=EVIDENCE_HASH_1,
+        upstream=upstream,
+    )
+
+    with pytest.raises(ValueError, match="execution_key"):
+        store.begin(
+            agent_id="A2",
+            provider="mock",
+            model="m",
+            prompt_sha256=PROMPT_HASH_1,
+            evidence_sha256=EVIDENCE_HASH_1,
+            upstream=upstream,
+            execution_key="fake-non-matching-key",
+        )
+    assert store.get("fake-non-matching-key") is None
+
+    key = store.begin(
+        agent_id="A2",
+        provider="mock",
+        model="m",
+        prompt_sha256=PROMPT_HASH_1,
+        evidence_sha256=EVIDENCE_HASH_1,
+        upstream=upstream,
+        execution_key=expected_key,
+    )
+    assert key == expected_key
+    store.mark_failed(key, error="pre-response local failure")
+
+    # Attempting to reopen the same key for a different agent_id must fail.
+    with pytest.raises(ValueError, match="Identity mismatch"):
+        store.begin(
+            agent_id="A3",
+            provider="mock",
+            model="m",
+            prompt_sha256=PROMPT_HASH_1,
+            evidence_sha256=EVIDENCE_HASH_1,
+            upstream=upstream,
+            execution_key=expected_key,
+        )
+    assert store.get(key).agent_id == "A2"
+
+
+def test_execution_store_enforces_state_machine_and_protects_validated_receipts():
+    store = ExecutionStore(":memory:")
+    upstream = (UpstreamRef("A1", CHECKSUM_A1),)
+
+    # 1. Invalid initial state in begin()
+    with pytest.raises(ValueError, match="state"):
+        store.begin(
+            agent_id="A2",
+            provider="mock",
+            model="m",
+            prompt_sha256=PROMPT_HASH_1,
+            evidence_sha256=EVIDENCE_HASH_1,
+            upstream=upstream,
+            state="validated",
+        )
+
+    # 2. Running state restrictions
+    key = store.begin(
+        agent_id="A2",
+        provider="mock",
+        model="m",
+        prompt_sha256=PROMPT_HASH_1,
+        evidence_sha256=EVIDENCE_HASH_1,
+        upstream=upstream,
+    )
+    with pytest.raises(ValueError, match="transition|mark_validated"):
+        store.mark_validated(key, accepted_envelope=_sample_accepted_envelope("A2"))
+    with pytest.raises(ValueError, match="repair"):
+        store.begin_repair(key, "err", PROMPT_HASH_1)
+    # In-flight running receipt without retry choice cannot be overwritten by begin()
+    with pytest.raises(ValueError, match="transition|begin"):
+        store.begin(
+            agent_id="A2",
+            provider="mock",
+            model="m",
+            prompt_sha256=PROMPT_HASH_1,
+            evidence_sha256=EVIDENCE_HASH_1,
+            upstream=upstream,
+        )
+
+    # 3. Returned state restrictions
+    store.mark_returned(key, raw_response=_sample_raw_response())
+    with pytest.raises(ValueError, match="transition|begin"):
+        store.begin(
+            agent_id="A2",
+            provider="mock",
+            model="m",
+            prompt_sha256=PROMPT_HASH_1,
+            evidence_sha256=EVIDENCE_HASH_1,
+            upstream=upstream,
+        )
+
+    # 4. Validated state is terminal for normal operations (cannot be demoted)
+    accepted_env = _sample_accepted_envelope("A2", CHECKSUM_A2)
+    store.mark_validated(key, accepted_envelope=accepted_env)
+
+    for op in (
+        lambda: store.mark_failed(key, "cannot fail validated"),
+        lambda: store.mark_returned(key, {"raw": "cannot overwrite validated"}),
+        lambda: store.mark_validated(key, accepted_envelope=accepted_env),
+        lambda: store.mark_unknown_completion(key, "cannot mark uncertain"),
+        lambda: store.resolve_recovery(key, "retry"),
+        lambda: store.resolve_recovery(key, "abandon"),
+        lambda: store.begin_repair(key, "err", PROMPT_HASH_1),
+        lambda: store.begin(
+            agent_id="A2",
+            provider="mock",
+            model="m",
+            prompt_sha256=PROMPT_HASH_1,
+            evidence_sha256=EVIDENCE_HASH_1,
+            upstream=upstream,
+        ),
+        lambda: store.begin(
+            agent_id="A2",
+            provider="mock",
+            model="m",
+            prompt_sha256=PROMPT_HASH_1,
+            evidence_sha256=EVIDENCE_HASH_1,
+            upstream=upstream,
+            override_abandoned=True,
+        ),
+    ):
+        with pytest.raises(ValueError):
+            op()
+
+    assert store.reconcile_unvalidated_on_resume() == []
+    receipt = store.get(key)
+    assert receipt.state == ExecutionState.VALIDATED.value
+    assert receipt.accepted_envelope == accepted_env
+    assert receipt.recovery_choice is None
+
+    # 5. Failed state restrictions (no provider response vs response-bearing)
+    key_no_resp = store.begin(
+        agent_id="A3",
+        provider="mock",
+        model="m",
+        prompt_sha256=PROMPT_HASH_2,
+        evidence_sha256=EVIDENCE_HASH_1,
+        upstream=upstream,
+    )
+    store.mark_failed(key_no_resp, "failed before provider return")
+    with pytest.raises(ValueError):
+        store.mark_validated(key_no_resp, accepted_envelope=_sample_accepted_envelope("A3"))
+    with pytest.raises(ValueError):
+        store.mark_unknown_completion(key_no_resp, "uncertain")
+    with pytest.raises(ValueError):
+        store.mark_returned(key_no_resp, {"raw": "late"})
+    with pytest.raises(ValueError):
+        store.resolve_recovery(key_no_resp, "retry")
+    # Pre-response failure CAN be restarted directly with begin()
+    store.begin(
+        agent_id="A3",
+        provider="mock",
+        model="m",
+        prompt_sha256=PROMPT_HASH_2,
+        evidence_sha256=EVIDENCE_HASH_1,
+        upstream=upstream,
+    )
+    assert store.get(key_no_resp).state == ExecutionState.RUNNING.value
+
+    # Now response-bearing failed receipt: cannot begin() without resolve_recovery("retry")
+    store.mark_returned(key_no_resp, {"raw": "provider text"})
+    store.mark_failed(key_no_resp, "local parse failed")
+    with pytest.raises(ValueError, match="transition|begin|recovery"):
+        store.begin(
+            agent_id="A3",
+            provider="mock",
+            model="m",
+            prompt_sha256=PROMPT_HASH_2,
+            evidence_sha256=EVIDENCE_HASH_1,
+            upstream=upstream,
+        )
+    store.resolve_recovery(key_no_resp, "retry")
+    store.begin(
+        agent_id="A3",
+        provider="mock",
+        model="m",
+        prompt_sha256=PROMPT_HASH_2,
+        evidence_sha256=EVIDENCE_HASH_1,
+        upstream=upstream,
+    )
+    assert store.get(key_no_resp).state == ExecutionState.RUNNING.value
+
+
+def test_abandoned_receipt_is_durable_across_begin_and_resolve_recovery_unless_overridden():
+    store = ExecutionStore(":memory:")
+    upstream = (UpstreamRef("A1", CHECKSUM_A1),)
+    key = store.begin(
+        agent_id="A4",
+        provider="mock",
+        model="m",
+        prompt_sha256=PROMPT_HASH_1,
+        evidence_sha256=EVIDENCE_HASH_1,
+        upstream=upstream,
+    )
+    store.mark_returned(key, raw_response={"raw": "unrecoverable"})
+    store.mark_unknown_completion(key, reason="crash")
+    store.resolve_recovery(key, "abandon")
+
+    abandoned = store.get(key)
+    assert abandoned.state == ExecutionState.FAILED.value
+    assert abandoned.recovery_choice == RecoveryChoice.ABANDON.value
+
+    # Ordinary begin(), resolve_recovery(), mark_failed(), mark_returned() must refuse
+    with pytest.raises(ValueError, match="abandoned"):
+        store.begin(
+            agent_id="A4",
+            provider="mock",
+            model="m",
+            prompt_sha256=PROMPT_HASH_1,
+            evidence_sha256=EVIDENCE_HASH_1,
+            upstream=upstream,
+        )
+    with pytest.raises(ValueError, match="abandoned"):
+        store.resolve_recovery(key, "retry")
+    with pytest.raises(ValueError, match="abandoned"):
+        store.mark_failed(key, "new error")
+    with pytest.raises(ValueError, match="abandoned"):
+        store.mark_returned(key, {"raw": "new"})
+
+    still_abandoned = store.get(key)
+    assert still_abandoned.state == ExecutionState.FAILED.value
+    assert still_abandoned.recovery_choice == RecoveryChoice.ABANDON.value
+    assert still_abandoned.raw_response == {"raw": "unrecoverable"}
+
+    # Explicit override on begin() reopens and clears prior attempt outcome
+    store.begin(
+        agent_id="A4",
+        provider="mock",
+        model="m",
+        prompt_sha256=PROMPT_HASH_1,
+        evidence_sha256=EVIDENCE_HASH_1,
+        upstream=upstream,
+        override_abandoned=True,
+    )
+    reopened = store.get(key)
+    assert reopened.state == ExecutionState.RUNNING.value
+    assert reopened.recovery_choice is None
+    assert reopened.raw_response is None
+    assert reopened.error is None
+
+    # Explicit override on resolve_recovery() also works
+    store.mark_unknown_completion(key, reason="crash 2")
+    store.resolve_recovery(key, "abandon")
+    retried = store.resolve_recovery(key, "retry", override_abandoned=True)
+    assert retried.state == ExecutionState.RUNNING.value
+    assert retried.recovery_choice == RecoveryChoice.RETRY.value

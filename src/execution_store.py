@@ -40,8 +40,9 @@ from pathlib import Path
 import shutil
 import sqlite3
 import tempfile
+import threading
 import uuid
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Set, Tuple, Union
+from typing import Any, Dict, FrozenSet, Iterable, List, Mapping, Optional, Set, Tuple, Union
 
 from src.execution_identity import (
     UpstreamRef,
@@ -378,27 +379,162 @@ class ExecutionStore:
     handling of uncertain completions.
     """
 
+    ALLOWED_TRANSITIONS: Dict[str, FrozenSet[str]] = {
+        "begin": frozenset({
+            ExecutionState.PENDING.value,
+            ExecutionState.RUNNING.value,
+            ExecutionState.FAILED.value,
+        }),
+        "begin_repair": frozenset({
+            ExecutionState.RETURNED.value,
+        }),
+        "mark_returned": frozenset({
+            ExecutionState.PENDING.value,
+            ExecutionState.RUNNING.value,
+            ExecutionState.RETURNED.value,
+            ExecutionState.UNKNOWN_COMPLETION.value,
+            ExecutionState.FAILED.value,
+        }),
+        "mark_validated": frozenset({
+            ExecutionState.RETURNED.value,
+        }),
+        "mark_failed": frozenset({
+            ExecutionState.PENDING.value,
+            ExecutionState.RUNNING.value,
+            ExecutionState.RETURNED.value,
+            ExecutionState.UNKNOWN_COMPLETION.value,
+            ExecutionState.FAILED.value,
+        }),
+        "mark_unknown_completion": frozenset({
+            ExecutionState.PENDING.value,
+            ExecutionState.RUNNING.value,
+            ExecutionState.RETURNED.value,
+            ExecutionState.UNKNOWN_COMPLETION.value,
+        }),
+        "resolve_recovery": frozenset({
+            ExecutionState.RUNNING.value,
+            ExecutionState.RETURNED.value,
+            ExecutionState.UNKNOWN_COMPLETION.value,
+            ExecutionState.FAILED.value,
+        }),
+        "reconcile_unvalidated_on_resume": frozenset({
+            ExecutionState.RUNNING.value,
+            ExecutionState.RETURNED.value,
+        }),
+        "invalidate_descendants": frozenset({
+            ExecutionState.VALIDATED.value,
+        }),
+    }
+
     def __init__(
         self,
-        db_path: Union[str, Path] = ":memory:",
+        db_path: Union[str, Path],
         timeout: float = 30.0,
     ) -> None:
-        self.db_path = str(db_path)
+        raw_path = str(db_path).strip() if db_path is not None else ""
+        if not raw_path:
+            raise ValueError("ExecutionStore requires a non-empty db_path")
+        self.db_path = raw_path
         self.timeout = timeout
-        import threading
+        if self.db_path == ":memory:":
+            self._connect_target = (
+                f"file:fuwforge_mem_{uuid.uuid4().hex}?mode=memory&cache=shared"
+            )
+            self._use_uri = True
+        else:
+            self._connect_target = self.db_path
+            self._use_uri = self.db_path.startswith("file:")
         self._local = threading.local()
-        self._connections = []
+        self._connections: List[sqlite3.Connection] = []
         self._init_db()
 
     @property
-    def _conn(self):
+    def _conn(self) -> sqlite3.Connection:
         # Each parallel agent needs an independent transaction/connection.
         if not hasattr(self._local, "connection"):
-            conn = sqlite3.connect(self.db_path, timeout=self.timeout, check_same_thread=False)
+            conn = sqlite3.connect(
+                self._connect_target,
+                timeout=self.timeout,
+                uri=self._use_uri,
+                check_same_thread=False,
+            )
             conn.row_factory = sqlite3.Row
             self._local.connection = conn
             self._connections.append(conn)
         return self._local.connection
+
+    def _get_row_for_transition(self, execution_key: str) -> sqlite3.Row:
+        row = self._conn.execute(
+            """
+            SELECT execution_key, agent_id, state, provider, model,
+                   prompt_sha256, evidence_sha256, upstream_json,
+                   raw_checksum, raw_response_json, recovery_choice, metadata_json
+            FROM execution_receipts
+            WHERE execution_key = ?
+            """,
+            (execution_key,),
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"No execution record found for key {execution_key}")
+        return row
+
+    @classmethod
+    def _row_has_provider_response(cls, row: sqlite3.Row) -> bool:
+        return row["raw_response_json"] is not None or row["raw_checksum"] is not None
+
+    @classmethod
+    def _check_transition(
+        cls,
+        operation: str,
+        row: sqlite3.Row,
+        *,
+        override_abandoned: bool = False,
+    ) -> None:
+        current_state = row["state"]
+        key = row["execution_key"]
+        allowed = cls.ALLOWED_TRANSITIONS.get(operation, frozenset())
+        if current_state not in allowed:
+            raise ValueError(
+                f"Illegal execution state transition: {operation} from state {current_state!r} for key {key}"
+            )
+        choice = row["recovery_choice"]
+        if choice == RecoveryChoice.ABANDON.value:
+            if not (override_abandoned and operation in ("begin", "resolve_recovery")):
+                raise ValueError(
+                    f"Execution {key} was explicitly abandoned; pass override_abandoned=True to reopen"
+                )
+        if operation == "begin":
+            if override_abandoned and choice == RecoveryChoice.ABANDON.value:
+                return
+            if current_state == ExecutionState.RUNNING.value:
+                if choice != RecoveryChoice.RETRY.value:
+                    raise ValueError(
+                        f"Illegal execution state transition: cannot begin in-flight 'running' key {key} without retry recovery choice"
+                    )
+            elif current_state == ExecutionState.FAILED.value:
+                if choice != RecoveryChoice.RETRY.value and cls._row_has_provider_response(row):
+                    raise ValueError(
+                        f"Illegal execution state transition: response-bearing failed key {key} requires retry recovery choice before begin"
+                    )
+        elif operation == "begin_repair":
+            if not row["raw_checksum"]:
+                raise ValueError("repair requires a recorded provider response")
+        elif operation == "mark_returned":
+            if current_state in (
+                ExecutionState.FAILED.value,
+                ExecutionState.UNKNOWN_COMPLETION.value,
+            ) and not cls._row_has_provider_response(row):
+                raise ValueError(
+                    f"Illegal execution state transition: cannot mark_returned from {current_state!r} without a recorded provider response"
+                )
+        elif operation == "resolve_recovery":
+            if current_state == ExecutionState.FAILED.value and not (
+                cls._row_has_provider_response(row)
+                or (override_abandoned and choice == RecoveryChoice.ABANDON.value)
+            ):
+                raise ValueError(
+                    f"Illegal execution state transition: cannot resolve_recovery on pre-response failed key {key}"
+                )
 
     def _init_db(self) -> None:
         if self.db_path != ":memory:":
@@ -448,6 +584,8 @@ class ExecutionStore:
         for conn in self._connections:
             conn.close()
         self._connections.clear()
+        if hasattr(self._local, "connection"):
+            delattr(self._local, "connection")
 
     def __enter__(self) -> ExecutionStore:
         return self
@@ -467,6 +605,7 @@ class ExecutionStore:
         execution_key: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         state: Union[ExecutionState, str] = ExecutionState.RUNNING,
+        override_abandoned: bool = False,
     ) -> str:
         """
         Record the initiation of an agent execution.
@@ -474,14 +613,23 @@ class ExecutionStore:
         Calculates or verifies the content-addressed execution_key and atomically
         persists the initial row in `running` or `pending` state.
         """
-        key = execution_key or compute_execution_key(
+        state_val = state.value if isinstance(state, ExecutionState) else str(state)
+        if state_val not in (ExecutionState.PENDING.value, ExecutionState.RUNNING.value):
+            raise ValueError(
+                f"Invalid initial execution state {state_val!r}. Must be 'pending' or 'running'."
+            )
+        expected_key = compute_execution_key(
             provider=provider,
             model=model,
             prompt_sha256=prompt_sha256,
             evidence_sha256=evidence_sha256,
             upstream=upstream,
         )
-        state_val = state.value if isinstance(state, ExecutionState) else str(state)
+        if execution_key is not None and execution_key != expected_key:
+            raise ValueError(
+                f"Supplied execution_key {execution_key!r} does not match computed key {expected_key!r}"
+            )
+        key = expected_key
         now = _now_iso()
         upstream_json = _canonical_json(
             [{"agent": ref.agent, "content_checksum": ref.content_checksum} for ref in upstream]
@@ -489,63 +637,108 @@ class ExecutionStore:
         metadata_json = _canonical_json(metadata) if metadata is not None else None
 
         with self._conn:
-            self._conn.execute(
+            existing = self._conn.execute(
                 """
-                INSERT INTO execution_receipts (
-                    execution_key, agent_id, state, provider, model,
-                    prompt_sha256, evidence_sha256, upstream_json,
-                    metadata_json, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(execution_key) DO UPDATE SET
-                    state = excluded.state,
-                    updated_at = excluded.updated_at,
-                    metadata_json = COALESCE(excluded.metadata_json, execution_receipts.metadata_json),
-                    -- Starting a new attempt invalidates the previous attempt's
-                    -- outcome. Leaving these in place would let one receipt
-                    -- describe two different executions at once: a reader could
-                    -- see a 'running' attempt carrying the prior attempt's raw
-                    -- response, error, latency, usage, or an already-accepted
-                    -- envelope. recovery_choice MUST also be cleared: it is
-                    -- scoped to the attempt that was uncertain, and keeping it
-                    -- would silently discharge the new attempt's recovery
-                    -- obligation (requires_recovery() only fires when it is NULL).
-                    -- Identity and lineage (provider/model/prompt/evidence/
-                    -- upstream/created_at) describe what is being executed and
-                    -- are deliberately preserved.
-                    raw_checksum = NULL,
-                    raw_response_json = NULL,
-                    accepted_checksum = NULL,
-                    accepted_envelope_json = NULL,
-                    usage_json = NULL,
-                    latency_ms = NULL,
-                    error = NULL,
-                    recovery_choice = NULL
+                SELECT execution_key, agent_id, state, provider, model,
+                       prompt_sha256, evidence_sha256, upstream_json,
+                       raw_checksum, raw_response_json, recovery_choice, metadata_json
+                FROM execution_receipts
+                WHERE execution_key = ?
                 """,
-                (
-                    key,
-                    agent_id,
-                    state_val,
-                    provider,
-                    model,
-                    prompt_sha256,
-                    evidence_sha256,
-                    upstream_json,
-                    metadata_json,
-                    now,
-                    now,
-                ),
-            )
+                (key,),
+            ).fetchone()
+            if existing is None:
+                self._conn.execute(
+                    """
+                    INSERT INTO execution_receipts (
+                        execution_key, agent_id, state, provider, model,
+                        prompt_sha256, evidence_sha256, upstream_json,
+                        metadata_json, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        key,
+                        agent_id,
+                        state_val,
+                        provider,
+                        model,
+                        prompt_sha256,
+                        evidence_sha256,
+                        upstream_json,
+                        metadata_json,
+                        now,
+                        now,
+                    ),
+                )
+            else:
+                if (
+                    existing["agent_id"] != agent_id
+                    or existing["provider"] != provider
+                    or existing["model"] != model
+                    or existing["prompt_sha256"] != prompt_sha256
+                    or existing["evidence_sha256"] != evidence_sha256
+                    or existing["upstream_json"] != upstream_json
+                ):
+                    raise ValueError(
+                        f"Identity mismatch for existing execution_key {key}"
+                    )
+                self._check_transition(
+                    "begin",
+                    existing,
+                    override_abandoned=override_abandoned,
+                )
+                cursor = self._conn.execute(
+                    """
+                    UPDATE execution_receipts SET
+                        state = ?,
+                        updated_at = ?,
+                        metadata_json = COALESCE(?, metadata_json),
+                        -- Starting a new attempt invalidates the previous attempt's
+                        -- outcome. Leaving these in place would let one receipt
+                        -- describe two different executions at once: a reader could
+                        -- see a 'running' attempt carrying the prior attempt's raw
+                        -- response, error, latency, usage, or an already-accepted
+                        -- envelope. recovery_choice MUST also be cleared: it is
+                        -- scoped to the attempt that was uncertain, and keeping it
+                        -- would silently discharge the new attempt's recovery
+                        -- obligation (requires_recovery() only fires when it is NULL).
+                        -- Identity and lineage (provider/model/prompt/evidence/
+                        -- upstream/created_at) describe what is being executed and
+                        -- are deliberately preserved.
+                        raw_checksum = NULL,
+                        raw_response_json = NULL,
+                        accepted_checksum = NULL,
+                        accepted_envelope_json = NULL,
+                        usage_json = NULL,
+                        latency_ms = NULL,
+                        error = NULL,
+                        recovery_choice = NULL
+                    WHERE execution_key = ? AND state = ?
+                    """,
+                    (state_val, now, metadata_json, key, existing["state"]),
+                )
+                if cursor.rowcount == 0:
+                    raise ValueError(
+                        f"Concurrent or illegal state transition on begin for key {key}"
+                    )
         return key
 
     def begin_repair(self, execution_key: str, error: str, prompt_sha256: str) -> None:
         """Keep the rejected response and atomically mark the repair in flight."""
         with self._conn:
             row = self._conn.execute(
-                "SELECT state, raw_checksum, metadata_json FROM execution_receipts WHERE execution_key = ?",
+                """
+                SELECT execution_key, agent_id, state, provider, model,
+                       prompt_sha256, evidence_sha256, upstream_json,
+                       raw_checksum, raw_response_json, recovery_choice, metadata_json
+                FROM execution_receipts
+                WHERE execution_key = ?
+                """,
                 (execution_key,),
             ).fetchone()
             if not row or row["state"] != ExecutionState.RETURNED.value or not row["raw_checksum"]:
                 raise ValueError("repair requires a recorded provider response")
+            self._check_transition("begin_repair", row)
             history_key = hashlib.sha256(
                 f"{execution_key}:repair:{row['raw_checksum']}:{uuid.uuid4()}".encode()
             ).hexdigest()
@@ -561,13 +754,20 @@ class ExecutionStore:
                   FROM execution_receipts WHERE execution_key = ?""",
                 (history_key, error, _canonical_json({**metadata, "repair_of": execution_key}), _now_iso(), execution_key),
             )
-            self._conn.execute(
+            cursor = self._conn.execute(
                 """UPDATE execution_receipts SET state = 'running', raw_checksum = NULL,
                     raw_response_json = NULL, accepted_checksum = NULL, accepted_envelope_json = NULL,
                     usage_json = NULL, latency_ms = NULL, error = NULL, recovery_choice = NULL, metadata_json = ?,
-                    updated_at = ? WHERE execution_key = ?""",
-                (_canonical_json({**metadata, "repair_prompt_sha256": prompt_sha256}), _now_iso(), execution_key),
+                    updated_at = ? WHERE execution_key = ? AND state = ?""",
+                (
+                    _canonical_json({**metadata, "repair_prompt_sha256": prompt_sha256}),
+                    _now_iso(),
+                    execution_key,
+                    row["state"],
+                ),
             )
+            if cursor.rowcount == 0:
+                raise ValueError(f"Illegal state transition on begin_repair for key {execution_key}")
 
     def mark_returned(
         self,
@@ -590,6 +790,8 @@ class ExecutionStore:
         usage_json = _canonical_json(usage) if usage is not None else None
 
         with self._conn:
+            row = self._get_row_for_transition(execution_key)
+            self._check_transition("mark_returned", row)
             cursor = self._conn.execute(
                 """
                 UPDATE execution_receipts SET
@@ -599,7 +801,7 @@ class ExecutionStore:
                     usage_json = ?,
                     latency_ms = COALESCE(?, latency_ms),
                     updated_at = ?
-                WHERE execution_key = ?
+                WHERE execution_key = ? AND state = ?
                 """,
                 (
                     ExecutionState.RETURNED.value,
@@ -609,10 +811,11 @@ class ExecutionStore:
                     latency_ms,
                     now,
                     execution_key,
+                    row["state"],
                 ),
             )
             if cursor.rowcount == 0:
-                raise KeyError(f"No execution record found for key {execution_key}")
+                raise ValueError(f"Illegal state transition on mark_returned for key {execution_key}")
 
         receipt = self.get(execution_key)
         assert receipt is not None
@@ -635,6 +838,8 @@ class ExecutionStore:
         envelope_json = _canonical_json(accepted_envelope)
 
         with self._conn:
+            row = self._get_row_for_transition(execution_key)
+            self._check_transition("mark_validated", row)
             cursor = self._conn.execute(
                 """
                 UPDATE execution_receipts SET
@@ -644,7 +849,7 @@ class ExecutionStore:
                     error = NULL,
                     recovery_choice = NULL,
                     updated_at = ?
-                WHERE execution_key = ?
+                WHERE execution_key = ? AND state = ?
                 """,
                 (
                     ExecutionState.VALIDATED.value,
@@ -652,10 +857,11 @@ class ExecutionStore:
                     envelope_json,
                     now,
                     execution_key,
+                    row["state"],
                 ),
             )
             if cursor.rowcount == 0:
-                raise KeyError(f"No execution record found for key {execution_key}")
+                raise ValueError(f"Illegal state transition on mark_validated for key {execution_key}")
 
         receipt = self.get(execution_key)
         assert receipt is not None
@@ -674,23 +880,26 @@ class ExecutionStore:
             err_msg = f"{error} | Details: {_canonical_json(error_details)}"
 
         with self._conn:
+            row = self._get_row_for_transition(execution_key)
+            self._check_transition("mark_failed", row)
             cursor = self._conn.execute(
                 """
                 UPDATE execution_receipts SET
                     state = ?,
                     error = ?,
                     updated_at = ?
-                WHERE execution_key = ?
+                WHERE execution_key = ? AND state = ?
                 """,
                 (
                     ExecutionState.FAILED.value,
                     err_msg,
                     now,
                     execution_key,
+                    row["state"],
                 ),
             )
             if cursor.rowcount == 0:
-                raise KeyError(f"No execution record found for key {execution_key}")
+                raise ValueError(f"Illegal state transition on mark_failed for key {execution_key}")
 
         receipt = self.get(execution_key)
         assert receipt is not None
@@ -709,23 +918,26 @@ class ExecutionStore:
         """
         now = _now_iso()
         with self._conn:
+            row = self._get_row_for_transition(execution_key)
+            self._check_transition("mark_unknown_completion", row)
             cursor = self._conn.execute(
                 """
                 UPDATE execution_receipts SET
                     state = ?,
                     error = COALESCE(?, error),
                     updated_at = ?
-                WHERE execution_key = ?
+                WHERE execution_key = ? AND state = ?
                 """,
                 (
                     ExecutionState.UNKNOWN_COMPLETION.value,
                     reason,
                     now,
                     execution_key,
+                    row["state"],
                 ),
             )
             if cursor.rowcount == 0:
-                raise KeyError(f"No execution record found for key {execution_key}")
+                raise ValueError(f"Illegal state transition on mark_unknown_completion for key {execution_key}")
 
         receipt = self.get(execution_key)
         assert receipt is not None
@@ -735,6 +947,8 @@ class ExecutionStore:
         self,
         execution_key: str,
         choice: Union[RecoveryChoice, str],
+        *,
+        override_abandoned: bool = False,
     ) -> ExecutionReceipt:
         """
         Record explicit operator recovery choice for uncertain completion.
@@ -762,23 +976,30 @@ class ExecutionStore:
             else ExecutionState.FAILED.value
         )
         with self._conn:
+            row = self._get_row_for_transition(execution_key)
+            self._check_transition(
+                "resolve_recovery",
+                row,
+                override_abandoned=override_abandoned,
+            )
             cursor = self._conn.execute(
                 """
                 UPDATE execution_receipts SET
                     recovery_choice = ?,
                     state = ?,
                     updated_at = ?
-                WHERE execution_key = ?
+                WHERE execution_key = ? AND state = ?
                 """,
                 (
                     choice_val,
                     next_state,
                     now,
                     execution_key,
+                    row["state"],
                 ),
             )
             if cursor.rowcount == 0:
-                raise KeyError(f"No execution record found for key {execution_key}")
+                raise ValueError(f"Illegal state transition on resolve_recovery for key {execution_key}")
 
         receipt = self.get(execution_key)
         assert receipt is not None
@@ -924,16 +1145,27 @@ class ExecutionStore:
         with self._conn:
             for row in rows:
                 key = row["execution_key"]
-                self._conn.execute(
+                current = self._get_row_for_transition(key)
+                self._check_transition("reconcile_unvalidated_on_resume", current)
+                cursor = self._conn.execute(
                     """
                     UPDATE execution_receipts SET
                         state = ?,
                         error = COALESCE(error, 'Unvalidated completion detected on resume'),
                         updated_at = ?
-                    WHERE execution_key = ?
+                    WHERE execution_key = ? AND state = ?
                     """,
-                    (ExecutionState.UNKNOWN_COMPLETION.value, now, key),
+                    (
+                        ExecutionState.UNKNOWN_COMPLETION.value,
+                        now,
+                        key,
+                        current["state"],
+                    ),
                 )
+                if cursor.rowcount == 0:
+                    raise ValueError(
+                        f"Illegal state transition on reconcile_unvalidated_on_resume for key {key}"
+                    )
                 receipt = self.get(key)
                 if receipt:
                     reconciled.append(receipt)
