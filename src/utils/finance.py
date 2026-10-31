@@ -162,32 +162,23 @@ def altman_z_score(
             "inputs": {},
         }
 
-    x1 = working_capital / total_assets
-    x2 = retained_earnings / total_assets
-    x3 = ebit / total_assets
-    x4 = market_cap / total_liabilities
-    x5 = revenue / total_assets
+    from src.altman_inputs import altman_score, classify
 
-    score = round(1.2 * x1 + 1.4 * x2 + 3.3 * x3 + 0.6 * x4 + 0.999 * x5, 2)
-
-    if score > 2.99:
-        classification = "Safe Zone"
-    elif score >= 1.81:
-        classification = "Grey Zone"
-    else:
-        classification = "Distress Zone"
-
+    inputs = {
+        "X1_wc_ta": working_capital / total_assets,
+        "X2_re_ta": retained_earnings / total_assets,
+        "X3_ebit_ta": ebit / total_assets,
+        "X4_mc_tl": market_cap / total_liabilities,
+        "X5_rev_ta": revenue / total_assets,
+    }
+    raw = altman_score(inputs)
+    # Classify the unrounded score; rounding is display only.
     return {
-        "score": score,
-        "classification": classification,
+        "score": round(raw, 2),
+        "raw_score": raw,
+        "classification": classify(raw),
         "feasible": True,
-        "inputs": {
-            "X1_wc_ta": round(x1, 4),
-            "X2_re_ta": round(x2, 4),
-            "X3_ebit_ta": round(x3, 4),
-            "X4_mc_tl": round(x4, 4),
-            "X5_rev_ta": round(x5, 4),
-        },
+        "inputs": inputs,
     }
 
 

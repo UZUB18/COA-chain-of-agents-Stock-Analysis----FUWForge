@@ -1255,7 +1255,9 @@ def semantic_audit(
                     formula_id = witness.get("formula_id")
                     formula_replayed = False
                     if not w_errors:
-                        if formula_id == "beneish_m_score":
+                        if formula_id in ("beneish_m_score", "altman_z_score"):
+                            # validate_witness already replayed the formula
+                            # arithmetic; no errors means it reproduced.
                             formula_replayed = True
                         elif formula_id in ("test_identity", "identity") and len(w_inputs) == 1:
                             in_val = next(iter(w_inputs.values()))

@@ -65,7 +65,7 @@ The pipeline is coordinated by `FUWForgeOrchestrator` (`src/orchestrator.py`) th
 ### Phase 2: Parallel Domain Analysis (A2 – A5)
 Runs concurrently via `ThreadPoolExecutor` (in automated mode) or sequentially (in controller mode):
 - **`A2` (Business-Market-Peers):** Company profile, business model, moat trend trajectory (`Expanding|Stable|Eroding|Unclear`), customer/supplier concentrations, and $\ge 3$ competitors.
-- **`A3` (Quant-Valuation-Technicals):** Forensic health checks (Altman Z-Score, Beneish M-Score, OCF vs Net Income accrual alignment, PEG TTM/Forward, Hype Flag, technical indicator set).
+- **`A3` (Quant-Valuation-Technicals):** Forensic health checks (runner-computed Altman Z-Score and Beneish M-Score from typed facts, OCF vs Net Income accrual alignment, PEG TTM/Forward, Hype Flag, technical indicator set).
 - **`A4` (Leadership-Governance-ESG):** Governance structure, CEO pay ratio, auditor tenure, Glassdoor/culture metrics, and ESG momentum.
 - **`A5` (News-Sentiment-Flows):** Trailing 90-day sentiment split ($pos + neu + neg \approx 1.0$), insider buying/selling direction, institutional ownership trends, and litigation/regulatory watchlist.
 

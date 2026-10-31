@@ -48,6 +48,7 @@ OUTPUT_SHAPING_MODULES: tuple[str, ...] = (
     "agents/output_format.py",
     "agents/output_schema.py",
     "agents/registry.py",
+    "altman_inputs.py",
     "calculation_witness.py",
     "contracts.py",
     "data_gaps.py",

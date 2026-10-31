@@ -938,7 +938,7 @@ Authoritative Contract: {contract_doc}
 
 Tasks:
 1. Render sections_md: SECTION_4_FINANCIAL_FORENSICS, SECTION_5_VALUATION, SECTION_12_TECHNICALS based strictly on factual evidence available as of {analysis_date}. Do not write a Beneish score, formula, or its eight named indices in SECTION_4_FINANCIAL_FORENSICS; the runner adds that block from the artifact.
-2. Emit required artifacts: AltmanZ (object with numeric score and/or classification string), BeneishM (object with numeric score), OCF_vs_NI_Flag (Aligned|Divergent|Negative), PEG_TTM (number), PEG_Fwd (number), HypeFlag (Reality|Balanced|Hype Risk), PeerTable (array of peer comparison objects), TechnicalSet (object with numeric SMA_50, SMA_200, RSI_14).
+2. Emit required artifacts: AltmanZ (object with numeric score and/or classification string; when a RUNNER-COMPUTED ALTMAN block is given the runner replaces it, so do not write an Altman number in prose), BeneishM (object with numeric score), OCF_vs_NI_Flag (Aligned|Divergent|Negative), PEG_TTM (number), PEG_Fwd (number), HypeFlag (Reality|Balanced|Hype Risk), PeerTable (array of peer comparison objects), TechnicalSet (object with numeric SMA_50, SMA_200, RSI_14).
 2a. For BeneishM supply the eight index ratios under BeneishM.indices (dsri, gmi, aqi, sgi, depi, sgai, lvgi, tata). Copy runner-computed ratios when provided; otherwise derive them from the supplied source figures and optionally provide supporting fact_ids. The runner computes the M-Score and ignores any score you write. If you cannot derive a required index, set BeneishM.feasible=false with a specific unavailable_reason instead of inventing a ratio. A bare score with no indices is unverified and fails strict mode. Crossing the -1.78 screening threshold is a signal to investigate, never a finding that manipulation occurred.
 2b. Quantitative results must be deterministically linked to fact-backed indices and witness calculations when inputs are sufficient, or marked unavailable otherwise; NEVER fabricate neutral or default figures. Forward-looking guidance/forecasts must never be treated as reported facts.
 3. Echo metrics.data_checksum: "{frozen_checksum}".
@@ -1373,7 +1373,7 @@ class ModelAgent(BaseAgent):
             for agent_id, env in context.envelopes.items()
         }
         upstream_text = "\n<untrusted_source_data label=\"accepted-upstream-artifacts\">\n" + html.escape(json.dumps(upstream, ensure_ascii=False, sort_keys=True), quote=False) + "\n</untrusted_source_data>\n"
-        forensic_block = self._forensic_inputs_block(context)
+        forensic_block = self._forensic_inputs_block(context) + self._altman_inputs_block(context)
         challenge = ""
         if context.challenge_initial is not None:
             # This is a runner directive describing the lifecycle phase, not
@@ -1424,6 +1424,34 @@ class ModelAgent(BaseAgent):
             "must be tagged [Estimate] or [Judgment]. Source availability does not prove every claim.\n"
             "Canonical JSON schema (type definitions are not financial data):\n"
             + json.dumps(schema, ensure_ascii=False) + "\n"
+        )
+
+    def _altman_inputs_block(self, context: AgentContext) -> str:
+        """Runner directive stating the Altman result A3 must not compete with."""
+        runner = getattr(context, "altman_inputs", None)
+        if self.id != "A3" or not isinstance(runner, dict) or not runner:
+            return ""
+        if not runner.get("feasible"):
+            return (
+                "\nRUNNER-COMPUTED ALTMAN Z: unavailable. " + str(runner.get("unavailable_reason") or "") + "\n"
+                "Do not estimate an Altman Z-score; the runner reports it as unavailable.\n"
+            )
+        from src.altman_inputs import altman_score, classify
+
+        raw = altman_score(runner["inputs"])
+        summary = {
+            "score": round(raw, 2),
+            "classification": classify(raw),
+            "ratios": {key: round(float(value), 6) for key, value in runner["inputs"].items()},
+            "balance_sheet_date": runner.get("balance_sheet_date"),
+            "market_equity": runner.get("market_equity"),
+            "conventions": runner.get("conventions"),
+        }
+        return (
+            "\nRUNNER-COMPUTED ALTMAN Z (deterministic; replaces any AltmanZ you write).\n"
+            "Refer to this result in your analysis; do not compute or write a different Altman number.\n"
+            + json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True)
+            + "\n"
         )
 
     def _forensic_inputs_block(self, context: AgentContext) -> str:
@@ -1520,6 +1548,48 @@ class ModelAgent(BaseAgent):
             data["sections_md"][key] = section.rstrip() + "\n\n" + render_beneish_block(artifact)
             data["metrics"]["runner_beneish_block"] = True
 
+    def _adopt_runner_altman(self, data: Dict[str, Any], context: AgentContext) -> None:
+        """Replace A3's AltmanZ with the runner's result and render its block.
+
+        Only when the runner supplied Altman inputs (every orchestrated run
+        does). A feasible result is the versioned deterministic calculation;
+        an unavailable one becomes a null score with a documented gap. Either
+        way a differing model number is never presented as computed, and the
+        replacement is disclosed as a warning.
+        """
+        runner = getattr(context, "altman_inputs", None)
+        if self.id != "A3" or not isinstance(runner, dict) or not runner:
+            return
+        from src.altman_inputs import altman_artifact
+
+        artifact = altman_artifact(runner)
+        previous = data["artifacts"].get("AltmanZ")
+        previous_score = previous.get("score") if isinstance(previous, dict) else None
+        if isinstance(previous_score, (int, float)) and not isinstance(previous_score, bool) \
+                and previous_score != artifact.get("score"):
+            data.setdefault("warnings", []).append(
+                f"Model-reported Altman Z {previous_score} replaced by the runner's "
+                + ("computed score." if artifact["feasible"] else "unavailable result: " + artifact["unavailable_reason"])
+            )
+        data["artifacts"]["AltmanZ"] = artifact
+        if not artifact["feasible"]:
+            gaps = missing_data_map(data["metrics"].get("missing_data"))
+            gaps["AltmanZ.score"] = artifact["unavailable_reason"]
+            data["metrics"]["missing_data"] = gaps
+        key = "SECTION_4_FINANCIAL_FORENSICS"
+        section = str(data["sections_md"].get(key, ""))
+        marker = "**Altman Z-Score (runner-computed)**"
+        if marker not in section:
+            if artifact["feasible"]:
+                line = (f"{marker}: **{artifact['score']}** ({artifact['classification']}; "
+                        f"raw {artifact['raw_score']!r}). Classic five-variable model; market equity uses "
+                        f"the {artifact['calculation_witness']['parameters']['market_equity'].get('bar_date')} "
+                        "completed close. A screening convention, not a finding.")
+            else:
+                line = f"{marker}: unavailable. {artifact['unavailable_reason']}"
+            data["sections_md"][key] = (section.rstrip() + "\n\n" + line).lstrip()
+            data["metrics"]["runner_altman_block"] = True
+
     def _adopt_runner_beneish(self, data: Dict[str, Any], context: AgentContext) -> None:
         """Adopt the runner's deterministic Beneish result and render its block.
 
@@ -1529,6 +1599,7 @@ class ModelAgent(BaseAgent):
         unavailable or model-reported result is left exactly as written, so the
         contract's own rules still decide.
         """
+        self._adopt_runner_altman(data, context)
         if self.id != "A3" or not isinstance(data["artifacts"].get("BeneishM"), dict):
             return
         resolved_beneish = _normalize_beneish(
@@ -2287,5 +2358,6 @@ class ModelAgent(BaseAgent):
                 )
 
         if self.id == "A3":
+            self._adopt_runner_altman(data, context)
             self._render_beneish_section(data)
         return data

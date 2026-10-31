@@ -83,3 +83,23 @@ $$M = -4.84 + 0.920 \cdot \text{DSRI} + 0.528 \cdot \text{GMI} + 0.404 \cdot \te
 
 - **Legacy Runs are Immutable**: Archived historical runs executed prior to version 2.0.0 represent historical execution state. They must **not** be silently rewritten, modified, or resealed under version 2.0.0.
 - **New Runs for New Version**: To obtain scores under calculator version 2.0.0 with calculation witnesses, fresh runs must be executed with explicit input ratios.
+
+## altman_z_score 1.0.0
+
+- Module: `src/altman_inputs.py` (runner-computed, A3 `AltmanZ`).
+- Variant: Altman (1968) public-manufacturer five-variable model,
+  `Z = 1.2·X1 + 1.4·X2 + 3.3·X3 + 0.6·X4 + 0.999·X5`, summed with `math.fsum`.
+- Inputs: one aligned annual balance-sheet instant (Assets, AssetsCurrent,
+  LiabilitiesCurrent, RetainedEarningsAccumulatedDeficit, Liabilities or
+  LiabilitiesAndStockholdersEquity − StockholdersEquity), OperatingIncomeLoss and
+  revenue for the annual period ending within 7 days of it, all USD and one
+  accounting basis; market equity = versioned completed-day close × latest
+  reported shares outstanding (single unambiguous value).
+- Classification on the unrounded score: > 2.99 Safe, 1.81–2.99 Grey,
+  < 1.81 Distress. `score` is rounded to 2 decimals for display only.
+- Witness replay recomputes the score exactly from the five ratios and X4 from
+  the recorded close, shares and liabilities. X1–X3 and X5 are fact-bound
+  derivations; X4 is disclosed as not fact-bound.
+- Unavailable (null score + documented gap) when any input is missing,
+  misaligned, non-USD, ambiguous, or the pack has no versioned market history.
+

@@ -35,6 +35,9 @@ class AgentContext:
     #: Frozen v2 market history (``EvidencePack.market_snapshot``); ``None``
     #: for legacy packs, which keep the prior A1 price contract.
     market_snapshot: Optional[Dict[str, Any]] = None
+    #: Runner-computed Altman Z inputs (``altman_inputs.altman_inputs_for``),
+    #: feasible or an explicit unavailable result. Empty means "not supplied".
+    altman_inputs: Dict[str, Any] = field(default_factory=dict)
     challenge_initial: Optional[Dict[str, Any]] = None
     on_provider_return: Optional[Callable[[str], Any]] = None
     on_repair_start: Optional[Callable[[str, str], Any]] = None

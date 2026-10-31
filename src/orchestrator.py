@@ -36,6 +36,7 @@ from src.execution_store import (
     RecoveryChoice,
     unresolved_recovery_agents,
 )
+from src.altman_inputs import altman_inputs_for
 from src.forensic_inputs import forensic_inputs_for
 from src.provenance import ProvenanceLog
 from src.resources import (
@@ -803,6 +804,7 @@ class FUWForgeOrchestrator:
     ) -> AgentExecution:
         """Freeze inputs and persist a request before execution; reuse validated bytes only."""
         import hashlib
+        from src.altman_inputs import CALCULATOR_VERSION as ALTMAN_CALCULATOR_VERSION
         from src.utils.beneish import CALCULATOR_VERSION
 
         def digest(value: Any) -> str:
@@ -826,6 +828,10 @@ class FUWForgeOrchestrator:
             forensic_inputs=forensic_inputs_for(ledger, as_of=params.analysis_date),
             source_coverage=self.evidence_pack.coverage_summary() if self.evidence_pack else [],
             market_snapshot=self.evidence_pack.market_snapshot() if self.evidence_pack else None,
+            altman_inputs=(
+                altman_inputs_for(ledger, self.evidence_pack.market_snapshot())
+                if self.evidence_pack and agent_id == "A3" else {}
+            ),
             challenge_initial=copy.deepcopy(challenge_initial),
         )
         started = time.perf_counter()
@@ -855,6 +861,7 @@ class FUWForgeOrchestrator:
             request_hash = digest({"agent": agent_id, "prompt": prompt, "params": context.params,
                 "depth": depth_config, "focus": focus_overrides, "strict": self.strict,
                 "flow": self.flow_config, "calculator": CALCULATOR_VERSION,
+                "altman_calculator": ALTMAN_CALCULATOR_VERSION,
                 "code": code_hash, "randomize": getattr(agent, "randomize", False),
                 "challenge_initial": challenge_initial,
                 "schema": hashlib.sha256(self.schema_path.read_bytes()).hexdigest()})

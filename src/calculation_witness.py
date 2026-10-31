@@ -302,6 +302,10 @@ def validate_witness(
                 )
 
     # Formula-specific replay if known
+    if formula_id == "altman_z_score":
+        from src.altman_inputs import replay_errors
+
+        errors.extend(replay_errors(data))
     if formula_id == "beneish_m_score":
         from src.forensic_inputs import validate_forensic_witness
         from src.utils.beneish import BENEISH_INPUT_KEYS, beneish_score
