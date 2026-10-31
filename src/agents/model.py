@@ -29,8 +29,11 @@ from src.agents.output_format import canonical_artifacts, parse_object, weighted
 from src.agents.output_schema import envelope_schema
 from src.data_gaps import ALLOWED_DATA_GAPS, missing_data_map
 from src.envelope import Envelope
+from src.resources import resolve_env_path
 from src.utils.checksum import checksum_json
 from src.utils.finance import generate_comparison_fields, resolve_weights
+
+_GEMINI_ENV_PATH = resolve_env_path() or (Path(__file__).resolve().parents[2] / ".env")
 
 
 def _strict_mode() -> bool:
@@ -434,7 +437,7 @@ class AgyCliBackend(ModelBackend):
         cmd = [
             self.binary_path,
             "--print",
-            prompt,
+            "-",
             "--model",
             self.model,
             "--output-format",
@@ -443,6 +446,7 @@ class AgyCliBackend(ModelBackend):
         ]
         result = subprocess.run(
             cmd,
+            input=prompt,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -594,9 +598,6 @@ class OpenCodeGoBackend(OpenAICompatibleBackend):
                 except Exception:
                     pass
         return ""
-
-
-_GEMINI_ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
 
 
 def _parse_retry_after(val: Any) -> Optional[float]:

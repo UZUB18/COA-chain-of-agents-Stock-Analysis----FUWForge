@@ -9,6 +9,7 @@ checkouts / editable installs and standalone installed wheel / sdist packages.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
@@ -54,6 +55,29 @@ def is_checkout_workspace() -> bool:
         return False
     repo_config = _CHECKOUT_ROOT / "config" / "depth_modes.yaml"
     return repo_config.is_file()
+
+
+def resolve_env_path() -> Optional[Path]:
+    """Find the project .env file checking overrides, cwd parents, and checkout root."""
+    override = os.environ.get("FUWFORGE_ENV_PATH") or os.environ.get("DOTENV_PATH")
+    if override and Path(override).is_file():
+        return Path(override).resolve()
+
+    try:
+        cur = Path.cwd().resolve()
+        for p in [cur, *cur.parents]:
+            candidate = p / ".env"
+            if candidate.is_file():
+                return candidate
+    except Exception:
+        pass
+
+    for p in [_CHECKOUT_ROOT, *_CHECKOUT_ROOT.parents]:
+        candidate = p / ".env"
+        if candidate.is_file():
+            return candidate
+
+    return None
 
 
 def get_resource_path(

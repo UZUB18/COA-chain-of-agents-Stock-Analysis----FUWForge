@@ -304,3 +304,27 @@ def test_intake_gaps_reach_agents_and_report_and_are_tamper_evident(tmp_path):
     data["intake_coverage"]["annual_filings"]["omissions"][0]["reason"] = "edited after sealing"
     sealed.write_text(json.dumps(data))
     assert not verify_run(output, strict=True).valid
+
+
+def test_validate_peer_address_rejects_private_ip():
+    from src.evidence import _validate_peer_address
+
+    class MockSock:
+        def __init__(self, ip):
+            self._ip = ip
+
+        def getpeername(self):
+            return (self._ip, 443)
+
+    class MockResp:
+        def __init__(self, ip):
+            self.fp = type("FP", (), {"raw": type("Raw", (), {"_sock": MockSock(ip)})()})()
+
+    # Public IP should pass without exception
+    _validate_peer_address(MockResp("93.184.216.34"))
+
+    # Private IP (loopback, private LAN, CGNAT) must raise ValueError
+    for bad_ip in ("127.0.0.1", "10.0.0.1", "192.168.1.1", "169.254.169.254"):
+        with pytest.raises(ValueError, match="is not a public global IP"):
+            _validate_peer_address(MockResp(bad_ip))
+

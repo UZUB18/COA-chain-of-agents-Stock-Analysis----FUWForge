@@ -176,3 +176,32 @@ def test_openrouter_is_not_a_supported_provider(tmp_path):
         build_parser().parse_args(["monitor", str(tmp_path), "--doc", "test", "--provider", "openrouter"])
     with pytest.raises(ValueError):
         sentry.evaluate_document(tmp_path, "test", provider="openrouter")
+
+
+def test_agy_cli_backend_passes_prompt_via_stdin(monkeypatch):
+    """AgyCliBackend passes prompt through stdin instead of cmdline arguments."""
+    captured = {}
+
+    def mock_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["input"] = kwargs.get("input")
+        return SimpleNamespace(returncode=0, stdout="test-output", stderr="")
+
+    monkeypatch.setattr(model_module.subprocess, "run", mock_run)
+    monkeypatch.setattr(model_module.os.path, "exists", lambda _: True)
+
+    backend = model_module.AgyCliBackend(model="gemini-3.8-flash-low")
+    res = backend.generate("very long prompt content that should be in stdin")
+    assert res == "test-output"
+    assert captured["input"] == "very long prompt content that should be in stdin"
+    assert "--print" in captured["cmd"]
+    idx = captured["cmd"].index("--print")
+    assert captured["cmd"][idx + 1] == "-"
+
+
+def test_resolve_env_path_with_env_override(monkeypatch, tmp_path):
+    from src.resources import resolve_env_path
+    custom_env = tmp_path / "custom.env"
+    custom_env.write_text("TEST=1\n")
+    monkeypatch.setenv("FUWFORGE_ENV_PATH", str(custom_env))
+    assert resolve_env_path() == custom_env

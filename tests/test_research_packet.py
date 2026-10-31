@@ -485,3 +485,59 @@ def test_cli_export_packet_strict_on_incomplete_run():
         proc = subprocess.run(cmd, capture_output=True, text=True, cwd=str(PROJECT_ROOT))
         assert proc.returncode != 0
         assert "Strict export failed" in proc.stderr
+
+
+def test_research_packet_scorecard_and_witness_fields_and_missing_date(tmp_path: Path):
+    """Verify Task 5.3 fixes: Scorecard.Overall.score, witness extra fields, and missing date."""
+    run_dir = tmp_path / "run_5_3"
+    _build_mock_run(run_dir, ticker="FIX53", company="Fix 5.3 Corp")
+
+    # 1. Test Scorecard.Overall.score claim
+    packet = build_packet(run_dir)
+    score_claim = next((c for c in packet["claims"] if c["id"] == "scorecard_total"), None)
+    assert score_claim is not None
+    # Scorecard in mock has Overall score ~8.32 or numeric
+    assert "Overall score: " in score_claim["statement"]
+    assert "N/A" not in score_claim["statement"]
+
+    # 2. Test Calculations schema permits input_periods, input_bases, derivations
+    calc_with_witness = {
+        "formula_id": "beneish_m_score",
+        "formula_version": "2.0.0",
+        "calculator_id": "beneish_v2",
+        "result": -2.45,
+        "inputs": {"sgi": 1.1},
+        "parameters": {},
+        "input_fact_ids": {"sgi": ["fact_1"]},
+        "input_periods": {"current": "2025", "prior": "2024"},
+        "input_bases": {"sgi": "reported"},
+        "derivations": {"sgi": "derived"},
+        "units": {},
+        "provenance": "runner_computed",
+        "notes": None,
+    }
+    packet["calculations"].append(calc_with_witness)
+    errs = validate_packet(packet, run_dir=run_dir, expected_ticker="FIX53")
+    assert errs == [], f"Validation failed with: {errs}"
+
+    # 3. Test approved status is rejected by schema
+    packet["approval_status"] = "approved"
+    errs_app = validate_packet(packet, run_dir=run_dir, expected_ticker="FIX53")
+    assert len(errs_app) > 0
+    assert any("approval_status" in err for err in errs_app)
+    packet["approval_status"] = "pending_human_review"
+
+    # 4. Test missing analysis_date raises export error
+    (run_dir / "run_manifest.json").unlink(missing_ok=True)
+    for s_file in run_dir.glob("*summary.json"):
+        s_file.unlink(missing_ok=True)
+    if (run_dir / "evidence" / "evidence.json").is_file():
+        (run_dir / "evidence" / "evidence.json").unlink(missing_ok=True)
+    for ef in run_dir.glob("*_envelope.json"):
+        data = json.loads(ef.read_text(encoding="utf-8"))
+        if "params" in data and isinstance(data["params"], dict):
+            data["params"].pop("analysis_date", None)
+            ef.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    with pytest.raises(ValueError, match="analysis_date is missing from run metadata"):
+        build_packet(run_dir)
+

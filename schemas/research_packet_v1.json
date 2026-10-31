@@ -57,7 +57,7 @@
     },
     "approval_status": {
       "type": "string",
-      "enum": ["pending_human_review", "unapproved", "rejected", "approved"]
+      "enum": ["pending_human_review", "unapproved", "rejected"]
     },
     "disclaimer": {
       "type": "string",
@@ -142,6 +142,9 @@
           "inputs": { "type": "object" },
           "parameters": { "type": "object" },
           "input_fact_ids": { "type": "object" },
+          "input_periods": { "type": ["object", "null"] },
+          "input_bases": { "type": ["object", "null"] },
+          "derivations": { "type": ["object", "null"] },
           "units": { "type": "object" },
           "provenance": { "type": "string" },
           "notes": { "type": ["string", "null"] }

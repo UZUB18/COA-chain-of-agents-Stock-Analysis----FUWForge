@@ -15,6 +15,7 @@ import os
 import re
 import shutil
 import socket
+import threading
 import time
 import urllib.parse
 import urllib.request
@@ -26,13 +27,15 @@ from zoneinfo import ZoneInfo
 
 from dotenv import dotenv_values
 
+from src.resources import resolve_env_path
 from src.utils.checksum import sha256_digest
 
 MAX_DOCUMENT_BYTES = 8 * 1024 * 1024
 MAX_DOCUMENTS = 16
 MAX_ATTACHMENTS = 16
-_ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
+_ENV_PATH = resolve_env_path() or (Path(__file__).resolve().parents[1] / ".env")
 _LAST_SEC_REQUEST = 0.0
+_SEC_THROTTLE_LOCK = threading.Lock()
 INTAKE_COVERAGE_VERSION = "intake_coverage_v1"
 #: Daily-bar policy for newly collected market history. A transform without
 #: ``transform_version`` is the legacy (v1) rule and reconstructs unchanged.
@@ -59,6 +62,21 @@ def sec_user_agent() -> str:
     return value
 
 
+def _validate_peer_address(response: Any) -> None:
+    try:
+        sock = getattr(response, "fp", None)
+        raw = getattr(sock, "raw", None)
+        sock_obj = getattr(raw, "_sock", None) or getattr(response, "sock", None)
+        if sock_obj is not None and hasattr(sock_obj, "getpeername"):
+            peer = sock_obj.getpeername()
+            if isinstance(peer, (tuple, list)) and len(peer) >= 1:
+                ip = ipaddress.ip_address(peer[0])
+                if not ip.is_global:
+                    raise ValueError(f"Connected peer IP {ip} is not a public global IP.")
+    except (AttributeError, OSError, TypeError):
+        pass
+
+
 def download_public_document(url: str):
     """Bounded public download. Never sends model API keys or SEC contact to other hosts."""
     global _LAST_SEC_REQUEST
@@ -67,11 +85,15 @@ def download_public_document(url: str):
     is_sec = host in ("sec.gov", "www.sec.gov", "data.sec.gov")
     user_agent = sec_user_agent() if is_sec else "FUWForge/2.1 public-document-retrieval"
     if is_sec:
-        time.sleep(max(0.0, 0.25 - (time.monotonic() - _LAST_SEC_REQUEST)))
-        _LAST_SEC_REQUEST = time.monotonic()
+        with _SEC_THROTTLE_LOCK:
+            elapsed = time.monotonic() - _LAST_SEC_REQUEST
+            if elapsed < 0.25:
+                time.sleep(0.25 - elapsed)
+            _LAST_SEC_REQUEST = time.monotonic()
     req = urllib.request.Request(url, headers={"User-Agent": user_agent, "Accept-Encoding": "identity"})
     opener = urllib.request.build_opener(_NoRedirects())
     with opener.open(req, timeout=30) as response:
+        _validate_peer_address(response)
         if response.status != 200:
             raise ValueError(f"Evidence request did not succeed: HTTP {response.status}.")
         if response.headers.get("Content-Encoding", "identity") not in ("", "identity"):

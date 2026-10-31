@@ -67,6 +67,7 @@ def make_test_pack(
         json.dumps({
             "schema_version": "1",
             "ticker": ticker,
+            "analysis_date": "2025-01-15",
             "documents": [document],
             "attachments": attachments,
         }, indent=2) + "\n",
@@ -378,3 +379,52 @@ def test_restore_bundle_into_fresh_directory(tmp_path: Path):
             res["manifest_sha256"],
             expected_extraction_version="999.0",
         )
+
+
+def test_build_bundle_refuses_to_guess_analysis_date_when_missing(tmp_path: Path):
+    """build_bundle refuses to infer cutoff from newest document if missing."""
+    ev_json = make_test_pack(tmp_path, text="No cutoff", ticker="NOCUT")
+    # Strip analysis_date from evidence.json
+    data = json.loads(ev_json.read_text(encoding="utf-8"))
+    data.pop("analysis_date", None)
+    ev_json.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+    bundle_out = tmp_path / "bundle_fail"
+    with pytest.raises(ValueError, match="refusing to guess analysis cutoff"):
+        build_bundle(ev_json, bundle_out)
+
+    # But succeeds if explicitly passed
+    bundle_ok = tmp_path / "bundle_ok"
+    res = build_bundle(ev_json, bundle_ok, analysis_date="2025-01-15")
+    assert res["manifest_sha256"]
+
+
+def test_restore_bundle_fails_without_analysis_date_and_succeeds_with_flag(tmp_path: Path):
+    """restore_bundle requires analysis_date in manifest or explicit override."""
+    ev_json = make_test_pack(tmp_path, ticker="NOAN")
+    bundle_out = tmp_path / "bundle_legacy"
+    res = build_bundle(ev_json, bundle_out)
+
+    # Tamper with bundle manifest to remove analysis_date (simulating legacy bundle)
+    manifest_path = bundle_out / "manifest.json"
+    m_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    m_data.pop("analysis_date", None)
+    m_bytes = json.dumps(m_data, indent=2).encode("utf-8") + b"\n"
+    manifest_path.write_bytes(m_bytes)
+    m_sha = hashlib.sha256(m_bytes).hexdigest()
+
+    target = tmp_path / "restore_fail"
+    with pytest.raises(ValueError, match="manifest is missing required 'analysis_date'"):
+        restore_bundle(bundle_out, target, m_sha)
+
+    # Supplying analysis_date explicitly succeeds
+    target_ok = tmp_path / "restore_ok"
+    pack = restore_bundle(bundle_out, target_ok, m_sha, analysis_date="2025-01-15")
+    assert pack.analysis_date == "2025-01-15"
+
+
+def test_verify_and_restore_evidence_share_default_512mib_budget(tmp_path: Path):
+    """verify_bundle and restore_bundle default to DEFAULT_BUNDLE_MAX_TOTAL_BYTES (512 MiB)."""
+    assert verify_bundle.__kwdefaults__["max_total_bytes"] == DEFAULT_BUNDLE_MAX_TOTAL_BYTES
+    assert restore_bundle.__kwdefaults__["max_total_bytes"] == DEFAULT_BUNDLE_MAX_TOTAL_BYTES
+

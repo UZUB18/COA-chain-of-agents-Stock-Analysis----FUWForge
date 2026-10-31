@@ -21,6 +21,7 @@ import math
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Union
 
+from src.data_gaps import missing_data_map
 from src.envelope import Envelope
 from src.resources import get_schema_path
 from src.run_semantic_audit import _load_fact_ledger, semantic_audit
@@ -59,10 +60,6 @@ FORBIDDEN_SOURCE_KEYS = frozenset(
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
-
-
-def _today_date() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
 def file_sha256(path: Union[str, Path]) -> str:
@@ -351,12 +348,21 @@ def build_packet(
     if not analysis_date and (run_dir / "evidence" / "evidence.json").is_file():
         try:
             ev_raw = json.loads((run_dir / "evidence" / "evidence.json").read_text(encoding="utf-8"))
-            doc_dates = [d.get("doc_date") for d in ev_raw.get("documents", []) if isinstance(d, dict) and d.get("doc_date")]
-            if doc_dates:
-                analysis_date = max(doc_dates)
+            analysis_date = ev_raw.get("analysis_date") or (
+                ev_raw.get("intake_coverage", {}).get("analysis_date")
+                if isinstance(ev_raw.get("intake_coverage"), dict) else None
+            )
+            if not analysis_date:
+                doc_dates = [d.get("doc_date") for d in ev_raw.get("documents", []) if isinstance(d, dict) and d.get("doc_date")]
+                if doc_dates:
+                    analysis_date = max(doc_dates)
         except Exception:
             pass
-    analysis_date = str(analysis_date or _today_date()).strip()
+    if not analysis_date:
+        raise ValueError(
+            "analysis_date is missing from run metadata; refusing to export research packet without a verified analysis date"
+        )
+    analysis_date = str(analysis_date).strip()
 
     run_id = str(
         manifest.get("run_id")
@@ -601,12 +607,14 @@ def build_packet(
     if "A7" in envelopes:
         scorecard = envelopes["A7"].artifacts.get("Scorecard")
         if isinstance(scorecard, dict):
+            overall = scorecard.get("Overall", {})
+            overall_score = overall.get("score") if isinstance(overall, dict) else scorecard.get("total_score")
             claims.append(
                 {
                     "id": "scorecard_total",
                     "agent_id": "A7",
                     "category": "scorecard",
-                    "statement": f"Overall score: {scorecard.get('total_score', 'N/A')}",
+                    "statement": f"Overall score: {overall_score if overall_score is not None else 'N/A'}",
                     "thesis": None,
                     "evidence": [],
                     "fact_ids": [],
@@ -680,7 +688,8 @@ def build_packet(
 
     # Missing data from envelopes
     for agent_id, env in sorted(envelopes.items()):
-        missing_map = (env.metrics or {}).get("missing_data") or {}
+        raw_missing = (env.metrics or {}).get("missing_data")
+        missing_map = missing_data_map(raw_missing) if raw_missing else {}
         for key, reason in missing_map.items():
             lim = f"Missing data ({agent_id}.{key}): {reason}"
             if lim not in limitations:

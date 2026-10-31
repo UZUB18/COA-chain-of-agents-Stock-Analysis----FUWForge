@@ -1345,20 +1345,50 @@ def cmd_bundle_evidence(args: argparse.Namespace) -> None:
     from src.evidence_bundle import build_bundle
 
     run_path = Path(args.run_dir)
+    manifest_date = None
     if run_path.is_file() and run_path.name == "evidence.json":
         ev_path = run_path
+        for parent_dir in (run_path.parent, run_path.parent.parent):
+            if (parent_dir / "run_manifest.json").is_file():
+                try:
+                    rm = json.loads((parent_dir / "run_manifest.json").read_text(encoding="utf-8"))
+                    manifest_date = rm.get("analysis_date")
+                    if manifest_date:
+                        break
+                except Exception:
+                    pass
     elif (run_path / "evidence" / "evidence.json").is_file():
         ev_path = run_path / "evidence" / "evidence.json"
+        if (run_path / "run_manifest.json").is_file():
+            try:
+                rm = json.loads((run_path / "run_manifest.json").read_text(encoding="utf-8"))
+                manifest_date = rm.get("analysis_date")
+            except Exception:
+                pass
+        if not manifest_date and (run_path / "summary.json").is_file():
+            try:
+                sm = json.loads((run_path / "summary.json").read_text(encoding="utf-8"))
+                manifest_date = sm.get("params", {}).get("analysis_date") or sm.get("analysis_date")
+            except Exception:
+                pass
     elif (run_path / "evidence.json").is_file():
         ev_path = run_path / "evidence.json"
+        if (run_path / "run_manifest.json").is_file():
+            try:
+                rm = json.loads((run_path / "run_manifest.json").read_text(encoding="utf-8"))
+                manifest_date = rm.get("analysis_date")
+            except Exception:
+                pass
     else:
         raise SystemExit(
             f"evidence.json not found in {run_path} (checked {run_path / 'evidence' / 'evidence.json'} and {run_path / 'evidence.json'})."
         )
 
+    analysis_date = getattr(args, "analysis_date", None) or manifest_date
+
     out_path = Path(args.output)
     try:
-        res = build_bundle(ev_path, out_path)
+        res = build_bundle(ev_path, out_path, analysis_date=analysis_date)
     except Exception as exc:
         raise SystemExit(f"Failed to build evidence bundle: {exc}")
 
@@ -1378,8 +1408,16 @@ def cmd_verify_evidence(args: argparse.Namespace) -> None:
     if not bundle_dir.exists() or not bundle_dir.is_dir():
         raise SystemExit(f"Bundle directory not found: {bundle_dir}")
 
+    max_bytes = getattr(args, "max_total_bytes", None)
+    if getattr(args, "max_size_mb", None) is not None:
+        max_bytes = int(args.max_size_mb) * 1024 * 1024
+
+    kwargs: dict[str, Any] = {}
+    if max_bytes is not None:
+        kwargs["max_total_bytes"] = max_bytes
+
     try:
-        res = verify_bundle(bundle_dir, args.manifest_sha256)
+        res = verify_bundle(bundle_dir, args.manifest_sha256, **kwargs)
     except Exception as exc:
         raise SystemExit(f"Evidence bundle verification FAILED: {exc}")
 
@@ -1397,8 +1435,18 @@ def cmd_restore_evidence(args: argparse.Namespace) -> None:
         raise SystemExit(f"Bundle directory not found: {bundle_dir}")
 
     target_dir = Path(args.output)
+    max_bytes = getattr(args, "max_total_bytes", None)
+    if getattr(args, "max_size_mb", None) is not None:
+        max_bytes = int(args.max_size_mb) * 1024 * 1024
+
+    kwargs: dict[str, Any] = {}
+    if max_bytes is not None:
+        kwargs["max_total_bytes"] = max_bytes
+    if getattr(args, "analysis_date", None):
+        kwargs["analysis_date"] = args.analysis_date
+
     try:
-        pack = restore_bundle(bundle_dir, target_dir, args.manifest_sha256)
+        pack = restore_bundle(bundle_dir, target_dir, args.manifest_sha256, **kwargs)
     except Exception as exc:
         raise SystemExit(f"Evidence bundle restoration FAILED: {exc}")
 
@@ -1733,6 +1781,9 @@ def build_parser() -> argparse.ArgumentParser:
     bundle_ev_parser.add_argument(
         "--output", required=True, help="Destination directory for the evidence bundle."
     )
+    bundle_ev_parser.add_argument(
+        "--analysis-date", default=None, help="Explicit analysis cutoff date (YYYY-MM-DD)."
+    )
     bundle_ev_parser.set_defaults(func=cmd_bundle_evidence)
 
     verify_ev_parser = subparsers.add_parser(
@@ -1746,6 +1797,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--manifest-sha256",
         required=True,
         help="Independently trusted 64-character hex SHA-256 manifest digest.",
+    )
+    verify_ev_parser.add_argument(
+        "--max-total-bytes", type=int, default=None, help="Max total bytes budget for bundle."
+    )
+    verify_ev_parser.add_argument(
+        "--max-size-mb", type=int, default=None, help="Max total MiB budget for bundle."
     )
     verify_ev_parser.set_defaults(func=cmd_verify_evidence)
 
@@ -1765,6 +1822,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         required=True,
         help="Clean destination directory for the restored evidence pack.",
+    )
+    restore_ev_parser.add_argument(
+        "--analysis-date", default=None, help="Explicit analysis cutoff date (YYYY-MM-DD)."
+    )
+    restore_ev_parser.add_argument(
+        "--max-total-bytes", type=int, default=None, help="Max total bytes budget for bundle."
+    )
+    restore_ev_parser.add_argument(
+        "--max-size-mb", type=int, default=None, help="Max total MiB budget for bundle."
     )
     restore_ev_parser.set_defaults(func=cmd_restore_evidence)
 

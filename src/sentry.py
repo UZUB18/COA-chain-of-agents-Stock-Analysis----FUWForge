@@ -11,8 +11,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from dotenv import dotenv_values
 
+from src.resources import resolve_env_path
+
 _API_KEY_ENV = "TYPESAFE_API_KEY"
-_ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
+_ENV_PATH = resolve_env_path() or (Path(__file__).resolve().parents[1] / ".env")
 
 
 @dataclass

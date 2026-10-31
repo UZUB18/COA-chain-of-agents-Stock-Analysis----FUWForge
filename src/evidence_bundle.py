@@ -66,7 +66,7 @@ def verify_bundle(
     root: Union[Path, str],
     expected_manifest_sha256: str,
     *,
-    max_total_bytes: int = DEMO_BUNDLE_MAX_TOTAL_BYTES,
+    max_total_bytes: int = DEFAULT_BUNDLE_MAX_TOTAL_BYTES,
 ) -> Dict[str, Any]:
     """Check listed files, sizes, hashes, containment and absence of extra files.
 
@@ -218,11 +218,16 @@ def build_bundle(
         if not ticker:
             raise ValueError("ticker not specified and cannot be inferred from evidence.json")
 
-    docs = ev_data.get("documents", [])
     if analysis_date is None:
-        if not docs:
-            raise ValueError("analysis_date not specified and cannot be inferred from empty documents")
-        analysis_date = max(str(d["doc_date"]) for d in docs)
+        analysis_date = ev_data.get("analysis_date") or (
+            ev_data.get("intake_coverage", {}).get("analysis_date")
+            if isinstance(ev_data.get("intake_coverage"), dict) else None
+        )
+        if not analysis_date:
+            raise ValueError(
+                "analysis_date not specified and missing from evidence; "
+                "refusing to guess analysis cutoff from document dates"
+            )
 
     # Lazy import to avoid circular dependencies
     from src.evidence import EvidencePack
@@ -354,6 +359,7 @@ def restore_bundle(
     *,
     expected_extraction_version: Optional[str] = None,
     max_total_bytes: int = DEFAULT_BUNDLE_MAX_TOTAL_BYTES,
+    analysis_date: Optional[str] = None,
 ) -> EvidencePack:
     """Verify bundle authenticity, check extraction version, and restore into EvidencePack.
 
@@ -368,6 +374,7 @@ def restore_bundle(
         expected_manifest_sha256: Independently trusted manifest SHA-256.
         expected_extraction_version: Optional version to check.
         max_total_bytes: Total byte limit for verification.
+        analysis_date: Optional explicit cutoff date (required for legacy bundles lacking analysis_date).
 
     Returns:
         Instantiated and verified EvidencePack instance.
@@ -402,9 +409,10 @@ def restore_bundle(
         raise ValueError("restored bundle is missing evidence.json")
 
     ticker = manifest_data.get("ticker") or ""
-    analysis_date = manifest_data.get("analysis_date")
-    if not analysis_date:
-        docs = manifest_data.get("documents", [])
-        analysis_date = max(d["doc_date"] for d in docs) if docs else "2099-12-31"
+    resolved_analysis_date = analysis_date or manifest_data.get("analysis_date")
+    if not resolved_analysis_date:
+        raise ValueError(
+            "manifest is missing required 'analysis_date'; specify --analysis-date to restore bundle"
+        )
 
-    return EvidencePack(evidence_json, ticker=ticker, analysis_date=analysis_date)
+    return EvidencePack(evidence_json, ticker=ticker, analysis_date=resolved_analysis_date)
