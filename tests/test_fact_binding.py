@@ -883,3 +883,23 @@ def test_percent_and_ratio_are_a_scale_mismatch_not_equal_units():
     assert "scale mismatch" in describe_unit_mismatch("ratio", "percent")
     assert units_compatible("percent", "pct")
     assert units_compatible("ratio", "pure")
+
+
+def test_dimensionless_division_keeps_percent_scale():
+    import ast
+
+    from src.fact_binding import InferredUnit, _infer_unit_ast_node, check_derived_unit_coherence
+
+    env = {
+        "a_pct": InferredUnit("ratio", None, 0.01),
+        "b_pct": InferredUnit("ratio", None, 0.01),
+        "r": InferredUnit("ratio", None, 1.0),
+    }
+
+    def check(expr, expected):
+        return check_derived_unit_coherence(expected, _infer_unit_ast_node(ast.parse(expr, mode="eval"), env))[0]
+
+    assert check("a_pct / r", "percent")
+    assert not check("a_pct / r", "ratio")
+    assert check("a_pct / b_pct", "ratio")
+    assert not check("a_pct / b_pct", "percent")

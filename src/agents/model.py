@@ -66,8 +66,9 @@ _SCALE_SUFFIXES = (
     ("trillion", 1e12), ("billion", 1e9), ("million", 1e6), ("thousand", 1e3),
     ("tn", 1e12), ("bn", 1e9), ("mn", 1e6), ("mm", 1e6),
     ("t", 1e12), ("b", 1e9), ("m", 1e6), ("k", 1e3),
-    ("x", 1.0),  # multiples such as "15x" P/E
+    ("times", 1.0), ("x", 1.0),  # multiples such as "15x" P/E
 )
+_GROUPED_NUMBER = re.compile(r"^[-+]?\$?\d{1,3}(,\d{3})+(\.\d+)?")
 
 
 def _parse_scaled(text: str) -> Optional[float]:
@@ -76,7 +77,13 @@ def _parse_scaled(text: str) -> Optional[float]:
     Anything else that is not a plain number is unparseable (``None``); an
     unknown suffix is never guessed at.
     """
-    s = text.strip().replace(",", "").replace("$", "")
+    s = text.strip()
+    if "," in s:
+        # Only thousands grouping ("4,100"); "1,2" may be a decimal comma.
+        if not _GROUPED_NUMBER.match(s):
+            return None
+        s = s.replace(",", "")
+    s = s.replace("$", "")
     if s.endswith("%"):
         s = s[:-1].strip()
     else:
@@ -94,17 +101,6 @@ def _parse_scaled(text: str) -> Optional[float]:
     except ValueError:
         return None
     return value if math.isfinite(value) else None
-
-
-def _parse_numeric(val: Any, default_val: float = 0.0) -> float:
-    if val is None or isinstance(val, bool):
-        return default_val
-    if isinstance(val, (int, float)):
-        return float(val)
-    if isinstance(val, str):
-        parsed = _parse_scaled(val)
-        return default_val if parsed is None else parsed
-    return default_val
 
 
 def _canonical_citation_url(url: str) -> str:
@@ -1699,6 +1695,16 @@ class ModelAgent(BaseAgent):
                 artifacts[key] = value
                 injected.append(key)
 
+        def number(path: str, raw: Any, placeholder: float, *, positive: bool = False) -> float:
+            # A present value that cannot be read is replaced by a placeholder;
+            # record exactly which field, so it is never mistaken for model data.
+            parsed = _parse_numeric_or_none(raw)
+            if parsed is None or (positive and parsed <= 0):
+                if path not in injected:
+                    injected.append(path)
+                return placeholder
+            return parsed
+
         if self.id == "A1":
             default("price_timestamp_eet", f"{analysis_date}T16:00:00Z")
             default("shares_basic", 1000000000.0)
@@ -1715,18 +1721,16 @@ class ModelAgent(BaseAgent):
             # Normalize A1 types
             if not isinstance(artifacts.get("price_timestamp_eet"), str) or not artifacts["price_timestamp_eet"].strip():
                 artifacts["price_timestamp_eet"] = f"{analysis_date}T16:00:00Z"
-            sb = _parse_numeric(artifacts.get("shares_basic"), 1000000000.0)
-            artifacts["shares_basic"] = sb if sb > 0 else 1000000000.0
-            sd = _parse_numeric(artifacts.get("shares_diluted"), artifacts["shares_basic"] * 1.02)
-            artifacts["shares_diluted"] = sd if sd > 0 else artifacts["shares_basic"] * 1.02
+            artifacts["shares_basic"] = number(
+                "shares_basic", artifacts.get("shares_basic"), 1000000000.0, positive=True)
+            artifacts["shares_diluted"] = number(
+                "shares_diluted", artifacts.get("shares_diluted"), artifacts["shares_basic"] * 1.02, positive=True)
             mcc = artifacts.get("market_cap_check")
             if not isinstance(mcc, dict):
                 mcc = {}
                 artifacts["market_cap_check"] = mcc
-            p = _parse_numeric(mcc.get("price"), 100.0)
-            s = _parse_numeric(mcc.get("shares"), artifacts["shares_basic"])
-            p = p if p > 0 else 100.0
-            s = s if s > 0 else artifacts["shares_basic"]
+            p = number("market_cap_check.price", mcc.get("price"), 100.0, positive=True)
+            s = number("market_cap_check.shares", mcc.get("shares"), artifacts["shares_basic"], positive=True)
             mcc["price"], mcc["shares"], mcc["cap"] = p, s, p * s
 
             if "RAW_DATA_PACK" not in data["sections_md"]:
@@ -1827,8 +1831,8 @@ class ModelAgent(BaseAgent):
             )
             flag = str(artifacts.get("OCF_vs_NI_Flag") or "").capitalize()
             artifacts["OCF_vs_NI_Flag"] = flag if flag in ("Aligned", "Divergent", "Negative") else "Aligned"
-            artifacts["PEG_TTM"] = _parse_numeric(artifacts.get("PEG_TTM"), 1.2)
-            artifacts["PEG_Fwd"] = _parse_numeric(artifacts.get("PEG_Fwd"), 1.1)
+            artifacts["PEG_TTM"] = number("PEG_TTM", artifacts.get("PEG_TTM"), 1.2)
+            artifacts["PEG_Fwd"] = number("PEG_Fwd", artifacts.get("PEG_Fwd"), 1.1)
             hf = str(artifacts.get("HypeFlag") or "")
             if hf.lower() in ("reality", "low"):
                 artifacts["HypeFlag"] = "Reality"
@@ -1850,12 +1854,12 @@ class ModelAgent(BaseAgent):
             default("ESG_Momentum", "Improving")
             default("LowSampleSizeCultureData", False)
 
-            artifacts["CEO_Pay_Ratio"] = max(0.0, _parse_numeric(artifacts.get("CEO_Pay_Ratio"), 110.0))
+            artifacts["CEO_Pay_Ratio"] = max(0.0, number("CEO_Pay_Ratio", artifacts.get("CEO_Pay_Ratio"), 110.0))
             if not isinstance(artifacts.get("Auditor"), str) or not artifacts["Auditor"].strip():
                 artifacts["Auditor"] = "PricewaterhouseCoopers LLP"
             if not isinstance(artifacts.get("AuditorTenure"), str) or not artifacts["AuditorTenure"].strip():
                 artifacts["AuditorTenure"] = "10 years"
-            gs = _parse_numeric(artifacts.get("GlassdoorScore"), 4.1)
+            gs = number("GlassdoorScore", artifacts.get("GlassdoorScore"), 4.1)
             artifacts["GlassdoorScore"] = min(5.0, max(0.0, gs))
             if not isinstance(artifacts.get("AttritionNote"), str):
                 artifacts["AttritionNote"] = str(artifacts.get("AttritionNote") or "Normal")
@@ -1883,9 +1887,9 @@ class ModelAgent(BaseAgent):
             if not isinstance(sp, dict):
                 artifacts["SentimentSplit"] = {"pos": 0.6, "neu": 0.3, "neg": 0.1, "lookback_days": 90}
             else:
-                p = _parse_numeric(sp.get("pos"), 0.6)
-                u = _parse_numeric(sp.get("neu"), 0.3)
-                n = _parse_numeric(sp.get("neg"), 0.1)
+                p = number("SentimentSplit.pos", sp.get("pos"), 0.6)
+                u = number("SentimentSplit.neu", sp.get("neu"), 0.3)
+                n = number("SentimentSplit.neg", sp.get("neg"), 0.1)
                 tot = p + u + n
                 if tot > 0:
                     sp["pos"] = round(p / tot, 3)

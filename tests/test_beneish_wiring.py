@@ -441,3 +441,18 @@ def test_lenient_path_with_documented_gap_still_adopts_runner_beneish(tmp_path):
     assert beneish["score"] != -1.89
     assert out["metrics"].get("runner_beneish_block") is True
     assert f"Beneish M-Score: **{beneish['score']}**" in out["sections_md"]["SECTION_4_FINANCIAL_FORENSICS"]
+
+
+def test_unreadable_numbers_are_recorded_per_field_when_placeholders_are_used(tmp_path):
+    payload = _raw_a3_payload({"indices": {**ALL_ONE, "tata": -0.0202}})
+    payload["artifacts"]["PEG_TTM"] = "N/A"
+    payload["artifacts"]["PEG_Fwd"] = "1.4"
+    agent = _strict_a3_agent()
+    agent.strict = False
+
+    out = agent._normalize_envelope(payload, _strict_context(tmp_path))
+
+    injected = out["metrics"]["injected_defaults"]
+    assert "PEG_TTM" in injected
+    assert "PEG_Fwd" not in injected
+    assert out["artifacts"]["PEG_Fwd"] == 1.4

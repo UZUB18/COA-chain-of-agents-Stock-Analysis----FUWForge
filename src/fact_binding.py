@@ -1020,6 +1020,12 @@ def _infer_unit_ast_node(node: ast.AST, env_units: Mapping[str, InferredUnit]) -
                 )
 
         elif isinstance(node.op, ast.Div):
+            if left.dimension == DIM_RATIO and right.dimension == DIM_RATIO:
+                # Dimensionless quotient keeps the scales' quotient: a percent
+                # over a ratio is still percent-scaled, percent over percent is
+                # a plain ratio. Must precede the same-dimension branch, which
+                # would otherwise reject percent / ratio as a scale mismatch.
+                return InferredUnit(DIM_RATIO, None, left.scale / right.scale)
             if left.dimension == right.dimension:
                 if left.dimension in (DIM_CURRENCY, DIM_PER_SHARE):
                     if left.currency != right.currency:
@@ -1035,8 +1041,6 @@ def _infer_unit_ast_node(node: ast.AST, env_units: Mapping[str, InferredUnit]) -
                 return InferredUnit(DIM_RATIO, None, 1.0)
             elif left.dimension == DIM_CURRENCY and right.dimension == DIM_COUNT:
                 return InferredUnit(DIM_PER_SHARE, left.currency, left.scale / right.scale)
-            elif left.dimension == DIM_RATIO and right.dimension == DIM_RATIO:
-                return InferredUnit(DIM_RATIO, None, left.scale / right.scale)
             else:
                 raise DerivationUnitError(
                     f"incoherent division: numerator dimension '{left.dimension}' divided by "

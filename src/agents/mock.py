@@ -126,12 +126,9 @@ class MockAgent(BaseAgent):
         market_cap = round(price * shares_basic_val, 2)
 
         # Same derivation as ModelAgent: the evidence pack is part of the input.
-        if context.frozen_checksum:
-            data_checksum = context.frozen_checksum
-        elif context.evidence_checksum:
-            data_checksum = checksum_json({"params": params, "evidence_checksum": context.evidence_checksum})
-        else:
-            data_checksum = checksum_json(params)
+        from src.agents.model import _context_checksum
+
+        data_checksum = _context_checksum(context)
 
         raw_data_pack = (
             f"### Raw Data Intake: {company} ({ticker})\n\n"

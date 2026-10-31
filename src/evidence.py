@@ -250,10 +250,22 @@ def fetch_evidence(
     attachments = list(attachments or [])
     if len(attachments) > MAX_ATTACHMENTS:
         raise ValueError(f"Evidence packs allow at most {MAX_ATTACHMENTS} attachments.")
+    reserved = {"evidence.json"} | {
+        f"D{index:03d}.{suffix}" for index in range(1, len(documents) + 1) for suffix in ("bytes", "txt")
+    }
+    seen_names: set = set()
     for spec in attachments:
         filename = str(spec.get("name") or Path(spec["path"]).name)
         if Path(filename).is_absolute() or ".." in Path(filename).parts:
             raise ValueError("Evidence attachment filenames must be simple relative names.")
+        if filename in reserved or filename in seen_names:
+            raise ValueError(f"Evidence attachment name {filename!r} is reserved or duplicated.")
+        seen_names.add(filename)
+        source = Path(spec["path"])
+        if not source.is_file():
+            raise ValueError(f"Evidence attachment source {source} is not a readable file.")
+        if source.stat().st_size > MAX_DOCUMENT_BYTES:
+            raise ValueError(f"Evidence attachment {filename!r} exceeds the document size limit.")
     output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=False)
     records = []

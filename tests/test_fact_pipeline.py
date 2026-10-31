@@ -45,7 +45,6 @@ from src.evidence import EvidencePack, download_public_document, fetch_evidence
 from src.agents.model import (
     ModelAgent,
     _normalize_beneish,
-    _parse_numeric,
     _parse_numeric_or_none,
 )
 from src.agents.mock import MockAgent

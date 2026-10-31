@@ -259,6 +259,28 @@ def test_fetch_evidence_rejects_too_many_attachments_before_writing(tmp_path):
     assert not out.exists()
 
 
+@pytest.mark.parametrize("names", [["a.json", "a.json"], ["evidence.json"], ["D001.bytes"], ["D001.txt"], ["missing"]])
+def test_fetch_evidence_rejects_unloadable_attachment_sets_before_writing(tmp_path, names):
+    from src.evidence import fetch_evidence
+
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({
+        "ticker": TICKER,
+        "documents": [{"url": "https://example.com/a", "doc_date": "2025-01-01"}],
+    }), encoding="utf-8")
+    source = tmp_path / "facts.json"
+    source.write_text("[]", encoding="utf-8")
+    attachments = [
+        {"path": tmp_path / "absent.json" if name == "missing" else source, "kind": "fact_ledger",
+         "name": "x.json" if name == "missing" else name}
+        for name in names
+    ]
+    out = tmp_path / "out"
+    with pytest.raises(ValueError):
+        fetch_evidence(manifest, out, attachments=attachments)
+    assert not out.exists()
+
+
 # =================================================== 5. SEC routing correctness
 
 

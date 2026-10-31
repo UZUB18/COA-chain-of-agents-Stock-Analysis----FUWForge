@@ -1085,17 +1085,20 @@ def _load_a7(
     )
     if not isinstance(fields, dict):
         if scorecard:
-            overall = scorecard.get("Overall") or {}
-            q_score = overall.get("score", 7.0)
-            v_score = (scorecard.get("Valuation") or {}).get("score", 7.0)
-            m_score = (scorecard.get("Moat") or {}).get("score", 7.0)
-            # Only scorecard values are known; IRRs and the rest stay unmeasured.
+            def score(name: str) -> Optional[float]:
+                entry = scorecard.get(name)
+                value = entry.get("score") if isinstance(entry, dict) else None
+                if isinstance(value, bool) or not isinstance(value, (int, float)):
+                    return None
+                return float(value) if math.isfinite(value) else None
+
+            # Only scorecard values are known; everything else stays unmeasured.
             fields = generate_comparison_fields(
-                quality_score_10=float(q_score),
-                valuation_score_10=float(v_score),
+                quality_score_10=score("Overall"),
+                valuation_score_10=score("Valuation"),
                 expected_5y_irr_base_pct=None,
                 downside_case_5y_irr_pct=None,
-                moat_score_10=float(m_score),
+                moat_score_10=score("Moat"),
             )
         else:
             print(f"[warn] {run_dir}: A7 has no comparison_fields; skipping.")

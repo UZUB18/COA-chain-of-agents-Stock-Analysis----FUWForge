@@ -97,7 +97,8 @@ reports:
   float. The runner produced it with the same function from the same
   JSON-round-tripped inputs, so no allowance is needed.
 - **Model-reported Beneish indices** are compared with the runner's own index
-  values with an absolute allowance of `5e-7` (`agents/model.py`). Models report
+  values with an absolute allowance of `5e-7` (coded as `5.000001e-7` so a value exactly
+  5e-7 away is not lost to float rounding; `agents/model.py`). Models report
   indices to six decimal places; this is that rounding allowance, not a
   tolerance for different numbers. A larger disagreement rejects the response.
 
@@ -135,6 +136,12 @@ reported as a scale mismatch naming the factor. A percent is a ratio with scale
 ```
 scale mismatch: witness unit 'USD' vs fact unit 'USD thousand' differ by a factor of 1000
 ```
+
+In a derivation, dividing two dimensionless operands divides their scales: a
+percent over a ratio stays percent-scaled, a percent over a percent is a plain
+ratio. Named constants carry no unit, so multiplying or dividing by 100 is not
+recognised as a percent/ratio conversion; cite a fact in the unit the witness
+expects instead.
 
 **Incompatible dimensions are rejected, never implicitly converted.** A silent
 conversion is how a 1000x scale error becomes a plausible-looking number.

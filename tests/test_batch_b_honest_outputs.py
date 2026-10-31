@@ -35,3 +35,14 @@ def test_screen_fallback_leaves_unmeasured_fields_null(tmp_path):
     for key in ("expected_5y_irr_base_pct", "downside_case_5y_irr_pct", "fcf_yield_ttm_pct",
                 "evidence_quality_score_10", "data_completeness_score_10"):
         assert fields[key] is None, key
+
+
+def test_screen_fallback_never_invents_missing_scorecard_scores(tmp_path):
+    (tmp_path / "a7_envelope.json").write_text(json.dumps({
+        "agent": {"id": "A7"},
+        "artifacts": {"Scorecard": {"Overall": {"score": 7.5}, "Valuation": {"score": "n/a"}}},
+    }), encoding="utf-8")
+    _, fields, _ = _load_a7(tmp_path)
+    assert fields["quality_score_10"] == 7.5
+    assert fields["valuation_score_10"] is None
+    assert fields["moat_score_10"] is None
