@@ -410,7 +410,10 @@ class FUWForgeOrchestrator:
 
         def mark_dispatch() -> None:
             state["dispatch_started"] = True
-            provenance.flush()
+            # An empty log is an integrity error; a halt before any entry
+            # exists must leave no log at all.
+            if provenance.entries:
+                provenance.flush()
 
         # Phase 1 — A1 Gate
         metrics.start_agent("A1")
@@ -451,7 +454,8 @@ class FUWForgeOrchestrator:
         provenance.append(
             "ORCH", f"A1 checkpoint recorded (checksum={frozen_checksum})."
         )
-        provenance.flush()
+        if not execution.reused:
+            provenance.flush()
 
         # Phase 2 — Parallel Core Analysis (A2–A5)
         phase2_ids = ["A2", "A3", "A4", "A5"]
@@ -459,23 +463,28 @@ class FUWForgeOrchestrator:
             metrics.start_agent(aid)
 
         executions: Dict[str, AgentExecution] = {}
+        phase2_errors: Dict[str, BaseException] = {}
         if mode == "controller":
             for aid in phase2_ids:
-                executions[aid] = self._run_agent(
-                    aid,
-                    params,
-                    depth_config,
-                    focus_overrides,
-                    frozen_checksum,
-                    run_id,
-                    output_root,
-                    provenance,
-                    mode,
-                    envelopes,
-                    store=store,
-                    resume=resume,
-                    on_dispatch=mark_dispatch,
-                )
+                try:
+                    executions[aid] = self._run_agent(
+                        aid,
+                        params,
+                        depth_config,
+                        focus_overrides,
+                        frozen_checksum,
+                        run_id,
+                        output_root,
+                        provenance,
+                        mode,
+                        envelopes,
+                        store=store,
+                        resume=resume,
+                        on_dispatch=mark_dispatch,
+                    )
+                except Exception as exc:
+                    phase2_errors[aid] = exc
+                    break
         else:
             with concurrent.futures.ThreadPoolExecutor(
                 max_workers=min(4, len(phase2_ids))
@@ -501,23 +510,40 @@ class FUWForgeOrchestrator:
                     for aid in phase2_ids
                 }
                 for fut in concurrent.futures.as_completed(futures):
-                    executions[futures[fut]] = fut.result()
+                    aid = futures[fut]
+                    try:
+                        executions[aid] = fut.result()
+                    except Exception as exc:
+                        phase2_errors[aid] = exc
 
-        # Deterministic validation and acceptance in canonical order A2 -> A5
+        # Deterministic validation and acceptance in canonical order A2 -> A5.
+        # Persist every completed independent sibling before re-raising any
+        # sibling failure so the next resume reuses finished work without a
+        # recovery choice.
         for agent_id in phase2_ids:
-            envelopes[agent_id] = self._accept_agent(
-                agent_id,
-                executions[agent_id],
-                params,
-                depth_config,
-                frozen_checksum,
-                mode,
-                provenance,
-                metrics,
-                envelopes,
-                output_root,
-                store=store,
-            )
+            if agent_id not in executions:
+                continue
+            try:
+                envelopes[agent_id] = self._accept_agent(
+                    agent_id,
+                    executions[agent_id],
+                    params,
+                    depth_config,
+                    frozen_checksum,
+                    mode,
+                    provenance,
+                    metrics,
+                    envelopes,
+                    output_root,
+                    store=store,
+                )
+            except Exception as exc:
+                phase2_errors.setdefault(agent_id, exc)
+
+        if phase2_errors:
+            for agent_id in phase2_ids:
+                if agent_id in phase2_errors:
+                    raise phase2_errors[agent_id]
 
         # Phase 3 — Adversarial Loop
         independent_bear = getattr(params, "independent_bear", False) or self.independent_bear
@@ -1148,10 +1174,15 @@ class FUWForgeOrchestrator:
             if store and execution.execution_key:
                 store.mark_failed(execution.execution_key, "acceptance validation failed")
             if mode != "controller":
+                # A reused receipt's raw_response is a reuse stub, not provider
+                # text; never let it replace the archived *_raw.json.
                 self._write_agent_outputs(
                     output_root,
                     agent_id,
-                    AgentOutput(envelope=env, raw_response=execution.raw_response),
+                    AgentOutput(
+                        envelope=env,
+                        raw_response={} if execution.reused else execution.raw_response,
+                    ),
                 )
             raise
 
@@ -1183,12 +1214,24 @@ class FUWForgeOrchestrator:
             )
 
         if mode != "controller" and execution.reused:
-            self._write_agent_outputs(output_root, agent_id, AgentOutput(env, execution.raw_response))
+            # Read-only reuse: leave *_raw.json (provider text) alone and only
+            # restore the envelope file when it is missing or its content
+            # differs from the validated receipt (key order is not content).
+            env_path = output_root / f"{agent_id.lower()}_envelope.json"
+            env_data = env.to_dict()
+            try:
+                current = json.loads(env_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError, RecursionError):
+                current = None
+            if current != env_data:
+                env_path.write_text(json.dumps(env_data, indent=2), encoding="utf-8")
         if store and execution.execution_key and not execution.reused:
             store.mark_validated(execution.execution_key, env.to_dict(), accepted_checksum=env.content_checksum)
 
         prompt_hash = execution.raw_response.get("prompt_sha256")
         detail = f"attempts={execution.attempts}, latency_ms={execution.latency_ms}"
+        if execution.reused:
+            detail += ", reused=true"
         if prompt_hash:
             detail += f", prompt_sha256={prompt_hash}"
         if execution.execution_key:
@@ -1210,6 +1253,7 @@ class FUWForgeOrchestrator:
             retries=max(0, execution.attempts - 1),
             confidence=env.confidence,
             status="passed",
+            reused=execution.reused,
         )
         print(
             f"[{_now_iso()}] [ORCH] Agent {agent_id} accepted ({execution.latency_ms}ms, attempt {execution.attempts}).",
@@ -1452,6 +1496,9 @@ class FUWForgeOrchestrator:
             "params": params.__dict__,
             "checksum": state.get("checksum"),
             "evidence_checksum": state.get("evidence_checksum"),
+            "reused_agents": [
+                aid for aid, metric in metrics.records.items() if metric.reused
+            ],
             "metrics": metrics.to_summary(),
             "outputs": outputs,
             "started_at": state.get("started_at"),

@@ -15,6 +15,7 @@ class AgentMetric:
     retries: int = 0
     confidence: float | None = None
     status: str = "pending"
+    reused: bool = False
 
 
 @dataclass
@@ -32,18 +33,21 @@ class RuntimeMetricsCollector:
         retries: int,
         confidence: float | None,
         status: str,
+        reused: bool = False,
     ) -> None:
         previous = self.records.get(agent_id)
         if previous and previous.status == "passed":
             latency_ms += previous.latency_ms
             retries += previous.retries
             tokens = previous.tokens + tokens if previous.tokens is not None and tokens is not None else None
+            reused = previous.reused and reused
         self.records[agent_id] = AgentMetric(
             latency_ms=latency_ms,
             tokens=tokens,
             retries=retries,
             confidence=confidence,
             status=status,
+            reused=reused,
         )
 
     def to_summary(self) -> Dict[str, Dict[str, int | float | str | None]]:

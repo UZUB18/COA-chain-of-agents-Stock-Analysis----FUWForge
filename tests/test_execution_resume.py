@@ -1641,3 +1641,174 @@ def test_abandoned_receipt_is_durable_across_begin_and_resolve_recovery_unless_o
     retried = store.resolve_recovery(key, "retry", override_abandoned=True)
     assert retried.state == ExecutionState.RUNNING.value
     assert retried.recovery_choice == RecoveryChoice.RETRY.value
+
+
+# -----------------------------------------------------------------------------
+# 10. Task 3.4: Read-only raw files on resume (B8) & sibling persistence (B6)
+# -----------------------------------------------------------------------------
+
+
+def test_resume_does_not_overwrite_raw_files_and_logs_reuse_in_summary_and_provenance(
+    tmp_path,
+):
+    run_dir = tmp_path / "run"
+    params = _resume_params()
+    orch1 = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1")
+    orch1.run("resume_run", params, output_root=run_dir)
+
+    raw_Paths = sorted(run_dir.glob("*_raw.json"))
+    env_paths = sorted(run_dir.glob("*_envelope.json"))
+    assert len(raw_Paths) == 9
+    assert len(env_paths) == 9
+
+    # Stamp a sentinel into each raw file so any overwrite on resume is caught.
+    raw_before: dict[str, bytes] = {}
+    for p in raw_Paths:
+        payload = json.loads(p.read_text(encoding="utf-8"))
+        payload["original_raw_sentinel"] = p.name
+        p.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        raw_before[p.name] = p.read_bytes()
+    env_before = {p.name: p.read_bytes() for p in env_paths}
+
+    orch2 = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1")
+    summary = orch2.run("resume_run", params, output_root=run_dir, resume=True)
+
+    for p in raw_Paths:
+        assert p.read_bytes() == raw_before[p.name], f"{p.name} was overwritten on resume"
+    for p in env_paths:
+        assert p.read_bytes() == env_before[p.name], f"{p.name} was overwritten on resume"
+
+    assert summary.get("reused_agents") == [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5",
+        "A6B",
+        "A6R",
+        "A6",
+        "A7",
+    ]
+    for aid in ("A1", "A2", "A3", "A4", "A5", "A6B", "A6R", "A6", "A7"):
+        assert summary["metrics"][aid].get("reused") is True
+
+    prov_text = (
+        run_dir / f"{params.ticker}_{params.analysis_date}_provenance.log"
+    ).read_text(encoding="utf-8")
+    assert "reused=true" in prov_text
+
+
+def test_resume_restores_missing_or_altered_envelope_but_not_raw(tmp_path):
+    run_dir = tmp_path / "run"
+    params = _resume_params()
+    FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1").run(
+        "resume_run", params, output_root=run_dir
+    )
+    a2_env = run_dir / "a2_envelope.json"
+    a3_env = run_dir / "a3_envelope.json"
+    expected_a2 = json.loads(a2_env.read_text(encoding="utf-8"))
+    expected_a3 = json.loads(a3_env.read_text(encoding="utf-8"))
+    a2_env.unlink()
+    altered = dict(expected_a3, confidence=0.01)
+    a3_env.write_text(json.dumps(altered, indent=2), encoding="utf-8")
+    raw_before = {p.name: p.read_bytes() for p in run_dir.glob("*_raw.json")}
+
+    FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1").run(
+        "resume_run", params, output_root=run_dir, resume=True
+    )
+
+    assert json.loads(a2_env.read_text(encoding="utf-8")) == expected_a2
+    assert json.loads(a3_env.read_text(encoding="utf-8")) == expected_a3
+    assert {p.name: p.read_bytes() for p in run_dir.glob("*_raw.json")} == raw_before
+
+
+@pytest.mark.parametrize("failing_id", ["A2", "A3", "A4", "A5"])
+def test_parallel_sibling_failure_persists_completed_siblings_for_next_resume(
+    tmp_path, failing_id
+):
+    run_dir = tmp_path / f"run_{failing_id}"
+    params = _resume_params()
+
+    orch1 = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1")
+    orig_agent = orch1.registry.resolve(failing_id)
+    orig_run = orig_agent.run
+
+    def _fail_gate_once(context):
+        out = orig_run(context)
+        out.envelope.gates["passed"] = False
+        out.envelope.gates["notes"] = [f"{failing_id} simulated gate failure"]
+        return out
+
+    orig_agent.run = _fail_gate_once
+    orch1.registry.register_instance(orig_agent)
+
+    with pytest.raises(RuntimeError, match=f"{failing_id} hard gate failure"):
+        orch1.run("resume_run", params, output_root=run_dir)
+
+    sibling_ids = [aid for aid in ("A2", "A3", "A4", "A5") if aid != failing_id]
+    with ExecutionStore(run_dir / "execution_ledger.db") as store:
+        for aid in ["A1", *sibling_ids]:
+            receipts = store.get_by_agent(aid)
+            assert len(receipts) == 1
+            assert receipts[0].state == ExecutionState.VALIDATED.value, (
+                f"Expected {aid} to be validated when sibling {failing_id} failed, got {receipts[0].state}"
+            )
+            assert (run_dir / f"{aid.lower()}_envelope.json").is_file()
+            assert (run_dir / f"{aid.lower()}_raw.json").is_file()
+        for downstream in ("A6B", "A6R", "A6", "A7"):
+            assert store.get_by_agent(downstream) == []
+
+    # Because finished siblings were validated and failing_id failed at acceptance
+    # (so its receipt is in 'failed' state, not 'returned'/'running'), unresolved
+    # recovery check is empty.
+    assert unresolved_recovery_agents(run_dir / "execution_ledger.db") == []
+
+    # Now resume with a normal mock orchestrator (and retry for the failed A* receipt):
+    # A1 and the 3 healthy siblings must be reused without re-dispatching!
+    orch2 = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1")
+    dispatched: list[str] = []
+    for aid in ("A1", "A2", "A3", "A4", "A5", "A6B", "A6R", "A6", "A7"):
+        ag = orch2.registry.resolve(aid)
+        orig_run = ag.run
+
+        def _wrap(ctx, _aid=aid, _orig=orig_run):
+            dispatched.append(_aid)
+            return _orig(ctx)
+
+        ag.run = _wrap
+        orch2.registry.register_instance(ag)
+
+    summary = orch2.run(
+        "resume_run",
+        params,
+        output_root=run_dir,
+        resume=True,
+        recovery_choice="retry",
+    )
+    assert summary["status"] == "completed"
+    for aid in ["A1", *sibling_ids]:
+        assert aid not in dispatched, f"Sibling {aid} should have been reused on resume"
+    assert failing_id in dispatched
+    for downstream in ("A6B", "A6R", "A6", "A7"):
+        assert downstream in dispatched
+
+
+def test_parallel_sibling_run_exception_still_accepts_completed_siblings(tmp_path):
+    run_dir = tmp_path / "run_exc_a3"
+    params = _resume_params()
+
+    orch1 = FUWForgeOrchestrator(PROJECT_ROOT, provider="mock", model="mock-v1")
+    a3 = orch1.registry.resolve("A3")
+    a3.run = lambda ctx: (_ for _ in ()).throw(RuntimeError("A3 thread boom"))
+    orch1.registry.register_instance(a3)
+
+    with pytest.raises(RuntimeError, match="A3 thread boom"):
+        orch1.run("resume_run", params, output_root=run_dir)
+
+    with ExecutionStore(run_dir / "execution_ledger.db") as store:
+        for aid in ("A1", "A2", "A4", "A5"):
+            receipts = store.get_by_agent(aid)
+            assert len(receipts) == 1
+            assert receipts[0].state == ExecutionState.VALIDATED.value
+            assert (run_dir / f"{aid.lower()}_envelope.json").is_file()
+        assert store.get_by_agent("A6B") == []
