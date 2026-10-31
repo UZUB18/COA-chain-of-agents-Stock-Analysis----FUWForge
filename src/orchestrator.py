@@ -86,6 +86,8 @@ class OrchestratorParams:
     focus: List[str]
     weights: Any
     independent_bear: bool = False
+    html_report: bool = True
+    brand_search: bool = False
 
 
 @dataclass
@@ -1445,6 +1447,19 @@ class FUWForgeOrchestrator:
             output_root / f"{params.ticker}_{params.analysis_date}_provenance.log"
         )
 
+        html_path = None
+        if getattr(params, "html_report", True):
+            try:
+                from src.presentation import render_html_report
+
+                html_path = render_html_report(
+                    output_root,
+                    brand_search=bool(getattr(params, "brand_search", False)),
+                )
+            except Exception as exc:  # noqa: BLE001 - HTML failure must never invalidate core Markdown
+                provenance.append("ORCH", f"HTML presentation could not be rendered: {exc}")
+                provenance.flush()
+
         # Bind the exact final bytes into a run manifest so an independent audit
         # can detect a report or artifact bundle edited after sealing.
         try:
@@ -1471,13 +1486,16 @@ class FUWForgeOrchestrator:
             provenance.append("ORCH", f"Run manifest could not be written: {exc}")
             provenance.flush()
 
-        return {
+        outputs = {
             "report": str(report_path),
             "artifacts": str(artifacts_path),
             "provenance": str(provenance_path),
             "summary": str(output_root / "run_summary.json"),
             "manifest": str(output_root / "run_manifest.json"),
         }
+        if html_path and Path(html_path).is_file():
+            outputs["html_report"] = str(html_path)
+        return outputs
 
     def _assemble_sections(
         self,

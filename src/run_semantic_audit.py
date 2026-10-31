@@ -345,6 +345,7 @@ def build_run_manifest(
     outputs: Dict[str, Any] = {}
     for pattern, name in (
         ("*_report.md", "report"),
+        ("*_report.html", "html_report"),
         ("*_artifacts.json", "artifacts"),
         ("*_provenance.log", "provenance"),
         ("run_summary.json", "summary"),

@@ -131,6 +131,9 @@ def _build_params(args: argparse.Namespace) -> Tuple[OrchestratorParams, bool]:
         depth=str(depth),
         focus=list(focus),
         weights=_resolve_weights_arg(weights_raw),
+        independent_bear=bool(getattr(args, "independent_bear", False)),
+        html_report=bool(getattr(args, "html_report", True)),
+        brand_search=bool(getattr(args, "brand_search", False)),
     )
     return params, strict
 
@@ -1435,9 +1438,25 @@ def cmd_export_packet(args: argparse.Namespace) -> None:
     print(f"Exported research packet: {res['path']}")
     print(f"External SHA-256:         {res['sha256']}")
     print(f"Audit state:              {overall_state}")
-    company = packet.get("company") or {}
-    print(f"Company:                  {company.get('ticker')} ({company.get('name')})")
-    print(f"Approval status:          {packet.get('approval_status')}")
+
+
+def cmd_render_html(args: argparse.Namespace) -> None:
+    from src.presentation import render_html_report
+
+    run_dir = Path(args.run_dir)
+    if not run_dir.exists() or not run_dir.is_dir():
+        raise SystemExit(f"Run directory not found: {run_dir}")
+
+    try:
+        target = render_html_report(
+            run_dir,
+            brand_search=bool(getattr(args, "brand_search", False)),
+            output_path=getattr(args, "out", None),
+        )
+    except Exception as exc:
+        raise SystemExit(f"HTML presentation rendering FAILED: {exc}")
+
+    print(f"Rendered HTML report: {target}")
 
 
 # ------------------------------------------------------------------ parser
@@ -1557,6 +1576,25 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.set_defaults(web_search=None)
     run_parser.add_argument("--web-max-sources", type=int, default=4, help="Maximum accepted dated web pages, 1–6 (default: 4); not a hard search-query/dollar cap.")
     run_parser.add_argument("--no-url-context", action="store_true", help="Disable URL Context in the shared intake; retain Search and runner downloads.")
+    html_mode = run_parser.add_mutually_exclusive_group()
+    html_mode.add_argument(
+        "--html",
+        dest="html_report",
+        action="store_true",
+        default=True,
+        help="Generate standalone HTML presentation report (default: True).",
+    )
+    html_mode.add_argument(
+        "--no-html",
+        dest="html_report",
+        action="store_false",
+        help="Disable HTML presentation report generation.",
+    )
+    run_parser.add_argument(
+        "--brand-search",
+        action="store_true",
+        help="Best-effort Gemini search for corporate brand colors (requires GEMINI_API_KEY).",
+    )
     run_parser.set_defaults(func=cmd_run)
 
     fetch_parser = subparsers.add_parser("fetch-sources", help="Download explicit public source documents into a cached evidence pack.")
@@ -1753,6 +1791,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="Treat unverified audit states as fatal.",
     )
     export_pkt_parser.set_defaults(func=cmd_export_packet)
+
+    render_html_parser = subparsers.add_parser(
+        "render-html",
+        help="Render a standalone HTML report from an existing run directory.",
+    )
+    render_html_parser.add_argument("run_dir", help="Run directory to render.")
+    render_html_parser.add_argument(
+        "--brand-search",
+        action="store_true",
+        help="Best-effort Gemini brand color lookup (requires GEMINI_API_KEY).",
+    )
+    render_html_parser.add_argument(
+        "--out",
+        default=None,
+        help="Optional custom output path for the HTML file.",
+    )
+    render_html_parser.set_defaults(func=cmd_render_html)
 
     wizard_parser = subparsers.add_parser(
         "wizard",
