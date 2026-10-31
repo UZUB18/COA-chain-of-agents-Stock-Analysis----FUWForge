@@ -138,6 +138,34 @@ def _parse_numeric_or_none(val: Any) -> Optional[float]:
     return None
 
 
+def _check_a1_market_binding(artifacts: Dict[str, Any], market: Dict[str, Any]) -> None:
+    """Strict A1: the structured price and date must be the frozen market evidence.
+
+    Only for a v2 market transform. A conflict raises ``ValueError`` so the
+    existing one-repair path applies; model values are never overwritten. The
+    price may equal the provider close exactly or as rounded to cents; the
+    date must be the date-only bar date, because a daily bar has no time.
+    """
+    errors = []
+    stamp = artifacts.get("price_timestamp_eet")
+    if stamp != market["last_bar_date"]:
+        errors.append(
+            f"price_timestamp_eet must be the date-only daily bar date {market['last_bar_date']!r} "
+            f"from the frozen market evidence (got {stamp!r}); do not add a time of day"
+        )
+    cap = artifacts.get("market_cap_check")
+    price = cap.get("price") if isinstance(cap, dict) else None
+    close = float(market["last_close"])
+    if not (isinstance(price, (int, float)) and not isinstance(price, bool)
+            and float(price) in (close, round(close, 2))):
+        errors.append(
+            f"market_cap_check.price must equal the frozen daily-bar close {market['last_close']} "
+            f"for {market['last_bar_date']} (got {price!r})"
+        )
+    if errors:
+        raise ValueError("strict mode: A1 price conflicts with the frozen market evidence: " + "; ".join(errors))
+
+
 BENEISH_INDEX_KEYS = ("dsri", "gmi", "aqi", "sgi", "depi", "sgai", "lvgi", "tata")
 
 
@@ -873,7 +901,7 @@ Tasks:
 1. Gather filings-first data (10-K, 10-Q, price timestamp) date-bounded on or before {analysis_date}.
 2. Reconcile reported facts from primary SEC filings. Never treat forward-looking guidance or forecasts as reported facts. Tag factual filing figures with [Fact], forward guidance with [Estimate].
 3. Render sections_md.RAW_DATA_PACK with units, currency, as-of dates, financial tables.
-4. Emit required artifacts: price_timestamp_eet (string ISO), shares_basic (positive number), shares_diluted (positive number), market_cap_check (object with numeric price, shares, cap where cap ≈ price * shares).
+4. Emit required artifacts: price_timestamp_eet (string ISO; a date-only YYYY-MM-DD value when the price source is a daily bar — never invent a time of day), shares_basic (positive number), shares_diluted (positive number), market_cap_check (object with numeric price, shares, cap where cap ≈ price * shares).
 5. Generate metrics.data_checksum (a SHA-256 hash or "{computed_checksum}").
 6. Set gates.passed=true if sufficient data, or false with MISSING_DATA_TABLE.
 7. Return ONLY a valid JSON object matching COA v2.1 envelope schema.""",
@@ -1328,6 +1356,18 @@ class ModelAgent(BaseAgent):
                 + "Disclose these gaps where relevant. Do not describe the evidence as a complete "
                 "filing set and do not infer figures from omitted documents.\n"
             )
+        market = getattr(context, "market_snapshot", None)
+        if market:
+            # Runner-frozen market transform, outside <untrusted_source_data>.
+            evidence += (
+                "\nRUNNER MARKET DATA (frozen by the evidence collector): the price is the provider's daily-bar "
+                f"close field for {market['last_bar_date']}: {market['last_close']}. Bars dated after "
+                f"{market['eligible_through']} were excluded, including any bar for the US/Eastern collection date "
+                f"{market['collection_date_us_eastern']}. The retrieval time ({market['collection_at']}) is not a price "
+                "timestamp. Use this date-only value as price_timestamp_eet and this price as market_cap_check.price. "
+                "Do not invent a time of day, and do not describe it as a live quote or an official closing price "
+                "beyond what the evidence states.\n"
+            )
         upstream = {
             agent_id: {"artifacts": env.artifacts, "warnings": env.warnings, "gates": env.gates}
             for agent_id, env in context.envelopes.items()
@@ -1631,6 +1671,8 @@ class ModelAgent(BaseAgent):
                 raise ValueError("strict mode: cite only runner-retrieved source document URLs.")
             if data["gates"].get("passed") is False:
                 return data
+            if self.id == "A1" and getattr(context, "market_snapshot", None):
+                _check_a1_market_binding(data["artifacts"], context.market_snapshot)
             if self.id == "A7":
                 data["artifacts"]["Scorecard"] = weighted_scorecard(data["artifacts"].get("Scorecard"), context.params.get("weights"))
             self._adopt_runner_beneish(data, context)

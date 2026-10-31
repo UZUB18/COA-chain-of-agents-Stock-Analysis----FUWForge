@@ -32,6 +32,9 @@ class AgentContext:
     forensic_inputs: Dict[str, Any] = field(default_factory=dict)
     #: Runner-recorded evidence intake gaps (``EvidencePack.coverage_summary``).
     source_coverage: list[Dict[str, str]] = field(default_factory=list)
+    #: Frozen v2 market history (``EvidencePack.market_snapshot``); ``None``
+    #: for legacy packs, which keep the prior A1 price contract.
+    market_snapshot: Optional[Dict[str, Any]] = None
     challenge_initial: Optional[Dict[str, Any]] = None
     on_provider_return: Optional[Callable[[str], Any]] = None
     on_repair_start: Optional[Callable[[str, str], Any]] = None

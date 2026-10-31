@@ -83,6 +83,37 @@ timestamps are still parsed with start-of-day semantics; only cutoffs use the
 end-of-day rule. Daily market bars follow a separate collection-date rule and
 are not governed by this conversion.
 
+### Daily market bars (`market_daily_previous_completed_v2`)
+
+Newly collected Yahoo or Stooq daily history records a versioned transform
+with the retrieval instant (`collection_at`), its US/Eastern calendar date
+(`collection_date_us_eastern`, via `America/New_York`) and the maximum
+eligible bar date:
+
+```text
+eligible_through = min(analysis_date, collection_date_us_eastern - 1 day)
+```
+
+Bars dated after `eligible_through` are dropped before the last close and the
+SMA/RSI indicators are computed, so the collection day's bar is excluded even
+after the close. The last bar may be older (weekend or market holiday); history
+whose last eligible bar is more than seven days older than `eligible_through`,
+or that has no eligible bar, fails. Yahoo timestamps are converted to the
+US/Eastern date; Stooq dates are used as given. The sealed text records
+`last_bar_date` and whether a collection-day bar was excluded, and replay
+re-derives `eligible_through` from `collection_at` rather than the wall clock.
+The market document's `doc_date` is the bar date it reflects.
+
+A transform without `transform_version` is the legacy rule (inclusive
+analysis date, UTC bar dates) and still reconstructs unchanged for older packs.
+The rule avoids a market-calendar dependency; it does not make provider-
+adjusted history a point-in-time archive.
+
+For a v2 pack, strict A1 output must use the bar date as a date-only
+`price_timestamp_eet` (the key name is kept for compatibility) and the frozen
+close (exact, or rounded to cents) as `market_cap_check.price`; a conflicting
+value is a validation error that goes through the normal single repair.
+
 **The policy is recorded on every fact** as
 `metadata.availability_policy = "sec-filed-date-end-of-day-v1"`, so a reader can
 always tell how a date was derived.

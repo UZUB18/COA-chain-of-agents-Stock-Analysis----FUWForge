@@ -14,7 +14,7 @@ from typing import Any, Dict, List
 
 from src.evidence import (
     INTAKE_COVERAGE_VERSION, MAX_DOCUMENTS, DocumentTooLargeError, _document_text,
-    download_public_document, fetch_evidence, sec_user_agent,
+    download_public_document, fetch_evidence, market_daily_transform, sec_user_agent,
 )
 from src.utils.checksum import sha256_digest
 
@@ -145,6 +145,13 @@ def _select_filings(rows, years):
 
 
 def _price_document(ticker: str, as_of: date):
+    """Probe Yahoo, then Stooq, once each; return the accepted response for sealing.
+
+    The bytes that pass the eligibility/staleness check are the bytes sealed
+    into the pack (returned as ``{url: (payload, content_type, accessed)}``),
+    so the price history is downloaded once. A v2 transform freezes the
+    retrieval instant and the maximum eligible bar date.
+    """
     symbol = ticker.replace(".", "-")
     start = as_of - timedelta(days=550)
     period1 = int(datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc).timestamp())
@@ -153,15 +160,25 @@ def _price_document(ticker: str, as_of: date):
     stooq = f"https://stooq.com/q/d/l/?s={urllib.parse.quote(ticker.lower())}.us&i=d&d1={start:%Y%m%d}&d2={as_of:%Y%m%d}"
     failures = []
     for url, kind in ((yahoo, "yahoo_daily"), (stooq, "stooq_daily")):
-        transform = {"kind": kind, "ticker": ticker, "symbol": symbol, "analysis_date": as_of.isoformat()}
         try:
             payload, content_type, accessed = download_public_document(url)
+            transform = market_daily_transform(
+                kind=kind, ticker=ticker, symbol=symbol, analysis_date=as_of.isoformat(), collection_at=accessed,
+            )
             snapshot = json.loads(_document_text(payload, content_type, transform))
+            bar = snapshot["last_bar_date"]
             return {
-                "title": f"{ticker} daily price history through {as_of.isoformat()}", "type": "MarketHistory",
-                "url": url, "doc_date": as_of.isoformat(), "date_basis": "requested_market_history_cutoff",
+                "title": f"{ticker} daily price history, last eligible bar {bar}", "type": "MarketHistory",
+                "url": url, "doc_date": bar, "date_basis": "market_last_eligible_daily_bar",
                 "transform": transform,
-            }, {"provider": kind, "last_bar_date": snapshot["last_bar_date"], "price_basis": snapshot["price_basis"], "probe_accessed": accessed}
+            }, {
+                "provider": kind, "last_bar_date": bar, "last_close": snapshot["last_close"],
+                "eligible_through": snapshot["eligible_through"],
+                "collection_date_us_eastern": snapshot["collection_date_us_eastern"],
+                "collection_day_bar_excluded": snapshot["collection_day_bar_excluded"],
+                "transform_version": snapshot["transform_version"],
+                "price_basis": snapshot["price_basis"], "probe_accessed": accessed,
+            }, {url: (payload, content_type, accessed)}
         except Exception as exc:
             failures.append({"provider": kind, "error": str(exc)[:250]})
     raise ValueError("Public price providers did not return valid date-bounded history: " + json.dumps(failures))
@@ -227,7 +244,7 @@ def collect_public_sources(ticker: str, analysis_date: str, depth: str, output_d
         doc_type = "SECMaterialEvent" if row["form"] in SUPPORTED_MATERIAL_FORMS else "SECFiling"
         documents.append({"title": f"{ticker} {row['form']} filed {row['filingDate']}", "type": doc_type,
                           "url": url, "doc_date": row["filingDate"], "date_basis": "SEC_filing_date"})
-    price_document, price_info = _price_document(ticker, as_of)
+    price_document, price_info, price_response = _price_document(ticker, as_of)
     documents.append(price_document)
     if len(documents) > MAX_DOCUMENTS:
         raise ValueError("Collected evidence exceeds the configured document limit.")
@@ -252,6 +269,7 @@ def collect_public_sources(ticker: str, analysis_date: str, depth: str, output_d
     pack_path = fetch_evidence(
         manifest, output_dir / "pack", attachments=attachments,
         intake_coverage=intake_coverage, omittable_document_indices=frozenset(range(2, len(annuals) + 1)),
+        prefetched=price_response,
     )
     coverage = {
         "ticker": ticker, "cik": cik_number, "company": submissions.get("name"), "analysis_date": analysis_date,
@@ -264,6 +282,7 @@ def collect_public_sources(ticker: str, analysis_date: str, depth: str, output_d
         "limitations": ["Identifier lookup uses the current SEC ticker/CIK mapping, not a historical ticker database.",
                         "SEC inclusion is based on filing date, not an intraday publication-time cutoff.",
                         "Market-provider corporate-action adjustment policies apply; this is not a certified point-in-time backtest dataset.",
+                        "Daily price bars dated on or after the US/Eastern collection date are excluded; the price is a daily-bar close for the recorded last_bar_date, not a live quote.",
                         "Culture, peer estimates, social media and broader news may still be unavailable; never fabricate them."],
         "intake_coverage": intake_coverage,
     }

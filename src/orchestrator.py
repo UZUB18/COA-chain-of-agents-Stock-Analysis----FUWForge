@@ -825,6 +825,7 @@ class FUWForgeOrchestrator:
             fact_ledger=ledger,
             forensic_inputs=forensic_inputs_for(ledger, as_of=params.analysis_date),
             source_coverage=self.evidence_pack.coverage_summary() if self.evidence_pack else [],
+            market_snapshot=self.evidence_pack.market_snapshot() if self.evidence_pack else None,
             challenge_initial=copy.deepcopy(challenge_initial),
         )
         started = time.perf_counter()

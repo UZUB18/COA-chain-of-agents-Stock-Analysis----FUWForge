@@ -42,6 +42,8 @@ For automated model runs, retrieval is a runner action (`controller fetch-source
 
 The runner owns source IDs, exact URLs, actual retrieval timestamps, cached-content hashes and the frozen input checksum. Cite supplied URLs; do not invent access times or SEC homepage citations. Publication dates are supplied manifest metadata, not independent proof of document truth. All downstream agents receive the same evidence and accepted upstream artifacts.
 
+When the evidence pack carries a versioned daily market history, `price_timestamp_eet` is the date-only `last_bar_date` (no invented time of day) and `market_cap_check.price` is that bar's recorded close; strict runs reject a conflicting value. The bar is the provider's daily close field for that date, not a live quote. Legacy packs keep the prior ISO8601 timestamp contract.
+
 Strict model runs require retrieved evidence. If critical data is absent, supply an explicit `gates.passed=false`, actionable notes, `MISSING_DATA_TABLE`, and null numeric fields where measurements are unavailable. Such a rejected envelope is diagnostic output, not a contract-valid completed analysis or assembled report.
 
 ## Gate Rules

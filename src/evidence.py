@@ -18,10 +18,11 @@ import socket
 import time
 import urllib.parse
 import urllib.request
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
+from zoneinfo import ZoneInfo
 
 from dotenv import dotenv_values
 
@@ -33,6 +34,10 @@ MAX_ATTACHMENTS = 16
 _ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
 _LAST_SEC_REQUEST = 0.0
 INTAKE_COVERAGE_VERSION = "intake_coverage_v1"
+#: Daily-bar policy for newly collected market history. A transform without
+#: ``transform_version`` is the legacy (v1) rule and reconstructs unchanged.
+MARKET_TRANSFORM_V2 = "market_daily_previous_completed_v2"
+_US_EASTERN = ZoneInfo("America/New_York")
 
 
 class DocumentTooLargeError(ValueError):
@@ -132,11 +137,52 @@ class _NoRedirects(urllib.request.HTTPRedirectHandler):
         raise ValueError("Evidence redirects are disabled; supply the final public document URL.")
 
 
+def market_daily_transform(*, kind: str, ticker: str, symbol: str, analysis_date: str, collection_at: str) -> Dict[str, Any]:
+    """Freeze the v2 daily-bar rule for a newly collected market history.
+
+    The maximum eligible bar date is the earlier of the requested analysis date
+    and the day before the US/Eastern collection date, so the collection day's
+    bar is excluded whether it is intraday or after the close. It is derived
+    from the recorded retrieval instant, never from the wall clock at replay.
+    """
+    if not isinstance(collection_at, str):
+        raise ValueError("Market transform requires a recorded collection instant.")
+    collected = datetime.fromisoformat(collection_at.replace("Z", "+00:00"))
+    if collected.tzinfo is None:
+        raise ValueError("Market transform collection instant must be timezone-aware.")
+    eastern = collected.astimezone(_US_EASTERN).date()
+    eligible = min(date.fromisoformat(analysis_date), eastern - timedelta(days=1))
+    return {
+        "transform_version": MARKET_TRANSFORM_V2,
+        "kind": kind, "ticker": ticker, "symbol": symbol, "analysis_date": analysis_date,
+        "collection_at": collection_at,
+        "collection_date_us_eastern": eastern.isoformat(),
+        "eligible_through": eligible.isoformat(),
+    }
+
+
 def _transformed_text(payload: bytes, transform: Dict[str, Any]) -> str:
     """Curate date-bounded market history, excluding current/future quote metadata."""
     kind = transform.get("kind")
     as_of = date.fromisoformat(transform["analysis_date"])
     ticker = str(transform["ticker"]).upper()
+    version = transform.get("transform_version")
+    if version is None:
+        # Legacy v1: inclusive analysis date, UTC bar dates. Kept exactly so
+        # archived sealed bytes re-derive to the same text.
+        cutoff, eastern = as_of, None
+    elif version == MARKET_TRANSFORM_V2:
+        expected = market_daily_transform(
+            kind=kind, ticker=transform.get("ticker"), symbol=transform.get("symbol"),
+            analysis_date=transform["analysis_date"], collection_at=transform.get("collection_at"),
+        )
+        if transform != expected:
+            raise ValueError("Market transform metadata is inconsistent with its recorded collection instant.")
+        cutoff = date.fromisoformat(expected["eligible_through"])
+        eastern = date.fromisoformat(expected["collection_date_us_eastern"])
+    else:
+        raise ValueError("Unsupported market transform version.")
+    excluded = set()
     history = []
     if kind == "yahoo_daily":
         data = json.loads(payload)
@@ -152,8 +198,10 @@ def _transformed_text(payload: bytes, transform: Dict[str, Any]) -> str:
         if len(quotes.get("close") or []) != len(timestamps):
             raise ValueError("Public price history has inconsistent quote/timestamp arrays.")
         for index, timestamp in enumerate(timestamps):
-            day = datetime.fromtimestamp(timestamp, timezone.utc).date()
-            if day > as_of:
+            day = datetime.fromtimestamp(timestamp, timezone.utc)
+            day = (day if eastern is None else day.astimezone(_US_EASTERN)).date()
+            if day > cutoff:
+                excluded.add(day)
                 continue
             row = {"Date": day.isoformat()}
             for key in ("open", "high", "low", "close", "volume"):
@@ -169,7 +217,8 @@ def _transformed_text(payload: bytes, transform: Dict[str, Any]) -> str:
             raise ValueError("Public CSV price provider returned no valid OHLCV header.")
         for item in reader:
             day = date.fromisoformat(item["Date"])
-            if day > as_of:
+            if day > cutoff:
+                excluded.add(day)
                 continue
             row = {"Date": day.isoformat()}
             for key in ("Open", "High", "Low", "Close", "Volume"):
@@ -186,8 +235,11 @@ def _transformed_text(payload: bytes, transform: Dict[str, Any]) -> str:
     history.sort(key=lambda row: row["Date"])
     if not history or len({row["Date"] for row in history}) != len(history):
         raise ValueError("Price history is empty or has duplicate dates.")
-    if (as_of - date.fromisoformat(history[-1]["Date"])).days > 7:
-        raise ValueError("Public price history is stale relative to the requested analysis date.")
+    if (cutoff - date.fromisoformat(history[-1]["Date"])).days > 7:
+        raise ValueError(
+            "Public price history is stale relative to the requested analysis date." if eastern is None
+            else "Public price history is stale relative to its maximum eligible bar date."
+        )
     closes = [row["Close"] for row in history]
     technicals = {f"SMA_{period}": round(sum(closes[-period:]) / period, 4) if len(closes) >= period else None for period in (50, 200)}
     rsi = None
@@ -200,13 +252,30 @@ def _transformed_text(payload: bytes, transform: Dict[str, Any]) -> str:
             loss = (loss * 13 + max(-change, 0)) / 14
         rsi = 100 - 100 / (1 + gain / loss) if loss else (100.0 if gain else 50.0)
     technicals["RSI_14"] = round(rsi, 4) if rsi is not None else None
-    return json.dumps({
+    output = {
         "dataset": "date-bounded daily market history", "ticker": ticker, "analysis_date": as_of.isoformat(),
         "price_basis": basis, "last_bar_date": history[-1]["Date"], "last_close": history[-1]["Close"],
         "TechnicalSet": technicals,
         "derivation": "SMA from retrieved closes; Wilder RSI(14) seeded in the retrieved history. Null means insufficient history, never a guessed value.",
-        "history": history,
-    }, indent=2)
+    }
+    if eastern is not None:
+        output.update({
+            "transform_version": version,
+            "collection_at": transform["collection_at"],
+            "collection_date_us_eastern": eastern.isoformat(),
+            "eligible_through": cutoff.isoformat(),
+            "collection_day_bar_excluded": eastern in excluded,
+            "excluded_bar_count": len(excluded),
+            "bar_policy": (
+                f"Only daily bars dated on or before {cutoff.isoformat()} are used: the earlier of the analysis date "
+                f"and the day before the US/Eastern collection date ({eastern.isoformat()}). A collection-day bar is "
+                "excluded whether intraday or after the close. last_bar_date may be earlier (weekend or market "
+                "holiday). last_close is the provider's daily-bar close field for last_bar_date; no time of day is "
+                "recorded, and the retrieval time is not a price timestamp."
+            ),
+        })
+    output["history"] = history
+    return json.dumps(output, indent=2)
 
 
 def _document_text(payload: bytes, content_type: str, transform=None) -> str:
@@ -244,6 +313,7 @@ def fetch_evidence(
     *,
     intake_coverage: Optional[Dict[str, Any]] = None,
     omittable_document_indices: frozenset = frozenset(),
+    prefetched: Optional[Dict[str, Tuple[bytes, str, str]]] = None,
 ) -> Path:
     """
     Download only explicit manifest URLs, with bounded size and no redirects.
@@ -263,6 +333,12 @@ def fetch_evidence(
     omission is recorded in ``intake_coverage["annual_filings"]``. Every other
     error, and every other position, still fails the pack. The coverage object
     is stored in ``evidence.json`` so the pack checksum covers it.
+
+    ``prefetched`` maps a manifest URL to an already validated
+    ``(payload, content_type, accessed)`` response from the same bounded
+    downloader (the collector's price probe). Those exact bytes are sealed
+    without a second request; each entry is used once and must name a
+    manifest document.
     """
     config = json.loads(Path(manifest).read_text(encoding="utf-8"))
     ticker = str(config.get("ticker") or "").strip().upper()
@@ -290,6 +366,9 @@ def fetch_evidence(
             raise ValueError(f"Evidence attachment source {source} is not a readable file.")
         if source.stat().st_size > MAX_DOCUMENT_BYTES:
             raise ValueError(f"Evidence attachment {filename!r} exceeds the document size limit.")
+    pending = dict(prefetched or {})
+    if not set(pending) <= {str(document.get("url")) for document in documents}:
+        raise ValueError("Prefetched evidence responses must belong to manifest documents.")
     omittable = frozenset(omittable_document_indices)
     annual_coverage = (intake_coverage or {}).get("annual_filings")
     if omittable and (not isinstance(annual_coverage, dict) or 1 in omittable):
@@ -298,12 +377,13 @@ def fetch_evidence(
     output_dir.mkdir(parents=True, exist_ok=False)
     records = []
     for index, document in enumerate(documents, 1):
-        url = _public_url(str(document["url"]), resolve=True)
+        cached = pending.pop(str(document["url"]), None)
+        url = _public_url(str(document["url"]), resolve=cached is None)
         doc_date = str(document["doc_date"])
         date.fromisoformat(doc_date)
         source_id = f"D{index:03d}"
         try:
-            payload, content_type, accessed = download_public_document(url)
+            payload, content_type, accessed = cached if cached is not None else download_public_document(url)
         except DocumentTooLargeError as exc:
             if index not in omittable:
                 raise
@@ -545,6 +625,12 @@ class EvidencePack:
             derived = _document_text(self._file(document["raw_file"]).read_bytes(), document["content_type"], document.get("transform"))
             if sha256_digest(derived.encode("utf-8")) != document["text_sha256"]:
                 raise ValueError("Evidence text does not match extraction from downloaded bytes.")
+            transform = document.get("transform") or {}
+            if transform.get("transform_version") == MARKET_TRANSFORM_V2:
+                # The retrieval instant is the transform's collection instant,
+                # and the document is dated by the bar it actually reflects.
+                if transform["collection_at"] != document["accessed"] or document["doc_date"] != json.loads(derived)["last_bar_date"]:
+                    raise ValueError("Market evidence dates do not match its frozen transform.")
         self._validate_intake_coverage(as_of)
         self.attachments = self.data.get("attachments", [])
         if not isinstance(self.attachments, list) or len(self.attachments) > MAX_ATTACHMENTS:
@@ -595,6 +681,30 @@ class EvidencePack:
                 raise ValueError("Evidence intake coverage omission records are malformed.")
             if date.fromisoformat(omission["doc_date"]) > as_of or omission["url"] in retrieved_urls:
                 raise ValueError("Evidence intake coverage omission conflicts with the pack.")
+
+    def market_snapshot(self) -> Optional[Dict[str, Any]]:
+        """The v2 market history's frozen last bar and indicators, or ``None``.
+
+        ``None`` for legacy packs (no versioned market transform), which keep
+        their prior behavior. The text was re-derived from the sealed bytes
+        and hash-checked when the pack loaded.
+        """
+        markets = [
+            document for document in self.documents
+            if (document.get("transform") or {}).get("transform_version") == MARKET_TRANSFORM_V2
+        ]
+        if not markets:
+            return None
+        if len(markets) > 1:
+            raise ValueError("Evidence pack contains more than one versioned market history.")
+        data = json.loads(self._file(markets[0]["text_file"]).read_text(encoding="utf-8"))
+        return {
+            "document_id": markets[0]["id"],
+            **{key: data[key] for key in (
+                "transform_version", "last_bar_date", "last_close", "TechnicalSet", "collection_at",
+                "collection_date_us_eastern", "eligible_through", "collection_day_bar_excluded",
+            )},
+        }
 
     def coverage_summary(self) -> List[Dict[str, str]]:
         """Deterministic, factual intake gaps recorded by the collector.

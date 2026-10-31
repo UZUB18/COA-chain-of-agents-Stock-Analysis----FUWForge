@@ -587,3 +587,84 @@ def test_source_coverage_directive_is_a_runner_directive_only_when_gaps_exist(tm
     assert "Requested 10 annual filings; found 10; retrieved 8." in prompt[directive:]
     # Outside <untrusted_source_data>: the closing tag of the documents block precedes it.
     assert prompt.rfind("</untrusted_source_data>", 0, directive) > prompt.rfind("<untrusted_source_data", 0, directive)
+
+
+# --- A1 price binding to frozen v2 market evidence (MELI Task 2) ---
+
+_MARKET = {
+    "transform_version": "market_daily_previous_completed_v2", "document_id": "D002",
+    "last_bar_date": "2026-10-27", "last_close": 2061.43,
+    "collection_at": "2026-10-28T15:00:00Z", "collection_date_us_eastern": "2026-10-28",
+    "eligible_through": "2026-10-27", "collection_day_bar_excluded": True,
+}
+
+
+def _a1_context(tmp_path, market=None):
+    return AgentContext(
+        run_id="a1_market", params={"ticker": "MELI", "company": "MercadoLibre", "analysis_date": "2026-10-28", "weights": "default"},
+        depth_config={}, focus_overrides={}, frozen_checksum="sha256:fixed", workdir=tmp_path,
+        provenance_path=tmp_path / "prov.log",
+        source_documents=[{"id": "D001", "title": "MELI price history", "url": "https://query1.finance.yahoo.com/v8/finance/chart/MELI",
+                           "doc_date": "2026-10-27", "accessed": "2026-10-28T15:00:00Z", "content_sha256": "sha256:" + "0" * 64}],
+        source_text="price history", market_snapshot=market,
+    )
+
+
+def _a1_response(price=2061.43, stamp="2026-10-27"):
+    shares = 50_000_000.0
+    return json.dumps({
+        "schema_version": "2.1", "agent": {"id": "A1", "name": "Harvester-&-Validator"},
+        "gates": {"passed": True, "notes": []},
+        "sections_md": {"RAW_DATA_PACK": "# Harvest\nDaily bar close for 2026-10-27 [Fact]."},
+        "artifacts": {
+            "price_timestamp_eet": stamp, "shares_basic": shares, "shares_diluted": shares,
+            "market_cap_check": {"price": price, "shares": shares, "cap": price * shares},
+        },
+        "sources": [{"title": "MELI price history", "url": "https://query1.finance.yahoo.com/v8/finance/chart/MELI"}],
+        "warnings": [], "metrics": {}, "confidence": 0.8,
+    })
+
+
+def test_a1_matching_market_binding_passes_strict(tmp_path):
+    agent = ModelAgent("A1", "Harvester-&-Validator", DummyBackend([_a1_response()]), max_retries=0, strict=True)
+    envelope = agent.run(_a1_context(tmp_path, _MARKET)).envelope
+    assert envelope.artifacts["price_timestamp_eet"] == "2026-10-27"
+    assert envelope.artifacts["market_cap_check"]["price"] == 2061.43
+
+
+@pytest.mark.parametrize("price, stamp, needle", [
+    (2100.00, "2026-10-27", "market_cap_check.price"),
+    (2061.43, "2026-10-28", "price_timestamp_eet"),
+    (2061.43, "2026-10-27T16:00:00Z", "price_timestamp_eet"),  # an invented time of day
+])
+def test_a1_conflicting_market_value_fails_strict(tmp_path, price, stamp, needle):
+    agent = ModelAgent("A1", "Harvester-&-Validator", DummyBackend([_a1_response(price, stamp)]), max_retries=0, strict=True)
+    with pytest.raises(RuntimeError, match=needle):
+        agent.run(_a1_context(tmp_path, _MARKET))
+
+
+def test_a1_market_conflict_uses_the_single_repair_path(tmp_path):
+    backend = DummyBackend([_a1_response(price=2100.0), _a1_response()])
+    agent = ModelAgent("A1", "Harvester-&-Validator", backend, max_retries=1, strict=True)
+    envelope = agent.run(_a1_context(tmp_path, _MARKET)).envelope
+    assert backend.call_count == 2
+    assert envelope.artifacts["market_cap_check"]["price"] == 2061.43
+
+
+def test_a1_legacy_evidence_keeps_the_timestamp_contract(tmp_path):
+    # No v2 market snapshot (legacy pack): the prior artifact shape stays valid.
+    agent = ModelAgent("A1", "Harvester-&-Validator", DummyBackend([_a1_response(price=608.1, stamp="2026-10-09T16:00:00Z")]),
+                       max_retries=0, strict=True)
+    assert agent.run(_a1_context(tmp_path)).envelope.artifacts["price_timestamp_eet"] == "2026-10-09T16:00:00Z"
+
+
+def test_market_directive_forbids_invented_time_and_closing_claims(tmp_path):
+    agent = ModelAgent("A1", "Harvester-&-Validator", DummyBackend([]))
+    assert "RUNNER MARKET DATA" not in agent.build_prompt(_a1_context(tmp_path))
+    prompt = agent.build_prompt(_a1_context(tmp_path, _MARKET))
+    directive = prompt.index("RUNNER MARKET DATA")
+    text = prompt[directive:]
+    assert "2026-10-27" in text and "2061.43" in text
+    assert "do not invent a time of day" in text.lower()
+    assert "2026-10-28" in text  # the excluded collection date is disclosed
+    assert prompt.rfind("</untrusted_source_data>", 0, directive) > prompt.rfind("<untrusted_source_data", 0, directive)

@@ -24,7 +24,9 @@ def chart(ticker="TEST", days=250, future=True):
     closes = [100.0 + index for index in range(days)] + ([999999.0] if future else [])
     return {"chart": {"error": None, "result": [{
         "meta": {"symbol": ticker, "regularMarketPrice": 888888, "longName": "Future metadata must not enter historical prompts"},
-        "timestamp": [int(datetime.combine(day, datetime.min.time(), tzinfo=timezone.utc).timestamp()) for day in dates],
+        # Real Yahoo daily bars are stamped at the US session open (14:30 UTC in
+        # EST), so the UTC (v1) and US/Eastern (v2) bar dates agree.
+        "timestamp": [int(datetime(day.year, day.month, day.day, 14, 30, tzinfo=timezone.utc).timestamp()) for day in dates],
         "indicators": {"quote": [{"open": closes, "high": closes, "low": closes, "close": closes, "volume": [100] * len(closes)}],
                        "adjclose": [{"adjclose": [555555] * len(closes)}]},
     }]}}
@@ -131,6 +133,8 @@ def test_full_public_collection_is_date_bounded_and_hash_checked(monkeypatch, tm
 
     monkeypatch.setattr(public_data, "download_public_document", download)
     monkeypatch.setattr(evidence, "download_public_document", download)
+    # Keep URL validation active but answer DNS offline.
+    monkeypatch.setattr(evidence.socket, "getaddrinfo", lambda *a, **kw: [(0, 0, 0, "", ("93.184.216.34", 443))])
     path = collect_public_sources("TEST", "2025-01-31", "Quick", tmp_path / "collected")
     pack = EvidencePack(path, ticker="TEST", analysis_date="2025-01-31")
     assert len(pack.documents) == 6  # Three annuals, one quarter, one proxy, market history.
@@ -188,6 +192,8 @@ def test_companyfacts_unavailable_is_recorded_not_silently_missing(monkeypatch, 
 
     monkeypatch.setattr(public_data, "download_public_document", download)
     monkeypatch.setattr(evidence, "download_public_document", download)
+    # Keep URL validation active but answer DNS offline.
+    monkeypatch.setattr(evidence.socket, "getaddrinfo", lambda *a, **kw: [(0, 0, 0, "", ("93.184.216.34", 443))])
     path = collect_public_sources("TEST", "2025-01-31", "Quick", tmp_path / "collected")
     pack = EvidencePack(path, ticker="TEST", analysis_date="2025-01-31")
     assert pack.facts == []
@@ -383,3 +389,247 @@ def test_oversized_companyfacts_is_an_explicit_no_facts_gap(monkeypatch, tmp_pat
     collection = json.loads((path.parent.parent / "collection.json").read_text())
     assert collection["company_facts"]["gap"] == gap
     assert gap in json.dumps(pack.coverage_summary())
+
+
+# --- one price download and versioned market replay (Task 4.9 / MELI Task 2) ---
+
+V1_YAHOO_SHA256 = "sha256:948d775343569ecad6a675a687864199303c75a19be15ed33621e171d0ee78e5"
+V1_STOOQ_SHA256 = "sha256:555d8cb4058a91c58155483da9da9cce60e2d6dc503e6f5f178e580decaf0fdc"
+_V1_TRANSFORM = {"kind": "yahoo_daily", "ticker": "TEST", "symbol": "TEST", "analysis_date": "2026-10-28"}
+
+
+def _weekdays(last: date, count: int):
+    days, day = [], last
+    while len(days) < count:
+        if day.weekday() < 5:
+            days.append(day)
+        day -= timedelta(days=1)
+    return sorted(days)
+
+
+def yahoo_bars(days, *, ticker="TEST", hour=13, minute=30, closes=None):
+    """Yahoo-shaped daily bars stamped at the US session open (13:30 UTC in EDT)."""
+    closes = list(closes) if closes is not None else [100.0 + index for index in range(len(days))]
+    return json.dumps({"chart": {"error": None, "result": [{
+        "meta": {"symbol": ticker},
+        "timestamp": [int(datetime(d.year, d.month, d.day, hour, minute, tzinfo=timezone.utc).timestamp()) for d in days],
+        "indicators": {"quote": [{"open": closes, "high": closes, "low": closes, "close": closes, "volume": [100] * len(closes)}]},
+    }]}}).encode()
+
+
+def stooq_bars(days, closes=None):
+    closes = list(closes) if closes is not None else [100.0 + index for index in range(len(days))]
+    rows = ["Date,Open,High,Low,Close,Volume"] + [f"{d.isoformat()},{c},{c},{c},{c},100" for d, c in zip(days, closes)]
+    return ("\n".join(rows) + "\n").encode()
+
+
+def v2(kind, analysis_date, collection_at, ticker="TEST"):
+    return evidence.market_daily_transform(
+        kind=kind, ticker=ticker, symbol=ticker, analysis_date=analysis_date, collection_at=collection_at,
+    )
+
+
+def _market(payload, transform, content_type="application/json"):
+    return json.loads(_document_text(payload, content_type, transform))
+
+
+def test_v1_market_transform_reconstructs_exactly_as_before():
+    """Old packs carry no transform_version and must re-derive byte for byte."""
+    days = _weekdays(date(2026, 10, 28), 260)
+    yahoo = _document_text(yahoo_bars(days), "application/json", dict(_V1_TRANSFORM))
+    stooq = _document_text(stooq_bars(days), "text/csv", dict(_V1_TRANSFORM, kind="stooq_daily"))
+    # Hashes pinned from the pre-change implementation (HEAD 17c7f09).
+    assert evidence.sha256_digest(yahoo.encode()) == V1_YAHOO_SHA256
+    assert evidence.sha256_digest(stooq.encode()) == V1_STOOQ_SHA256
+    # v1 keeps the requested date inclusive, including the collection-day bar.
+    assert json.loads(yahoo)["last_bar_date"] == "2026-10-28"
+    assert "transform_version" not in json.loads(yahoo)
+
+
+def test_v2_transform_records_policy_and_derived_dates():
+    transform = v2("yahoo_daily", "2026-10-28", "2026-10-28T15:00:00Z")
+    assert transform == {
+        "transform_version": "market_daily_previous_completed_v2",
+        "kind": "yahoo_daily", "ticker": "TEST", "symbol": "TEST", "analysis_date": "2026-10-28",
+        "collection_at": "2026-10-28T15:00:00Z",
+        "collection_date_us_eastern": "2026-10-28",
+        "eligible_through": "2026-10-27",
+    }
+
+
+@pytest.mark.parametrize("collection_at", [
+    "2026-10-28T15:00:00Z",  # 11:00 EDT: intraday bar of the collection day
+    "2026-10-28T21:30:00Z",  # 17:30 EDT: after the close, same US/Eastern date
+])
+@pytest.mark.parametrize("kind", ["yahoo_daily", "stooq_daily"])
+def test_v2_excludes_the_collection_day_bar(kind, collection_at):
+    days = _weekdays(date(2026, 10, 28), 260)
+    closes = [100.0 + index for index in range(len(days))]
+    closes[-1] = 999999.0  # The collection-day bar must not reach price or indicators.
+    payload = yahoo_bars(days, closes=closes) if kind == "yahoo_daily" else stooq_bars(days, closes)
+    data = _market(payload, v2(kind, "2026-10-28", collection_at))
+    assert data["last_bar_date"] == "2026-10-27"
+    assert data["last_close"] == closes[-2]
+    eligible = closes[:-1]
+    assert data["TechnicalSet"]["SMA_50"] == round(sum(eligible[-50:]) / 50, 4)
+    assert data["TechnicalSet"]["SMA_200"] == round(sum(eligible[-200:]) / 200, 4)
+    assert "999999" not in json.dumps(data)
+    assert data["history"][-1]["Date"] == "2026-10-27"
+    assert data["eligible_through"] == "2026-10-27"
+    assert data["collection_date_us_eastern"] == "2026-10-28"
+    assert data["collection_day_bar_excluded"] is True
+    assert data["transform_version"] == "market_daily_previous_completed_v2"
+
+
+def test_v2_historical_cutoff_bounds_a_later_collection():
+    days = _weekdays(date(2025, 2, 7), 260)
+    data = _market(yahoo_bars(days), v2("yahoo_daily", "2025-01-31", "2026-10-06T20:00:00Z"))
+    assert data["eligible_through"] == "2025-01-31"
+    assert data["last_bar_date"] == "2025-01-31"
+    assert data["collection_day_bar_excluded"] is False
+    assert all(row["Date"] <= "2025-01-31" for row in data["history"])
+
+
+def test_v2_weekend_uses_the_latest_earlier_bar():
+    # Collected Monday 2026-10-26: the maximum eligible date is Sunday; the
+    # last available bar is Friday 2026-10-23.
+    days = _weekdays(date(2026, 10, 26), 260)
+    data = _market(yahoo_bars(days), v2("yahoo_daily", "2026-10-26", "2026-10-26T14:00:00Z"))
+    assert data["eligible_through"] == "2026-10-25"
+    assert data["last_bar_date"] == "2026-10-23"
+
+
+@pytest.mark.parametrize("collection_at, eastern, eligible", [
+    ("2026-10-29T02:00:00Z", "2026-10-28", "2026-10-27"),  # 22:00 EDT on the 28th; UTC says the 29th
+    ("2026-10-29T04:30:00Z", "2026-10-29", "2026-10-28"),  # 00:30 EDT on the 29th
+    ("2026-01-15T04:30:00Z", "2026-01-14", "2026-01-13"),  # 23:30 EST (DST-aware: EDT would be the 15th)
+])
+def test_v2_uses_the_us_eastern_collection_date(collection_at, eastern, eligible):
+    transform = v2("yahoo_daily", "2026-10-29", collection_at)
+    assert transform["collection_date_us_eastern"] == eastern
+    assert transform["eligible_through"] == eligible
+
+
+def test_v2_yahoo_bar_dates_are_us_eastern_dates():
+    # A bar stamped 03:30 UTC on 2026-10-28 is the 27th in New York.
+    days = _weekdays(date(2026, 10, 27), 30)
+    data = _market(yahoo_bars(days, hour=3), v2("yahoo_daily", "2026-10-28", "2026-10-28T15:00:00Z"))
+    assert data["last_bar_date"] == "2026-10-26"
+
+
+def test_v2_absent_or_stale_history_fails():
+    stale = _weekdays(date(2026, 10, 15), 30)
+    with pytest.raises(ValueError, match="stale"):
+        _document_text(yahoo_bars(stale), "application/json", v2("yahoo_daily", "2026-10-28", "2026-10-28T15:00:00Z"))
+    with pytest.raises(ValueError, match="empty"):
+        _document_text(yahoo_bars([date(2026, 10, 28)]), "application/json", v2("yahoo_daily", "2026-10-28", "2026-10-28T15:00:00Z"))
+
+
+@pytest.mark.parametrize("field, value", [
+    ("eligible_through", "2026-10-28"),
+    ("collection_date_us_eastern", "2026-10-29"),
+    ("collection_at", "2026-10-28"),
+    ("transform_version", "market_daily_previous_completed_v9"),
+])
+def test_v2_inconsistent_transform_metadata_is_rejected(field, value):
+    days = _weekdays(date(2026, 10, 28), 30)
+    transform = dict(v2("yahoo_daily", "2026-10-28", "2026-10-28T15:00:00Z"), **{field: value})
+    with pytest.raises(ValueError):
+        _document_text(yahoo_bars(days), "application/json", transform)
+
+
+def _price_collect(monkeypatch, tmp_path, *, yahoo_fails=False, accessed="2026-10-28T15:00:00Z", analysis_date="2026-10-28"):
+    """Collector run whose filings predate the cutoff and whose bars run through it."""
+    monkeypatch.setenv("SEC_USER_AGENT", "Test Research test@example.com")
+    filings = [("10-K", "2026-02-01", "0000000001-26-000001", "annual26.htm")]
+    columns = {key: [row[index] for row in filings] for index, key in enumerate(("form", "filingDate", "accessionNumber", "primaryDocument"))}
+    days = _weekdays(date.fromisoformat(analysis_date), 260)
+    closes = [100.0 + index for index in range(len(days))]
+    closes[-1] = 999999.0
+    fetched = []
+
+    def download(url):
+        fetched.append(url)
+        if url.endswith("company_tickers.json"):
+            return json.dumps({"0": {"ticker": "TEST", "cik_str": 1}}).encode(), "application/json", accessed
+        if "companyfacts" in url:
+            raise OSError("simulated SEC outage")
+        if url.endswith("CIK0000000001.json"):
+            data = {"name": "Test Co", "tickers": ["TEST"], "filings": {"recent": columns, "files": []}}
+            return json.dumps(data).encode(), "application/json", accessed
+        if "finance.yahoo.com" in url:
+            if yahoo_fails:
+                raise ValueError("Evidence request did not succeed: HTTP 429.")
+            return yahoo_bars(days, closes=closes), "application/json", accessed
+        if "stooq.com" in url:
+            return stooq_bars(days, closes), "text/csv", accessed
+        return b"<p>Official statement Revenue 123.</p>", "text/html", accessed
+
+    monkeypatch.setattr(public_data, "download_public_document", download)
+    monkeypatch.setattr(evidence, "download_public_document", download)
+    monkeypatch.setattr(evidence.socket, "getaddrinfo", lambda *a, **kw: [(0, 0, 0, "", ("93.184.216.34", 443))])
+    path = collect_public_sources("TEST", analysis_date, "Quick", tmp_path / "collected")
+    return path, fetched, closes
+
+
+def test_collector_downloads_the_price_history_once_and_seals_those_bytes(monkeypatch, tmp_path):
+    path, fetched, closes = _price_collect(monkeypatch, tmp_path)
+    yahoo = [url for url in fetched if "finance.yahoo.com" in url]
+    assert len(yahoo) == 1
+    assert not any("stooq.com" in url for url in fetched)
+    pack = EvidencePack(path, ticker="TEST", analysis_date="2026-10-28")
+    market = next(d for d in pack.documents if d["type"] == "MarketHistory")
+    assert market["url"] == yahoo[0]
+    transform = market["transform"]
+    assert transform["transform_version"] == "market_daily_previous_completed_v2"
+    assert transform["collection_at"] == market["accessed"] == "2026-10-28T15:00:00Z"
+    assert transform["eligible_through"] == "2026-10-27"
+    # The document is dated by the bar it reflects, not the requested cutoff.
+    assert market["doc_date"] == "2026-10-27"
+    assert "2026-10-27" in market["title"]
+    snapshot = pack.market_snapshot()
+    assert snapshot["last_bar_date"] == "2026-10-27"
+    assert snapshot["last_close"] == closes[-2]
+    assert snapshot["collection_day_bar_excluded"] is True
+    assert "999999" not in pack.prompt_text()
+    collection = json.loads((path.parent.parent / "collection.json").read_text())
+    assert collection["market"]["last_bar_date"] == "2026-10-27"
+    # The v2 pack replays from its sealed bytes, also after a snapshot.
+    reloaded = pack.snapshot(tmp_path / "snap")
+    assert reloaded.checksum == pack.checksum
+    assert reloaded.market_snapshot() == snapshot
+
+
+def test_stooq_fallback_is_attempted_once_and_its_probe_bytes_are_sealed(monkeypatch, tmp_path):
+    path, fetched, closes = _price_collect(monkeypatch, tmp_path, yahoo_fails=True)
+    assert sum("finance.yahoo.com" in url for url in fetched) == 1
+    assert sum("stooq.com" in url for url in fetched) == 1
+    pack = EvidencePack(path, ticker="TEST", analysis_date="2026-10-28")
+    market = next(d for d in pack.documents if d["type"] == "MarketHistory")
+    assert market["transform"]["kind"] == "stooq_daily"
+    assert pack.market_snapshot()["last_close"] == closes[-2]
+
+
+def test_tampered_v2_market_transform_fails_replay(monkeypatch, tmp_path):
+    path, _, _ = _price_collect(monkeypatch, tmp_path)
+    data = json.loads(path.read_text())
+    market = next(d for d in data["documents"] if d["type"] == "MarketHistory")
+    market["transform"]["collection_at"] = "2026-10-29T15:00:00Z"
+    path.write_text(json.dumps(data))
+    with pytest.raises(ValueError):
+        EvidencePack(path, ticker="TEST", analysis_date="2026-10-28")
+
+
+def test_legacy_market_pack_has_no_market_snapshot(monkeypatch, tmp_path):
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"ticker": "TEST", "documents": [{
+        "url": "https://query1.finance.yahoo.com/v8/finance/chart/TEST", "doc_date": "2026-10-28",
+        "type": "MarketHistory", "transform": _V1_TRANSFORM,
+    }]}))
+    monkeypatch.setattr(evidence.socket, "getaddrinfo", lambda *a, **kw: [(0, 0, 0, "", ("93.184.216.34", 443))])
+    days = _weekdays(date(2026, 10, 28), 30)
+    monkeypatch.setattr(evidence, "download_public_document", lambda url: (yahoo_bars(days), "application/json", "2026-10-28T15:00:00Z"))
+    path = evidence.fetch_evidence(manifest, tmp_path / "pack")
+    pack = EvidencePack(path, ticker="TEST", analysis_date="2026-10-28")
+    assert pack.market_snapshot() is None
+    assert json.loads((tmp_path / "pack" / "D001.txt").read_text())["last_bar_date"] == "2026-10-28"
