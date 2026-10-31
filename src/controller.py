@@ -174,13 +174,19 @@ def cmd_run(args: argparse.Namespace) -> None:
     # explicit diagnostic opt-in, never merely forgetting --strict.
     if args.provider != "mock" and not getattr(args, "allow_defaults", False):
         strict = True
+    resume = getattr(args, "resume", False)
+    if resume and not (args.run_dir or args.run_id):
+        raise ValueError("--resume needs the run directory or --run-id of the run to resume.")
     run_id = (
         args.run_id
         or f"run_{params.ticker.lower()}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
     )
     evidence_pack = Path(args.evidence_pack) if args.evidence_pack else None
     web_setting = getattr(args, "web_search", None)
-    web_enabled = args.provider == "gemini" if web_setting is None else web_setting
+    # Resume never repeats the paid web intake; the run's evidence snapshot is reused.
+    web_enabled = (args.provider == "gemini" and not resume) if web_setting is None else web_setting
+    if resume and (getattr(args, "auto_sources", False) or web_enabled):
+        raise ValueError("Resume cannot repeat automatic/paid source intake. Drop --auto-sources/--web-search; the run's evidence snapshot is reused.")
     if web_enabled and args.provider != "gemini":
         raise ValueError("--web-search requires --provider gemini; other providers never incur Gemini research charges.")
     web_max_sources = getattr(args, "web_max_sources", 4)
@@ -189,11 +195,11 @@ def cmd_run(args: argparse.Namespace) -> None:
     if web_enabled and not (evidence_pack or getattr(args, "auto_sources", False)):
         raise ValueError("Gemini web search requires --auto-sources or --evidence-pack for financial inputs; use --no-web-search to disable it.")
     source_root = (Path(args.run_dir).resolve() if args.run_dir else get_default_runs_dir(PROJECT_ROOT) / run_id)
-    if not getattr(args, "resume", False) and ((source_root / "run_summary.json").exists() or any(source_root.glob("*_envelope.json"))):
+    if not resume and ((source_root / "run_summary.json").exists() or any(source_root.glob("*_envelope.json"))):
         raise FileExistsError("Existing run will not be overwritten. Use --resume or a fresh run directory.")
-    if getattr(args, "resume", False):
-        if getattr(args, "auto_sources", False) or web_enabled:
-            raise ValueError("Resume cannot repeat automatic/paid source intake. Use --no-web-search and the original --evidence-pack.")
+    if resume:
+        if not source_root.is_dir():
+            raise FileNotFoundError(f"Nothing to resume: run directory {source_root} does not exist.")
         if evidence_pack is None and (source_root / "evidence" / "evidence.json").is_file():
             evidence_pack = source_root / "evidence" / "evidence.json"
     if getattr(args, "auto_sources", False):
@@ -218,7 +224,7 @@ def cmd_run(args: argparse.Namespace) -> None:
         randomize=args.random_data,
         strict=strict,
         evidence_pack=evidence_pack,
-        resume=getattr(args, "resume", False),
+        resume=resume,
         recovery_choice=getattr(args, "recovery_choice", None),
         independent_bear=getattr(args, "independent_bear", False),
     )
@@ -1524,7 +1530,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--allow-defaults", action="store_true",
         help=ALLOW_DEFAULTS_HELP,
     )
-    run_parser.add_argument("--resume", action="store_true", help="Reuse only checksum-verified validated receipts; recompute changed requests and descendants.")
+    run_parser.add_argument("--resume", action="store_true", help="Resume the run in RUN_DIR (or --run-id): reuse only checksum-verified validated receipts and recompute changed requests and descendants. Never repeats web or automatic source intake.")
     run_parser.add_argument("--recovery-choice", choices=["retry", "abandon"], help="Resolve uncertain completion explicitly; retry may repeat paid external calls.")
     run_parser.add_argument("--independent-bear", action="store_true", help="Opt-in experiment: one additional blind bear pass, then reconcile; disabled by default.")
     source_mode = run_parser.add_mutually_exclusive_group()

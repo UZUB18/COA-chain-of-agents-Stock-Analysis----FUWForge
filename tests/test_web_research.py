@@ -265,6 +265,49 @@ def test_cli_missing_evidence_stops_before_research(monkeypatch):
         args.func(args)
 
 
+def _fake_orchestrator(monkeypatch):
+    created = []
+    class FakeOrchestrator:
+        def __init__(self, *a, **kw):
+            created.append(kw)
+        def run(self, **kw):
+            return {}
+    monkeypatch.setattr(controller, "FUWForgeOrchestrator", FakeOrchestrator)
+    return created
+
+
+def test_cli_resume_without_run_dir_or_run_id_is_refused(monkeypatch):
+    created = _fake_orchestrator(monkeypatch)
+    args = controller.build_parser().parse_args(["run", "--ticker", "TEST", "--company", "Test Co", "--provider", "mock", "--resume"])
+    with pytest.raises(ValueError, match="--resume needs the run directory or --run-id"):
+        args.func(args)
+    assert not created
+
+
+def test_cli_resume_of_missing_run_is_refused(tmp_path, monkeypatch):
+    created = _fake_orchestrator(monkeypatch)
+    args = controller.build_parser().parse_args(["run", str(tmp_path / "absent"), "--ticker", "TEST", "--company", "Test Co", "--provider", "mock", "--resume"])
+    with pytest.raises(FileNotFoundError, match="Nothing to resume"):
+        args.func(args)
+    assert not created and not (tmp_path / "absent").exists()
+
+
+def test_cli_gemini_resume_implies_no_web_search(tmp_path, monkeypatch):
+    monkeypatch.setattr(web_research, "collect_web_sources", lambda **kw: pytest.fail("Resume must not repeat paid web intake"))
+    created = _fake_orchestrator(monkeypatch)
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    parser = controller.build_parser()
+    base = ["run", str(run_dir), "--ticker", "TEST", "--company", "Test Co", "--analysis-date", "2025-01-31", "--provider", "gemini", "--resume"]
+    args = parser.parse_args(base)
+    args.func(args)
+    assert len(created) == 1 and created[0]["resume"] is True
+    args = parser.parse_args(base + ["--web-search"])
+    with pytest.raises(ValueError, match="Resume cannot repeat"):
+        args.func(args)
+    assert len(created) == 1
+
+
 def test_attachment_cannot_overwrite_document_files(tmp_path, monkeypatch):
     path = baseline(tmp_path, monkeypatch)
     data = json.loads(path.read_text())
