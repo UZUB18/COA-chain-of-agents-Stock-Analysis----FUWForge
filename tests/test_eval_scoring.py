@@ -451,3 +451,50 @@ def test_chronology_date_only_case_cutoff_is_end_of_day(available, ok):
     if not ok:
         # The human-readable diagnostic keeps the original cutoff text.
         assert all("after case cutoff 2023-08-01." in v for v in result["violations"])
+
+
+def test_missingness_fails_when_unavailable_calc_returns_scalar():
+    from evals.score_research import _evaluate_missingness_ok
+
+    case = {
+        "expected": {
+            "calculations": {
+                "BeneishM": {"is_unavailable": True}
+            }
+        }
+    }
+    # Prediction returns a raw float scalar instead of dict with is_unavailable: True
+    pred = {"calculations": {"BeneishM": -2.45}}
+    ok, errors = _evaluate_missingness_ok(case, pred)
+    assert not ok
+    assert any("silently hallucinated a result: -2.45" in e for e in errors)
+
+
+def test_score_predictions_scores_malformed_non_dict_predictions():
+    from evals.score_research import score_predictions
+
+    cases = [{"id": "case_1"}]
+    # One valid prediction and one malformed non-mapping (e.g. string or list)
+    predictions = [{"case_id": "case_1"}, "not a dict!"]
+    res = score_predictions(cases, predictions)
+    assert res["summary"]["malformed_predictions_count"] == 1
+    assert res["summary"]["total_cases"] == 2
+    assert res["summary"]["failed_cases"] == 1
+
+
+def test_arithmetic_deduplicates_missing_fact_errors():
+    from evals.score_research import _evaluate_arithmetic
+
+    case = {
+        "expected": {
+            "required_facts": ["Revenue"],
+            "facts": {"Revenue": {"value": 100.0, "required": True}},
+        }
+    }
+    # Revenue is missing from prediction facts
+    pred = {"facts": {}}
+    res = _evaluate_arithmetic(case, pred)
+    assert not res["passed"]
+    # Should only report missing Revenue ONCE
+    revenue_errors = [e for e in res["errors"] if "Missing expected required fact 'Revenue'" in e]
+    assert len(revenue_errors) == 1

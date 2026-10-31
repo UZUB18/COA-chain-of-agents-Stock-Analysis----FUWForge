@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import time
 from dataclasses import asdict, dataclass
@@ -32,6 +33,7 @@ class SentryResult:
     requires_rerun: bool
     provider: str
     latency_ms: int
+    threshold: float = 0.75
     #: Set when ``--provider auto`` asked for Jev and the call failed, so the
     #: result below came from the mock evaluator. ``None`` means no fallback.
     fallback_reason: Optional[str] = None
@@ -290,6 +292,7 @@ def _llm_evaluate(
     bull_cases: List[Dict[str, Any]],
     doc_text: str,
     threshold: float,
+    danger_zone: Optional[List[Dict[str, Any]]] = None,
 ) -> Tuple[str, float, str, float, Dict[str, float], List[Dict[str, Any]], bool]:
     from src.agents.model import extract_json_payload
 
@@ -302,12 +305,22 @@ def _llm_evaluate(
 
     theses_formatted = "\n".join(theses_lines)
 
+    danger_block = ""
+    if danger_zone:
+        dz_lines = []
+        for dz in danger_zone:
+            cat = dz.get("category", "")
+            flag = dz.get("flag", "")
+            note = dz.get("note", "")
+            dz_lines.append(f"- {flag} {cat}: {note}")
+        danger_block = "\nKNOWN COMPANY RISKS / DANGER ZONE:\n" + "\n".join(dz_lines) + "\n"
+
     prompt = f"""You are an adversarial equity research sentry for {company} ({ticker}).
 Evaluate the incoming document against the company's frozen bull theses:
 
 FROZEN THESES:
 {theses_formatted}
-
+{danger_block}
 INCOMING DOCUMENT:
 \"\"\"{doc_text}\"\"\"
 
@@ -330,20 +343,60 @@ Respond STRICTLY in JSON format with this exact structure:
 }}"""
 
     raw = backend.generate(prompt)
-    data = extract_json_payload(raw)
 
-    materiality = str(data.get("materiality", "noise")).lower()
-    mat_prob = float(data.get("materiality_prob", 0.90))
-    action = str(data.get("action", "ignore")).lower()
-    act_prob = float(data.get("action_prob", 0.90))
+    VALID_MATERIALITY = {"noise", "minor", "meaningful", "critical"}
+    VALID_ACTIONS = {"ignore", "log_note", "trigger_deep_rerun"}
 
-    raw_scores = data.get("contradiction_scores", {})
+    data = None
+    try:
+        data = extract_json_payload(raw)
+    except Exception:
+        data = None
+
+    if not isinstance(data, dict):
+        # Fail closed on malformed or non-JSON output
+        materiality = "critical"
+        mat_prob = 1.0
+        action = "trigger_deep_rerun"
+        act_prob = 1.0
+        contradiction_scores = {b.get("id", "B"): 1.0 for b in bull_cases}
+        return materiality, mat_prob, action, act_prob, contradiction_scores, list(bull_cases), True
+
+    raw_mat = str(data.get("materiality", "")).lower().strip()
+    raw_action = str(data.get("action", "")).lower().strip()
+
+    if raw_mat not in VALID_MATERIALITY or raw_action not in VALID_ACTIONS:
+        materiality = "critical"
+        mat_prob = 1.0
+        action = "trigger_deep_rerun"
+        act_prob = 1.0
+        contradiction_scores = {b.get("id", "B"): 1.0 for b in bull_cases}
+        return materiality, mat_prob, action, act_prob, contradiction_scores, list(bull_cases), True
+
+    def _bounded_prob(val: Any, default: float) -> float:
+        try:
+            f = float(val)
+            if math.isfinite(f):
+                return max(0.0, min(1.0, f))
+        except (ValueError, TypeError):
+            pass
+        return default
+
+    materiality = raw_mat
+    mat_prob = _bounded_prob(data.get("materiality_prob"), 0.90)
+    action = raw_action
+    act_prob = _bounded_prob(data.get("action_prob"), 0.90)
+
+    raw_scores = data.get("contradiction_scores")
+    if not isinstance(raw_scores, dict):
+        raw_scores = {}
+
     contradiction_scores: Dict[str, float] = {}
     threatened: List[Dict[str, Any]] = []
 
     for item in bull_cases:
         bid = item.get("id", "B")
-        score = float(raw_scores.get(bid, 0.05))
+        score = _bounded_prob(raw_scores.get(bid), 0.05)
         contradiction_scores[bid] = round(score, 4)
         if score >= threshold:
             threatened.append(item)
@@ -364,7 +417,7 @@ def evaluate_document(
     Evaluate a document using Jev, Gemini (Google AI Studio), OpenCode Go, or mock.
     """
     started = time.perf_counter()
-    ticker, company, bull_cases, _ = extract_thesis_state(run_dir)
+    ticker, company, bull_cases, danger_zone = extract_thesis_state(run_dir)
 
     if not bull_cases:
         # Fallback generic thesis entry
@@ -395,7 +448,7 @@ def evaluate_document(
             contradiction_scores,
             threatened,
             requires_rerun,
-        ) = _llm_evaluate(backend, ticker, company, bull_cases, clean_text, threshold)
+        ) = _llm_evaluate(backend, ticker, company, bull_cases, clean_text, threshold, danger_zone=danger_zone)
         latency_ms = max(1, int((time.perf_counter() - started) * 1000))
         return SentryResult(
             ticker=ticker,
@@ -411,6 +464,7 @@ def evaluate_document(
             requires_rerun=requires_rerun,
             provider=f"{provider_name} ({backend.model})",
             latency_ms=latency_ms,
+            threshold=threshold,
         )
 
     local = dotenv_values(_ENV_PATH, interpolate=False) if prov in ("auto", "jev") and _ENV_PATH.is_file() else {}
@@ -483,6 +537,7 @@ def evaluate_document(
                 requires_rerun=requires_rerun,
                 provider="jev",
                 latency_ms=latency_ms,
+                threshold=threshold,
             )
         except Exception as exc:
             detail = str(exc).replace(resolved_jev_key, "[REDACTED]") if resolved_jev_key else str(exc)
@@ -519,6 +574,7 @@ def evaluate_document(
         requires_rerun=requires_rerun,
         provider="mock",
         latency_ms=latency_ms,
+        threshold=threshold,
         fallback_reason=auto_fallback_reason,
     )
 
@@ -549,7 +605,7 @@ def format_sentry_report(res: SentryResult) -> str:
         ]
 
     for bid, score in res.contradiction_scores.items():
-        flag = "🔴 ALERT" if score >= 0.75 else ("🟡 WATCH" if score >= 0.40 else "🟢 OK")
+        flag = "🔴 ALERT" if score >= res.threshold else ("🟡 WATCH" if score >= (res.threshold * 0.5) else "🟢 OK")
         lines.append(f"  • [{bid}] {flag:<8}  Score: {score:.2f}")
 
     if res.threatened_theses:

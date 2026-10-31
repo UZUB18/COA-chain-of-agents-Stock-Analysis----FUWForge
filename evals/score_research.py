@@ -12,12 +12,11 @@ Implements Task 8 evaluation standards:
 from __future__ import annotations
 
 import argparse
-from datetime import datetime
 import json
 import math
 from pathlib import Path
 import sys
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple, Union
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Set, Tuple, Union
 
 # Ensure the repository root is on sys.path so 'import src...' works even when
 # invoked from another directory.
@@ -190,10 +189,12 @@ def _evaluate_arithmetic(
         pred_facts = {}
 
     # Check required facts list if present in case
+    seen_missing_facts: Set[str] = set()
     required_facts_list = expected.get("required_facts", [])
     if isinstance(required_facts_list, list) and isinstance(pred_facts, dict):
         for req_fact in required_facts_list:
-            if isinstance(req_fact, str) and req_fact not in pred_facts:
+            if isinstance(req_fact, str) and req_fact not in pred_facts and req_fact not in seen_missing_facts:
+                seen_missing_facts.add(req_fact)
                 errors.append(f"Missing expected required fact '{req_fact}'.")
 
     if isinstance(expected_facts, dict) and isinstance(pred_facts, dict):
@@ -208,7 +209,9 @@ def _evaluate_arithmetic(
 
             # Check if this individual fact is marked as required
             if fact_spec.get("required", True) and fact_name not in pred_facts:
-                errors.append(f"Missing expected required fact '{fact_name}'.")
+                if fact_name not in seen_missing_facts:
+                    seen_missing_facts.add(fact_name)
+                    errors.append(f"Missing expected required fact '{fact_name}'.")
                 continue
 
             # If fact is present in prediction, validate its value and scaling
@@ -581,6 +584,10 @@ def _evaluate_missingness_ok(
                         errors.append(
                             f"Calculation '{calc_name}' was missing required inputs, but prediction silently hallucinated a result: {res}."
                         )
+                elif pred_calc is not None:
+                    errors.append(
+                        f"Calculation '{calc_name}' was missing required inputs, but prediction silently hallucinated a result: {pred_calc}."
+                    )
 
     # 2. Check if permitted missing inputs were silently fabricated in facts
     pred_facts = prediction.get("facts", {})
@@ -730,7 +737,9 @@ def score_predictions(
 
     for pred in predictions:
         if not isinstance(pred, Mapping):
+            p_id = f"malformed_pred_{len(malformed_preds)}"
             malformed_preds.append(pred)
+            preds_by_id.setdefault(p_id, []).append({"case_id": p_id, "_malformed": True, "_raw": str(pred)})
             continue
         p_id = pred.get("case_id") or pred.get("id")
         if not p_id or not isinstance(p_id, str):
@@ -828,6 +837,7 @@ def score_predictions(
         "duplicate_cases": duplicate_cases,
         "unknown_cases_count": len(unknown_cases),
         "unknown_cases": unknown_cases,
+        "malformed_predictions_count": len(malformed_preds),
         "categories_summary": {
             "unsupported_claims_pass_rate": round(unsupported_claims_pass_count / total_evaluated, 4) if total_evaluated > 0 else 0.0,
             "arithmetic_pass_rate": round(arithmetic_pass_count / total_evaluated, 4) if total_evaluated > 0 else 0.0,

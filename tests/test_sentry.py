@@ -321,3 +321,34 @@ def test_live_jev_execution():
     assert res.provider == "jev"
     assert res.latency_ms > 0
     assert not res.requires_rerun
+
+
+def test_llm_evaluate_fails_closed_on_invalid_output():
+    from src.sentry import _llm_evaluate
+
+    class BadBackend:
+        def generate(self, prompt):
+            return "This is not JSON at all!"
+
+    theses = [{"id": "B1", "thesis": "Growth", "impact": "High"}]
+    mat, mat_p, act, act_p, scores, threatened, rerun = _llm_evaluate(
+        BadBackend(), "TST", "Test Corp", theses, "Text", 0.75
+    )
+    assert mat == "critical"
+    assert act == "trigger_deep_rerun"
+    assert rerun is True
+    assert scores["B1"] == 1.0
+
+
+def test_sentry_format_respects_custom_threshold():
+    from src.sentry import SentryResult, format_sentry_report
+
+    res = SentryResult(
+        ticker="TST", company="Test Corp", run_dir="/tmp", doc_snippet="Doc",
+        materiality="minor", materiality_prob=0.9, action="log_note", action_prob=0.8,
+        contradiction_scores={"B1": 0.60}, threatened_theses=[], requires_rerun=False,
+        provider="mock", latency_ms=10, threshold=0.50,
+    )
+    # Score 0.60 is >= threshold 0.50, so it must trigger ALERT flag, not WATCH/OK
+    report = format_sentry_report(res)
+    assert "[B1] 🔴 ALERT" in report
