@@ -99,15 +99,17 @@ def test_same_value_in_a_later_filing_is_a_repeat_not_a_restatement():
     assert repeat.value == original.value == 100.0
     assert repeat.metadata["disclosure_relation"] == "repeated_disclosure"
     assert repeat.kind == FactKind.REPORTED, "a repeat is not a restatement"
-    assert repeat.supersedes is None, "a repeat must not supersede the original"
-    # The original survives as its own observation.
+    # One linear history: the repeat supersedes the original, whose
+    # provenance survives as its own observation and via prior_fact_id.
+    assert repeat.supersedes == original.id
+    assert repeat.metadata["prior_fact_id"] == original.id
     assert original.id in {f.id for f in facts}
 
 
 def test_point_in_time_resolution_keeps_the_original_across_a_repeat():
     """
-    Because a repeat does not supersede, resolving as of a date between the two
-    filings still yields the original fact.
+    Resolving as of a date between the two filings yields the original fact,
+    because the repeat is not yet available.
     """
     facts = _parse("repeat_disclosure")
     resolved = resolve_as_of(facts, "Revenues", "2025-06-01T00:00:00Z")

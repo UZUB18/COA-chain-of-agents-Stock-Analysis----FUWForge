@@ -152,18 +152,26 @@ this precedence order:
 |---|---|---|
 | `initial_disclosure` | first observation for (concept, period, unit) | `REPORTED`; supersedes nothing |
 | `amended` | form ends `/A` (e.g. `10-K/A`) | `RESTATEMENT`; supersedes prior |
-| `repeated_disclosure` | same value, unit and accounting basis | `REPORTED`; **supersedes nothing** |
+| `repeated_disclosure` | same value, unit and accounting basis | `REPORTED`; supersedes the prior observation |
 | `restated` | value differs from prior | `RESTATEMENT`; supersedes prior |
-| `superseded_incomparable` | differs in unit or basis | flagged; not compared |
+| `superseded_incomparable` | not a same-value repeat and not directly comparable (a null value, or a changed unit or accounting basis) | `RESTATEMENT`; supersedes prior; metadata records that the two were not directly comparable |
 
-Two consequences worth stating:
+Intake groups observations by (taxonomy, concept, normalized unit, period), so a
+unit change starts a separate group; an accounting-basis change does not.
+
+Consequences worth stating:
 
 - **An amendment form is a restatement even when the value is unchanged.** An
   `/A` filing is a formal correction; the *act* is the signal, not the delta.
-- **A repeated disclosure does not supersede the original.** Two observations
-  with different periods, units or accounting bases are **not** a restatement —
-  they are different facts, and the audit must not silently replace one with
-  another.
+- **Each concept-period has one linear history.** Every later observation
+  supersedes the immediately prior one, so the original is always superseded
+  by later filings and point-in-time resolution returns the latest observation
+  available at the cutoff. A repeat and a restatement answer different
+  questions: a repeat stays `REPORTED` (the original was never wrong, and
+  `prior_fact_id` keeps its provenance), a restatement says the number changed.
+- **Ledger consistency treats reported figures and restatements as one family.**
+  An unlinked restatement that conflicts with a reported figure is flagged;
+  forecasts and estimates are separate families.
 
 ---
 
@@ -173,15 +181,19 @@ Every accepted fact records:
 
 | Field | Purpose |
 |---|---|
-| `accession_number` | exact filing identity |
-| `form` / `filed` | which filing, and when |
-| `period_start` / `period_end` | the economic period described |
+| `filing_accession` | exact filing identity |
+| `source_location.form` / `source_location.filed` | which filing, and when |
+| `period_start` / `period_end` / `instant` | the economic period described |
 | `availability_time` | point-in-time availability (policy-derived) |
-| `reported_value` / `unit` | the figure as filed |
-| `extraction_method` | how it was obtained |
-| `disclosure_relation` | initial / repeated / amended / restated |
-| `prior_fact_id`, `prior_value` | the observation it supersedes, if any |
-| `availability_policy` | the policy that derived the date |
+| `value` / `unit` / `currency` | the figure as filed |
+| `extractor_version` | which extractor produced it |
+| `supersedes` | the immediately prior observation, if any |
+| `metadata.disclosure_relation` | initial_disclosure / repeated_disclosure / amended / restated / superseded_incomparable |
+| `metadata.prior_fact_id`, `metadata.prior_value` | the prior observation and its value |
+| `metadata.availability_policy` | the policy that derived the date |
+
+Custom or dimensional concepts are not turned into facts by automatic intake;
+they are listed in the intake coverage as `deferred_concepts`.
 
 `parse_sec_company_facts(..., as_of=...)` filters observations to those
 available at the requested point in time, so a caller cannot accidentally

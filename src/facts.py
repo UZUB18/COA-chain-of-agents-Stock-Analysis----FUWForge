@@ -483,10 +483,18 @@ def check_ledger_consistency(facts: Iterable[Union[Fact, Mapping[str, Any]]]) ->
             parent = id_map.get(curr)
             curr = parent.supersedes if parent else None
 
-    # 2. Group by (company, concept, period_key, dimensions_key, kind)
+    # 2. Group by (company, concept, period_key, dimensions_key, family).
+    # Reported figures and restatements answer the same question (what was the
+    # actual value), so they are one family: an unlinked restatement that
+    # conflicts with a reported figure must be flagged. Forecasts and estimates
+    # stay separate families.
+    def family(fact: Fact) -> str:
+        kind = fact.kind.value if isinstance(fact.kind, FactKind) else str(fact.kind)
+        return "actual" if kind in (FactKind.REPORTED.value, FactKind.RESTATEMENT.value) else kind
+
     grouped: Dict[Tuple[str, str, str, str, str], List[Fact]] = {}
     for f in fact_objects:
-        key = (f.company, f.concept, f.period_key(), f.dimensions_key(), str(f.kind))
+        key = (f.company, f.concept, f.period_key(), f.dimensions_key(), family(f))
         grouped.setdefault(key, []).append(f)
 
     for (comp, conc, p_key, d_key, k_val), group in grouped.items():

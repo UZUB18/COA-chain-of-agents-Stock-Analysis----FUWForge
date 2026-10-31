@@ -6,7 +6,7 @@ fixture validation. Preserves accession, exact units/context/period, available-a
 precision limitation, retrieval timestamp, company identity, and amended original history.
 
 Custom/dimensional XBRL concepts without standard representation are deferred
-cleanly (with optional Arelle detection) rather than fabricated.
+cleanly (listed in intake coverage) rather than fabricated.
 """
 
 from __future__ import annotations
@@ -625,9 +625,11 @@ def parse_sec_company_facts_report(
             # - later filing, DIFFERENT value         -> restatement
             # - later filing on an /A amendment form  -> amended
             #
-            # A repeated disclosure does not supersede the original: the original
-            # was never wrong, so discarding it would erase the original
-            # provenance. It is recorded as its own observation.
+            # Every later observation supersedes the immediately prior one, so a
+            # concept-period has one linear history and the original is always
+            # superseded by later filings. A repeat stays REPORTED (the original
+            # was never wrong; its provenance is kept via prior_fact_id), while
+            # a changed value is a RESTATEMENT.
             form = str(entry.get("form") or "").upper()
             is_amendment_form = form.endswith("/A")
             is_same_value = (
@@ -651,7 +653,7 @@ def parse_sec_company_facts_report(
                 # column restated to an unchanged figure, or the same fact
                 # re-tagged). This is a repeat, not a restatement.
                 kind = FactKind.REPORTED
-                supersedes = None
+                supersedes = prior_fact_id
                 disclosure_relation = "repeated_disclosure"
             elif (
                 prior_val is not None
